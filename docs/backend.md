@@ -51,6 +51,7 @@ As colunas `atualizado_em` não se atualizam sozinhas. Uma função e um trigger
 create or replace function app.toca_atualizado_em()
 returns trigger
 language plpgsql
+set search_path = ''   -- só usa now() (pg_catalog); search_path fixo evita aviso do linter
 as $$
 begin
   new.atualizado_em := now();

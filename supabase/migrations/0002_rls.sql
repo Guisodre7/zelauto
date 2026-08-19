@@ -153,3 +153,19 @@ grant  update (alvo, foto_url, km, cor, renave_fase, atualizado_em)
   on public.veiculos to authenticated;
 grant  update (compra, entrada_em, status, origem)
   on public.veiculos to authenticated;  -- restringir por papel na aplicação + trigger
+
+-- -----------------------------------------------------------------------------
+-- Endurecimento — avisos do linter de segurança do Supabase
+-- -----------------------------------------------------------------------------
+
+-- rls_auto_enable() é a rede de segurança "Enable automatic RLS" (marcada na
+-- criação do projeto): um event trigger que liga RLS em toda tabela nova. Ela
+-- só deve rodar como event trigger, nunca via /rest/v1/rpc. Tirar o EXECUTE de
+-- anon/authenticated/public fecha o aviso sem afetar o event trigger (event
+-- triggers não checam privilégio de EXECUTE).
+revoke execute on function public.rls_auto_enable() from anon, authenticated, public;
+
+-- Fixa o search_path da função de atualizado_em criada na 0001. A 0001 já vem
+-- corrigida para novos db reset; este ALTER cobre o banco onde a 0001 já foi
+-- aplicada sem o search_path. É idempotente.
+alter function app.toca_atualizado_em() set search_path = '';
