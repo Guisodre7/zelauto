@@ -38,6 +38,36 @@ e cada uma é um projeto. **A fase 1 entrega o sistema gravando de verdade.**
 Todas as tabelas de negócio têm `loja_id uuid not null`. Sem exceção.
 Todas têm `criado_em`, `atualizado_em` e, onde faz sentido, `criado_por`.
 
+A coluna de data de criação chama-se `criado_em` em **todas** as tabelas,
+inclusive `lojas` — padronizado, sem variação de gênero.
+
+### 2.0 Função de atualizado_em
+
+As colunas `atualizado_em` não se atualizam sozinhas. Uma função e um trigger
+`before update` mantêm a coluna em dia em toda tabela que a tenha
+(hoje: `veiculos` e `clientes`).
+
+```sql
+create or replace function app.toca_atualizado_em()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.atualizado_em := now();
+  return new;
+end;
+$$;
+
+-- Aplicar em toda tabela que tenha a coluna atualizado_em:
+create trigger toca_atualizado_em
+  before update on public.veiculos
+  for each row execute function app.toca_atualizado_em();
+
+create trigger toca_atualizado_em
+  before update on public.clientes
+  for each row execute function app.toca_atualizado_em();
+```
+
 ### 2.1 Núcleo
 
 ```sql
@@ -54,7 +84,7 @@ create table public.lojas (
   plano         text not null default 'padrao',
   ativa         boolean not null default true,
   config        jsonb not null default '{}'::jsonb,
-  criada_em     timestamptz not null default now()
+  criado_em     timestamptz not null default now()
 );
 
 -- 1 linha por usuário; espelha auth.users
@@ -131,10 +161,16 @@ create table public.consignacoes (
   dono_telefone text,
   minimo        numeric(12,2) not null,
   comissao_pct  numeric(5,2) not null default 6,
-  contrato_id   uuid,
+  contrato_id   uuid,   -- FK para contratos(id), adicionada por ALTER no fim da migration
   criado_em     timestamptz not null default now()
 );
 create index on public.consignacoes (loja_id);
+
+-- A FK de contrato_id é adicionada no fim da migration porque a tabela
+-- contratos (seção 2.6) só existe depois:
+-- alter table public.consignacoes
+--   add constraint consignacoes_contrato_id_fkey
+--   foreign key (contrato_id) references public.contratos(id) on delete set null;
 ```
 
 ### 2.3 Clientes
