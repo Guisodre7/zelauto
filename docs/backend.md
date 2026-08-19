@@ -459,6 +459,13 @@ language sql stable
 as $$
   select coalesce((select auth.jwt()) -> 'app_metadata' ->> 'papel', 'vendedor')
 $$;
+
+-- Um schema NOVO não concede USAGE a ninguém por padrão (diferente do `public`).
+-- Sem isto, o papel authenticated não avalia as políticas (elas chamam
+-- app.loja_id()) e toda leitura/escrita quebra com 42501. Aplicado na 0003.
+grant usage on schema app to authenticated;
+grant execute on function app.loja_id() to authenticated;
+grant execute on function app.papel()  to authenticated;
 ```
 
 O `(select auth.jwt())` entre parênteses é intencional: o Postgres passa a
@@ -837,6 +844,8 @@ Cole um por vez. Não peça tudo de uma vez.
 | `service_role` no frontend | Ignora toda a RLS | Só em Edge Function |
 | Alterar `papel` e não renovar token | Permissão não muda | `refreshSession()` após alterar |
 | Schema alterado pelo painel | Dev e produção divergem | Só migration versionada |
+| Schema novo (ex.: `app`) sem `grant usage` ao `authenticated` | Toda leitura/escrita quebra com 42501 — a política não consegue chamar `app.loja_id()` | `grant usage on schema app to authenticated` + `grant execute` nas funções (migration 0003) |
+| Verificar RLS só como superuser/painel | O superuser ignora RLS; o bug do `authenticated` passa batido | Teste de isolamento rodando com `set role authenticated` |
 | Vender NF-e antes de existir | Cliente cobra o que não há | Fase 4, módulo à parte |
 
 ---
