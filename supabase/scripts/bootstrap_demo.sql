@@ -29,11 +29,13 @@ declare
   v1 uuid; v2 uuid; v3 uuid; v4 uuid; v5 uuid; v6 uuid;   -- veículos
   n_veic int; n_cli int; n_vend int; n_desp_ins int; n_desp_upd int;
 begin
-  if v_dono = '00000000-0000-0000-0000-000000000000' then
-    raise exception 'Cole o UUID do usuário dono em v_dono antes de rodar.';
-  end if;
+  -- Única barreira: o usuário precisa existir em auth.users.
+  -- Se você esquecer de colar o UUID (deixar o zero), esta checagem falha com
+  -- mensagem clara. Edite APENAS a linha do `v_dono :=` acima — não use
+  -- find-and-replace do UUID inteiro (havia um segundo ponto aqui e isso
+  -- quebrava a barreira; por isso ela foi removida).
   if not exists (select 1 from auth.users where id = v_dono) then
-    raise exception 'Usuário % não existe em auth.users — crie no painel Auth primeiro.', v_dono;
+    raise exception 'Usuário % não existe em auth.users — crie no painel Auth e cole o UUID em v_dono.', v_dono;
   end if;
 
   -- 1) Loja + esqueleto (config_fiscal, numeração, 4 portais, 2 despesas zeradas)
