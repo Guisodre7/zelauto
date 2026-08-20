@@ -1,0 +1,3 @@
+# Config local com URL e chave do Supabase — NÃO versionar.
+# Use prototipo/dados.config.example.js como modelo.
+prototipo/dados.config.js

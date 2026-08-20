@@ -1,0 +1,301 @@
+/* =============================================================================
+ * ZelAuto — dados.js  (camada de dados / item 6 da seção 15)
+ *
+ * Só a CAMADA DE DADOS. Não toca em nenhuma tela. Expõe window.Dados com uma
+ * função por operação, traduzindo entre o formato do protótipo (o objeto DB em
+ * memória) e o schema do Supabase. A troca das telas vem depois, uma por vez.
+ *
+ * Carregue no HTML assim (config primeiro):
+ *   <script src="dados.config.js"></script>
+ *   <script type="module" src="dados.js"></script>
+ *
+ * Convenção de nomes: as funções recebem e devolvem SEMPRE no formato do
+ * protótipo (ex.: veiculo.ano = '2018/2019', venda.custo, cliente.tel). Os
+ * mapeadores privados fazem a ponte com as colunas do banco.
+ * ========================================================================== */
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const cfg = window.ZELAUTO_CONFIG;
+if (!cfg || !cfg.url || !cfg.anonKey) {
+  throw new Error('dados.js: falta dados.config.js com window.ZELAUTO_CONFIG {url, anonKey}.');
+}
+
+const sb = createClient(cfg.url, cfg.anonKey);
+
+/* Contexto da sessão — preenchido no login/carregarPerfil.
+   loja_id NÃO é enviado nos inserts: a RLS (guarda_loja) exige loja_id =
+   app.loja_id(), então guardamos o loja_id do perfil e o injetamos ao gravar. */
+let _ctx = { userId: null, lojaId: null };
+
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ehUuid  = v => typeof v === 'string' && RE_UUID.test(v);
+const num     = v => (v == null || v === '' ? null : Number(v));
+const iniciais = nome => (nome || '').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase();
+
+function exigirContexto() {
+  if (!_ctx.lojaId) throw new Error('Sem sessão/loja. Chame Dados.entrar() e Dados.carregarPerfil() antes.');
+  return _ctx;
+}
+
+/* ============================ AUTENTICAÇÃO ================================= */
+
+async function entrar(email, senha) {
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+  if (error) throw error;
+  await carregarPerfil();           // popula _ctx e valida que há perfil
+  return data.session;
+}
+
+async function sair() {
+  const { error } = await sb.auth.signOut();
+  _ctx = { userId: null, lojaId: null };
+  if (error) throw error;
+}
+
+async function sessaoAtual() {
+  const { data } = await sb.auth.getSession();
+  return data.session || null;
+}
+
+/* Devolve o USER no formato do protótipo, ou null se não houver sessão. */
+async function carregarPerfil() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) { _ctx = { userId: null, lojaId: null }; return null; }
+
+  const { data: p, error } = await sb.from('perfis').select('*').eq('id', user.id).single();
+  if (error) throw error;
+
+  _ctx = { userId: p.id, lojaId: p.loja_id };
+  return {
+    id: p.id,
+    nome: p.nome,
+    papel: p.papel,               // enum do banco (proprietario/gerente/vendedor/administrativo)
+    tel: p.telefone || '',
+    iniciais: iniciais(p.nome),
+    modulos: p.modulos || [],
+    verCustos: p.ver_custos,
+    verLucro: p.ver_lucro,
+    ativo: p.ativo,
+  };
+}
+
+function contexto() { return { ..._ctx }; }
+
+/* ============================== VEÍCULOS =================================== */
+/* prep (preparação) no protótipo é um número único; no banco vira soma de
+   veiculo_custos (categoria 'preparacao'). Na leitura somamos; na gravação
+   sincronizamos uma única linha de custo 'preparacao'. */
+
+function veiculoParaProto(v, prepPorVeiculo) {
+  return {
+    id: v.id,
+    marca: v.marca, modelo: v.modelo,
+    ano: (v.ano_fab && v.ano_mod) ? `${v.ano_fab}/${v.ano_mod}`
+        : (v.ano_fab ? String(v.ano_fab) : ''),
+    km: v.km, placa: v.placa || '', cor: v.cor || '',
+    compra: Number(v.compra), alvo: Number(v.alvo),
+    prep: prepPorVeiculo[v.id] || 0,
+    entrada: v.entrada_em, status: v.status,
+  };
+}
+
+function veiculoParaBanco(v) {
+  const [af, am] = String(v.ano || '').split('/').map(s => parseInt(s, 10) || null);
+  return {
+    marca: v.marca, modelo: v.modelo,
+    ano_fab: af, ano_mod: am,
+    km: num(v.km), placa: v.placa || null, cor: v.cor || null,
+    compra: num(v.compra) ?? 0, alvo: num(v.alvo) ?? 0,
+    entrada_em: v.entrada || undefined, status: v.status || 'estoque',
+  };
+}
+
+async function listarVeiculos() {
+  const { lojaId } = exigirContexto();
+  const { data: veic, error } = await sb.from('veiculos')
+    .select('*').eq('loja_id', lojaId).order('entrada_em', { ascending: false });
+  if (error) throw error;
+
+  const { data: custos, error: e2 } = await sb.from('veiculo_custos')
+    .select('veiculo_id, valor, categoria').eq('loja_id', lojaId).eq('categoria', 'preparacao');
+  if (e2) throw e2;
+
+  const prep = {};
+  for (const c of custos || []) prep[c.veiculo_id] = (prep[c.veiculo_id] || 0) + Number(c.valor);
+  return (veic || []).map(v => veiculoParaProto(v, prep));
+}
+
+async function salvarVeiculo(v) {
+  const { lojaId, userId } = exigirContexto();
+  const row = veiculoParaBanco(v);
+  let salvo;
+
+  if (ehUuid(v.id)) {
+    const { data, error } = await sb.from('veiculos').update(row).eq('id', v.id).select().single();
+    if (error) throw error; salvo = data;
+  } else {
+    const { data, error } = await sb.from('veiculos')
+      .insert({ ...row, loja_id: lojaId, criado_por: userId }).select().single();
+    if (error) throw error; salvo = data;
+  }
+
+  // sincroniza a preparação como uma única linha de custo
+  await sb.from('veiculo_custos').delete().eq('veiculo_id', salvo.id).eq('categoria', 'preparacao');
+  const prep = num(v.prep);
+  if (prep && prep > 0) {
+    const { error } = await sb.from('veiculo_custos')
+      .insert({ loja_id: lojaId, veiculo_id: salvo.id, descricao: 'Preparação', categoria: 'preparacao', valor: prep });
+    if (error) throw error;
+  }
+  return salvo.id;
+}
+
+async function removerVeiculo(id) {
+  const { error } = await sb.from('veiculos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/* ============================== CLIENTES =================================== */
+/* No protótipo o array chama-se `leads`; a entidade é `clientes`. */
+
+function clienteParaProto(c) {
+  return {
+    id: c.id, nome: c.nome, tel: c.telefone || '', origem: c.origem || '',
+    interesse: c.interesse || '', orcamento: c.orcamento, etapa: c.etapa,
+    ultimo: c.ultimo_contato, proximo: c.proximo_contato,
+    troca: c.troca || '', obs: c.obs || '',
+    veiculoId: c.veiculo_id, responsavelId: c.responsavel_id,
+  };
+}
+
+function clienteParaBanco(c) {
+  return {
+    nome: c.nome, telefone: c.tel || null, origem: c.origem || 'outro',
+    etapa: c.etapa || 'novo', interesse: c.interesse || null,
+    orcamento: num(c.orcamento), troca: c.troca || null, obs: c.obs || null,
+    ultimo_contato: c.ultimo || null, proximo_contato: c.proximo || null,
+    veiculo_id: c.veiculoId || null,
+  };
+}
+
+async function listarClientes() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('clientes')
+    .select('*').eq('loja_id', lojaId).order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(clienteParaProto);
+}
+
+async function salvarCliente(c) {
+  const { lojaId, userId } = exigirContexto();
+  const row = clienteParaBanco(c);
+  if (ehUuid(c.id)) {
+    const { data, error } = await sb.from('clientes').update(row).eq('id', c.id).select().single();
+    if (error) throw error; return data.id;
+  }
+  const { data, error } = await sb.from('clientes')
+    .insert({ ...row, loja_id: lojaId, responsavel_id: c.responsavelId || userId }).select().single();
+  if (error) throw error; return data.id;
+}
+
+async function removerCliente(id) {
+  const { error } = await sb.from('clientes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/* =============================== VENDAS ==================================== */
+/* No protótipo a venda tem `cliente` como NOME (string). No banco há cliente_id
+   (uuid). Na leitura trazemos o nome via join; na gravação aceitamos clienteId
+   se vier, senão gravamos sem vínculo (a descrição já é congelada). */
+
+function vendaParaProto(s) {
+  return {
+    id: s.id, desc: s.descricao, placa: s.placa || '',
+    custo: Number(s.custo_total), valor: Number(s.valor), data: s.data,
+    forma: s.forma, comissao: Number(s.comissao), retornoBanco: Number(s.retorno_banco),
+    diasPatio: s.dias_patio, cliente: s.clientes ? s.clientes.nome : '',
+    clienteId: s.cliente_id, veiculoId: s.veiculo_id,
+  };
+}
+
+function vendaParaBanco(s) {
+  return {
+    descricao: s.desc, placa: s.placa || null,
+    custo_total: num(s.custo) ?? 0, valor: num(s.valor) ?? 0,
+    forma: s.forma, comissao: num(s.comissao) ?? 0, retorno_banco: num(s.retornoBanco) ?? 0,
+    dias_patio: num(s.diasPatio), data: s.data || undefined,
+    cliente_id: s.clienteId || null, veiculo_id: s.veiculoId || null,
+  };
+}
+
+async function listarVendas() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('vendas')
+    .select('*, clientes(nome)').eq('loja_id', lojaId).order('data', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(vendaParaProto);
+}
+
+async function salvarVenda(s) {
+  const { lojaId, userId } = exigirContexto();
+  const row = vendaParaBanco(s);
+  if (ehUuid(s.id)) {
+    const { data, error } = await sb.from('vendas').update(row).eq('id', s.id).select().single();
+    if (error) throw error; return data.id;
+  }
+  const { data, error } = await sb.from('vendas')
+    .insert({ ...row, loja_id: lojaId, vendedor_id: s.vendedorId || userId }).select().single();
+  if (error) throw error; return data.id;
+}
+
+/* ============================== DESPESAS ================================== */
+
+function despesaParaProto(d) {
+  return { id: d.id, cat: d.categoria, desc: d.descricao, valor: Number(d.valor), tipo: d.tipo, dia: d.dia_vencimento };
+}
+function despesaParaBanco(d) {
+  return { categoria: d.cat, descricao: d.desc, valor: num(d.valor) ?? 0, tipo: d.tipo || 'fixa', dia_vencimento: num(d.dia) };
+}
+
+async function listarDespesas() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('despesas')
+    .select('*').eq('loja_id', lojaId).order('categoria');
+  if (error) throw error;
+  return (data || []).map(despesaParaProto);
+}
+
+async function salvarDespesa(d) {
+  const { lojaId } = exigirContexto();
+  const row = despesaParaBanco(d);
+  if (ehUuid(d.id)) {
+    const { data, error } = await sb.from('despesas').update(row).eq('id', d.id).select().single();
+    if (error) throw error; return data.id;
+  }
+  const { data, error } = await sb.from('despesas')
+    .insert({ ...row, loja_id: lojaId }).select().single();
+  if (error) throw error; return data.id;
+}
+
+async function removerDespesa(id) {
+  const { error } = await sb.from('despesas').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/* ============================ INTERFACE PÚBLICA =========================== */
+
+window.Dados = {
+  // conexão / sessão
+  entrar, sair, sessaoAtual, carregarPerfil, contexto,
+  // veículos
+  listarVeiculos, salvarVeiculo, removerVeiculo,
+  // clientes
+  listarClientes, salvarCliente, removerCliente,
+  // vendas
+  listarVendas, salvarVenda,
+  // despesas
+  listarDespesas, salvarDespesa, removerDespesa,
+  // acesso cru ao client, se precisar
+  _sb: sb,
+};
