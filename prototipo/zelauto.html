@@ -4233,5 +4233,10 @@ irGrupo('hoje');
 atualizarTags();
 
 </script>
+
+<!-- Camada de dados (Supabase). Carrega a config primeiro; dados.js é módulo e
+     expõe window.Dados. Ainda NÃO liga nas telas — só disponibiliza a camada. -->
+<script src="dados.config.js"></script>
+<script type="module" src="dados.js"></script>
 </body>
 </html>

@@ -21,7 +21,10 @@ begin;
 do $$
 declare
   -- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  -- COLE AQUI o UUID do usuário dono criado no painel Auth:
+  -- ⚠️ OBRIGATÓRIO: cole aqui o UUID do usuário dono JÁ CRIADO no painel Auth
+  -- (Authentication → Users → Add user → copie o UID). Este é o UID com que o
+  -- dono vai logar; o perfil da loja é vinculado a ele. Não invente nem gere um
+  -- UUID novo — tem que ser o mesmo do Auth, senão o login não acha o perfil.
   v_dono uuid := '00000000-0000-0000-0000-000000000000';
   -- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
