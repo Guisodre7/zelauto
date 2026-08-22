@@ -2342,14 +2342,23 @@ function vdPreview(){
       <div class="stat-line" style="border-bottom:0"><span>Lucro desta venda</span><b style="color:${lucro>0?'#5FD3A6':'#F58177'}">${BRL(lucro)} · ${PCT(pct)}</b></div>
     </div>`;
 }
-function salvarVenda(){
+async function salvarVenda(){
   const v=DB.veiculos.find(x=>x.id===val('vdVeic'));
   const valor=numVal('vdValor');
   if(!v||!valor){ toast('Informe o valor fechado'); return; }
-  DB.vendas.push({id:uid(),desc:`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`,placa:v.placa,
-    custo:custoTotal(v),valor,data:dFwd(0),forma:val('vdForma'),
-    comissao:numVal('vdCom'),retornoBanco:numVal('vdBanco'),
-    diasPatio:dias(v.entrada),cliente:val('vdCliente')||'Não informado'});
+  // Item 8: grava a venda no Supabase e marca o carro como vendido (o próprio
+  // Dados.salvarVenda faz as duas coisas). Só mexe no estado em memória depois
+  // que o banco confirmou, para não deixar venda fantasma na tela.
+  const venda={ desc:`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`, placa:v.placa,
+    custo:custoTotal(v), valor, data:dFwd(0), forma:val('vdForma'),
+    comissao:numVal('vdCom'), retornoBanco:numVal('vdBanco'),
+    diasPatio:dias(v.entrada), cliente:val('vdCliente')||'Não informado',
+    veiculoId:v.id };
+  let id;
+  try{
+    id = await Dados.salvarVenda(venda);
+  }catch(e){ toast('Erro ao registrar a venda: '+(e.message||e)); return; }
+  DB.vendas.push({ id, ...venda });
   v.status='vendido';
   fecharModal(); go('vendas'); atualizarTags();
   const l=(valor-custoTotal(v))+numVal('vdBanco')-numVal('vdCom');
@@ -4324,13 +4333,14 @@ atualizarTags();
     USER = perfil;                                  // reatribui o global do protótipo
     USER.papel = LABELS[perfil.papel] || perfil.papel;
     if(!USER.iniciais) USER.iniciais = (USER.nome||'?').trim().slice(0,2).toUpperCase();
-    // Item 7: veículos vêm do banco. As demais telas seguem no DB em memória.
-    // Em erro NÃO mantemos o seed fictício (num produto multi-loja, mostrar
-    // estoque falso/de outra loja é pior que vazio): esvazia e avisa.
-    // dispara as duas leituras em paralelo (tabelas independentes), mas trata
+    // Itens 7–8: veículos, clientes e vendas vêm do banco. As demais telas
+    // seguem no DB em memória. Em erro NÃO mantemos o seed fictício (num produto
+    // multi-loja, mostrar dado falso/de outra loja é pior que vazio): esvazia e
+    // avisa. Dispara as leituras em paralelo (tabelas independentes), mas trata
     // cada falha por conta própria (uma não derruba a outra).
     const pVeic = Dados.listarVeiculos();
     const pCli  = Dados.listarClientes();
+    const pVend = Dados.listarVendas();
     try{ DB.veiculos = await pVeic; }
     catch(e){
       console.error('[ZelAuto] falha ao carregar veículos do banco:', e);
@@ -4342,6 +4352,12 @@ atualizarTags();
       console.error('[ZelAuto] falha ao carregar clientes do banco:', e);
       DB.leads = [];
       if(typeof toast==='function') toast('Não consegui carregar os clientes. Verifique a conexão e recarregue.');
+    }
+    try{ DB.vendas = await pVend; }
+    catch(e){
+      console.error('[ZelAuto] falha ao carregar vendas do banco:', e);
+      DB.vendas = [];
+      if(typeof toast==='function') toast('Não consegui carregar as vendas. Verifique a conexão e recarregue.');
     }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;

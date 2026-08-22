@@ -221,6 +221,7 @@ create table public.vendas (
   loja_id       uuid not null references public.lojas(id) on delete cascade,
   veiculo_id    uuid references public.veiculos(id) on delete set null,
   cliente_id    uuid references public.clientes(id) on delete set null,
+  cliente_nome  text,                   -- congelado: nome do comprador na venda
   descricao     text not null,          -- congelado no momento da venda
   placa         text,
   custo_total   numeric(12,2) not null, -- congelado: compra + custos

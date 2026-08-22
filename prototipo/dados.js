@@ -253,16 +253,18 @@ async function removerCliente(id) {
 }
 
 /* =============================== VENDAS ==================================== */
-/* No protótipo a venda tem `cliente` como NOME (string). No banco há cliente_id
-   (uuid). Na leitura trazemos o nome via join; na gravação aceitamos clienteId
-   se vier, senão gravamos sem vínculo (a descrição já é congelada). */
+/* No protótipo a venda tem `cliente` como NOME (string). No banco o nome fica
+   congelado em cliente_nome (não muda se o cadastro do cliente for editado);
+   cliente_id é só o vínculo opcional. Na leitura preferimos o nome congelado e
+   caímos no join só para vendas antigas sem cliente_nome. */
 
 function vendaParaProto(s) {
   return {
     id: s.id, desc: s.descricao, placa: s.placa || '',
     custo: Number(s.custo_total), valor: Number(s.valor), data: s.data,
     forma: s.forma, comissao: Number(s.comissao), retornoBanco: Number(s.retorno_banco),
-    diasPatio: s.dias_patio, cliente: s.clientes ? s.clientes.nome : '',
+    diasPatio: s.dias_patio,
+    cliente: s.cliente_nome || (s.clientes ? s.clientes.nome : ''),
     clienteId: s.cliente_id, veiculoId: s.veiculo_id,
   };
 }
@@ -273,6 +275,7 @@ function vendaParaBanco(s) {
     custo_total: num(s.custo) ?? 0, valor: num(s.valor) ?? 0,
     forma: s.forma, comissao: num(s.comissao) ?? 0, retorno_banco: num(s.retornoBanco) ?? 0,
     dias_patio: num(s.diasPatio), data: s.data || undefined,
+    cliente_nome: s.cliente || null,
     cliente_id: s.clienteId || null, veiculo_id: s.veiculoId || null,
   };
 }
@@ -294,7 +297,16 @@ async function salvarVenda(s) {
   }
   const { data, error } = await sb.from('vendas')
     .insert({ ...row, loja_id: lojaId, vendedor_id: s.vendedorId || userId }).select().single();
-  if (error) throw error; return data.id;
+  if (error) throw error;
+  // A venda tira o carro do pátio: marca o veículo como vendido no mesmo passo,
+  // fechando o meio-estado (venda gravada, carro ainda em estoque). Não há
+  // trigger no banco fazendo isso; a RLS por loja já garante o isolamento.
+  if (s.veiculoId) {
+    const { error: vErr } = await sb.from('veiculos')
+      .update({ status: 'vendido' }).eq('id', s.veiculoId);
+    if (vErr) throw vErr;
+  }
+  return data.id;
 }
 
 /* ============================== DESPESAS ================================== */
