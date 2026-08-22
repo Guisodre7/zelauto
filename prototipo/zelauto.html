@@ -1650,7 +1650,7 @@ function vCrm(){
       <div style="flex:1"><h3>Ligue para estes hoje</h3><p>o contato passou da data combinada</p></div></div>
     <div class="card-b" style="padding-top:10px">
       ${atrasados.map(l=>`<div class="row" style="padding:9px 0;border-top:1px solid var(--linha)">
-        <div class="grow"><div class="t">${l.nome}</div><div class="s">${l.interesse} · combinado para ${dataBR(l.proximo)}</div></div>
+        <div class="grow"><div class="t">${esc(l.nome)}</div><div class="s">${esc(l.interesse||'A definir')} · combinado para ${dataBR(l.proximo)}</div></div>
         <button class="btn sm" onclick="detLead('${l.id}')">Ver</button></div>`).join('')}
     </div>
   </div>`:''}
@@ -1665,11 +1665,11 @@ function vCrm(){
           <div class="col-b">
             ${ls.length? ls.map(l=>`
               <div class="lead" onclick="detLead('${l.id}')">
-                <div class="n">${l.nome}</div>
-                <div class="i">${l.interesse}</div>
+                <div class="n">${esc(l.nome)}</div>
+                <div class="i">${esc(l.interesse||'A definir')}</div>
                 <div class="m">
                   <span class="v">${BRL(l.orcamento)}</span>
-                  <span class="pill mute">${l.origem}</span>
+                  <span class="pill mute">${esc(l.origem)}</span>
                   ${l.troca?`<span class="pill warn">troca</span>`:''}
                 </div>
                 ${l.proximo?`<div style="font-size:var(--t-lab);margin-top:7px;color:${l.proximo<dFwd(0)?'#F58177':'var(--placa-3)'}">${l.proximo<dFwd(0)?'atrasado desde':'retornar em'} ${dataBR(l.proximo)}</div>`:''}
@@ -1714,11 +1714,11 @@ function detLead(id){
   const l=DB.leads.find(x=>x.id===id); if(!l) return;
   const opts=ETAPAS.map(e=>`<option value="${e.k}" ${l.etapa===e.k?'selected':''}>${e.n}</option>`).join('');
   modal(l.nome,`
-    <div class="stat-line"><span>Telefone</span><b style="font-family:'IBM Plex Mono'">${l.tel}</b></div>
-    <div class="stat-line"><span>Interesse</span><b>${l.interesse}</b></div>
+    <div class="stat-line"><span>Telefone</span><b style="font-family:'IBM Plex Mono'">${esc(l.tel||'—')}</b></div>
+    <div class="stat-line"><span>Interesse</span><b>${esc(l.interesse||'A definir')}</b></div>
     <div class="stat-line"><span>Orçamento</span><b>${BRL(l.orcamento)}</b></div>
-    <div class="stat-line"><span>Origem</span><b>${l.origem}</b></div>
-    ${l.troca?`<div class="stat-line"><span>Tem para troca</span><b>${l.troca}</b></div>`:''}
+    <div class="stat-line"><span>Origem</span><b>${esc(l.origem)}</b></div>
+    ${l.troca?`<div class="stat-line"><span>Tem para troca</span><b>${esc(l.troca)}</b></div>`:''}
     <div class="stat-line"><span>Último contato</span><b>${dataBR(l.ultimo)}</b></div>
     <div style="margin:14px 0;padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);color:var(--placa-2);line-height:1.5">${esc(l.obs)}</div>
     <div class="field"><label>Mover para</label><select id="leadEtapa">${opts}</select></div>
@@ -1727,12 +1727,16 @@ function detLead(id){
     `<a class="btn" href="https://wa.me/55${l.tel.replace(/\D/g,'')}" target="_blank" rel="noopener">WhatsApp</a>
      <button class="btn pri" onclick="salvarLead('${l.id}')">Salvar</button>`);
 }
-function salvarLead(id){
-  const l=DB.leads.find(x=>x.id===id);
-  l.etapa=val('leadEtapa'); l.proximo=val('leadProx'); l.ultimo=dFwd(0);
-  const o=val('leadObs'); if(o) l.obs=o;
+async function salvarLead(id){
+  const l=DB.leads.find(x=>x.id===id); if(!l) return;
+  // monta a versão atualizada e só reflete em memória DEPOIS de persistir
+  const atualizado={ ...l, etapa:val('leadEtapa'), proximo:val('leadProx'), ultimo:dFwd(0) };
+  const o=val('leadObs'); if(o) atualizado.obs=o;
+  try{ await Dados.salvarCliente(atualizado); }
+  catch(e){ toast('Erro ao atualizar cliente: '+(e.message||e)); return; }
+  Object.assign(l, atualizado);
   fecharModal(); render('crm'); atualizarTags();
-  toast(l.etapa==='fechado'?'Negócio marcado como fechado':'Cliente atualizado');
+  toast(atualizado.etapa==='fechado'?'Negócio marcado como fechado':'Cliente atualizado');
 }
 
 /* ==========================================================
@@ -2368,11 +2372,15 @@ function formLead(){
     <div class="field" style="margin-bottom:0"><label>Observação</label><textarea id="ldObs" rows="2" placeholder="O que ele procura, o que ficou combinado…"></textarea></div>`,
     `<button class="btn" data-close-modal>Cancelar</button><button class="btn pri" onclick="salvarLeadNovo()">Adicionar ao funil</button>`);
 }
-function salvarLeadNovo(){
+async function salvarLeadNovo(){
   const nome=val('ldNome'); if(!nome){ toast('Informe o nome do cliente'); return; }
-  DB.leads.unshift({id:uid(),nome,tel:val('ldTel')||'—',origem:val('ldOrigem'),
-    interesse:val('ldInt')||'A definir',orcamento:numVal('ldOrc'),etapa:'novo',
-    ultimo:dFwd(0),proximo:val('ldProx'),troca:val('ldTroca'),obs:val('ldObs')||'Sem observações.'});
+  const novo={ nome, tel:val('ldTel')||'', origem:val('ldOrigem'),
+    interesse:val('ldInt')||'', orcamento:numVal('ldOrc'), etapa:'novo',
+    ultimo:dFwd(0), proximo:val('ldProx'), troca:val('ldTroca'), obs:val('ldObs')||'' };
+  let id;
+  try{ id = await Dados.salvarCliente(novo); }
+  catch(e){ toast('Erro ao salvar cliente: '+(e.message||e)); return; }
+  DB.leads.unshift({ ...novo, id });
   fecharModal(); go('crm'); atualizarTags(); toast(`${nome} entrou no funil`);
 }
 
@@ -4317,11 +4325,21 @@ atualizarTags();
     // Item 7: veículos vêm do banco. As demais telas seguem no DB em memória.
     // Em erro NÃO mantemos o seed fictício (num produto multi-loja, mostrar
     // estoque falso/de outra loja é pior que vazio): esvazia e avisa.
-    try{ DB.veiculos = await Dados.listarVeiculos(); }
+    // dispara as duas leituras em paralelo (tabelas independentes), mas trata
+    // cada falha por conta própria (uma não derruba a outra).
+    const pVeic = Dados.listarVeiculos();
+    const pCli  = Dados.listarClientes();
+    try{ DB.veiculos = await pVeic; }
     catch(e){
       console.error('[ZelAuto] falha ao carregar veículos do banco:', e);
       DB.veiculos = [];
       if(typeof toast==='function') toast('Não consegui carregar o estoque. Verifique a conexão e recarregue.');
+    }
+    try{ DB.leads = await pCli; }
+    catch(e){
+      console.error('[ZelAuto] falha ao carregar clientes do banco:', e);
+      DB.leads = [];
+      if(typeof toast==='function') toast('Não consegui carregar os clientes. Verifique a conexão e recarregue.');
     }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
