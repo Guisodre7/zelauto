@@ -2269,10 +2269,16 @@ async function salvarVeiculo(){
   const novo={ marca, modelo, ano:val('nvAno')||'', km:numVal('nvKm'),
     placa:(val('nvPlaca')||'').toUpperCase(), cor:val('nvCor')||'',
     compra, prep:numVal('nvPrep'), alvo, status:'estoque' };
+  let id;
   try{
-    await Dados.salvarVeiculo(novo);
-    DB.veiculos = await Dados.listarVeiculos();
+    id = await Dados.salvarVeiculo(novo);
   }catch(e){ toast('Erro ao salvar: '+(e.message||e)); return; }
+  // Anexa o veículo persistido (com o id do banco) em vez de re-baixar tudo:
+  // não derruba estado em memória de outras telas (ex.: venda ainda não persistida)
+  // e evita refetch. A foto fica em memória até o passo de Storage.
+  DB.veiculos.push({ id, marca, modelo, ano:novo.ano, km:novo.km||0, placa:novo.placa,
+    cor:novo.cor, compra, prep:novo.prep||0, alvo, entrada:dFwd(0), status:'estoque',
+    rn:'fora', foto:window.__foto_nvFoto||'' });
   window.__foto_nvFoto='';
   fecharModal(); go('estoque'); atualizarTags();
   toast(`${marca} ${modelo} entrou no pátio`);
@@ -4295,8 +4301,14 @@ atualizarTags();
     USER.papel = LABELS[perfil.papel] || perfil.papel;
     if(!USER.iniciais) USER.iniciais = (USER.nome||'?').trim().slice(0,2).toUpperCase();
     // Item 7: veículos vêm do banco. As demais telas seguem no DB em memória.
+    // Em erro NÃO mantemos o seed fictício (num produto multi-loja, mostrar
+    // estoque falso/de outra loja é pior que vazio): esvazia e avisa.
     try{ DB.veiculos = await Dados.listarVeiculos(); }
-    catch(e){ console.warn('[ZelAuto] não carreguei veículos do banco, mantendo dados locais:', e); }
+    catch(e){
+      console.error('[ZelAuto] falha ao carregar veículos do banco:', e);
+      DB.veiculos = [];
+      if(typeof toast==='function') toast('Não consegui carregar o estoque. Verifique a conexão e recarregue.');
+    }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');

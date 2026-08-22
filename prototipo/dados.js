@@ -97,6 +97,8 @@ function veiculoParaProto(v, prepPorVeiculo) {
     compra: Number(v.compra), alvo: Number(v.alvo),
     prep: prepPorVeiculo[v.id] || 0,
     entrada: v.entrada_em, status: v.status,
+    foto: v.foto_url || '',            // mapeado p/ quando o Storage entrar
+    rn: v.renave_fase || 'fora',       // fase RENAVE (fora da fase 1, mas fiel ao banco)
   };
 }
 
