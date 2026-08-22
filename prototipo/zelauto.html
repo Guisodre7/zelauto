@@ -938,7 +938,13 @@ function abrirConfig(){
       <button class="btn blk" onclick="fecharModal();abrirEquipe()">
         ${svgi('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>')}
         Gerenciar usuários (${DB.usuarios.length})</button>
-    </div>`:''}`,
+    </div>`:''}
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Conta</label>
+      <button class="btn blk" onclick="sairDaConta()">
+        ${svgi('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>')}
+        Sair da conta</button>
+    </div>`,
     `<button class="btn pri" data-close-modal>Pronto</button>`);
 }
 function setTema(t){
@@ -4238,5 +4244,91 @@ atualizarTags();
      expõe window.Dados. Ainda NÃO liga nas telas — só disponibiliza a camada. -->
 <script src="dados.config.js"></script>
 <script type="module" src="dados.js"></script>
+
+<!-- ==========================================================================
+     Login / sessão (item 6). Liga a tela de login ao Supabase via window.Dados.
+     Enquanto não há sessão, mostra só o login (overlay). Com sessão, preenche o
+     USER a partir de `perfis` e revela o sistema. As demais telas continuam
+     lendo do DB em memória — só o login e o USER vêm do banco.
+     Script clássico (não módulo) de propósito: precisa reatribuir o `USER`
+     global do protótipo e chamar aplicarPermissoes()/irGrupo().
+     ========================================================================== -->
+<script>
+(function(){
+  const LABELS = {proprietario:'Proprietário',gerente:'Gerente',vendedor:'Vendedor',administrativo:'Administrativo'};
+  function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; }
+
+  let overlay;
+  function construirOverlay(){
+    if(overlay) return;
+    overlay = el(`
+      <div id="loginOverlay" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#0F1318;color:#E8EDF2;padding:24px;font:inherit">
+        <form id="loginForm" style="width:100%;max-width:360px;background:#171C22;border:1px solid #232a32;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.45)">
+          <div style="font-size:22px;font-weight:700">ZelAuto</div>
+          <div style="opacity:.7;font-size:14px;margin:4px 0 20px">Entre para acessar a loja</div>
+          <label style="display:block;font-size:13px;opacity:.8;margin-bottom:6px">E-mail</label>
+          <input id="loginEmail" type="email" autocomplete="username" required
+            style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #2a323b;background:#0F1318;color:#E8EDF2;font-size:15px;margin-bottom:14px">
+          <label style="display:block;font-size:13px;opacity:.8;margin-bottom:6px">Senha</label>
+          <input id="loginSenha" type="password" autocomplete="current-password" required
+            style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #2a323b;background:#0F1318;color:#E8EDF2;font-size:15px;margin-bottom:16px">
+          <div id="loginErro" style="display:none;color:#ff6b6b;font-size:13px;margin-bottom:14px"></div>
+          <button id="loginBtn" type="submit" style="width:100%;padding:12px;border:0;border-radius:10px;background:#3B82F6;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Entrar</button>
+        </form>
+      </div>`);
+    document.body.appendChild(overlay);
+    overlay.querySelector('#loginForm').addEventListener('submit', onSubmit);
+  }
+  function mostrarErro(msg){ const e=overlay.querySelector('#loginErro'); e.textContent=msg; e.style.display='block'; }
+  function mostrarLogin(){ construirOverlay(); overlay.style.display='flex'; }
+  function esconderLogin(){ if(overlay) overlay.style.display='none'; }
+
+  async function aplicarSessao(){
+    const perfil = await Dados.carregarPerfil();
+    if(!perfil) return false;
+    USER = perfil;                                  // reatribui o global do protótipo
+    USER.papel = LABELS[perfil.papel] || perfil.papel;
+    if(!USER.iniciais) USER.iniciais = (USER.nome||'?').trim().slice(0,2).toUpperCase();
+    aplicarPermissoes();                            // nome, iniciais e menu por módulo
+    const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
+    irGrupo('hoje');
+    atualizarTags();
+    return true;
+  }
+
+  async function onSubmit(ev){
+    ev.preventDefault();
+    if(!window.Dados){ mostrarErro('Camada de dados não carregou (veja dados.config.js).'); return; }
+    const btn=overlay.querySelector('#loginBtn');
+    const email=overlay.querySelector('#loginEmail').value.trim();
+    const senha=overlay.querySelector('#loginSenha').value;
+    overlay.querySelector('#loginErro').style.display='none';
+    btn.disabled=true; btn.textContent='Entrando…';
+    try{
+      await Dados.entrar(email, senha);
+      if(await aplicarSessao()) esconderLogin();
+      else mostrarErro('Login ok, mas não há perfil vinculado a este usuário.');
+    }catch(e){
+      mostrarErro('E-mail ou senha inválidos.');
+    }finally{
+      btn.disabled=false; btn.textContent='Entrar';
+    }
+  }
+
+  window.sairDaConta = async function(){
+    try{ if(window.Dados) await Dados.sair(); }catch(e){}
+    location.reload();
+  };
+
+  async function boot(){
+    construirOverlay(); mostrarLogin();             // sem sessão => só o login
+    let tries=0;
+    while(!window.Dados && tries<50){ await new Promise(r=>setTimeout(r,60)); tries++; }
+    if(!window.Dados){ mostrarErro('Camada de dados não carregou. Crie prototipo/dados.config.js (copie do .example) com a URL e a chave publishable.'); return; }
+    try{ if(await Dados.sessaoAtual() && await aplicarSessao()) esconderLogin(); }catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
 </body>
 </html>
