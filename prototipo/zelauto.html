@@ -659,7 +659,9 @@ const PCT = v => (v||0).toFixed(1).replace('.',',')+'%';
 const dataBR = iso => new Date(iso+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
 const mesNome = m => ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][m];
 const uid = () => Math.random().toString(36).slice(2,9);
-const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => String(s??'').replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+/* nome do veículo escapado (marca + modelo) para uso seguro em innerHTML */
+const vNome = v => `${esc(v.marca)} ${esc(v.modelo)}`;
 /* cores dos gráficos lidas do tema ativo */
 const cv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
 
@@ -1178,7 +1180,7 @@ function thumb(v, tam){
   const g = tam==='lg' ? 'thumb lg' : tam==='sm' ? 'thumb sm' : 'thumb';
   const placa = v.placa ? `<span class="tpl">${esc(v.placa)}</span>` : '';
   if(v.foto){
-    return `<span class="${g}"><img src="${v.foto}" alt="${esc(v.marca||'')} ${esc(v.modelo||'')}" loading="lazy">${placa}</span>`;
+    return `<span class="${g}"><img src="${esc(v.foto)}" alt="${esc(v.marca||'')} ${esc(v.modelo||'')}" loading="lazy">${placa}</span>`;
   }
   const t = tipoCarroceria(v);
   return `<span class="${g}" data-sil="1">
@@ -1432,7 +1434,7 @@ function vDash(){
           const cor = d>75?'red':d>45?'amb':'grn';
           return `<div style="margin-bottom:11px">
             <div style="display:flex;gap:8px;align-items:baseline">
-              <span style="flex:1;font-size:var(--t-sup);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.marca} ${v.modelo}</span>
+              <span style="flex:1;font-size:var(--t-sup);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${vNome(v)}</span>
               <span class="num" style="font-size:var(--t-lab);color:var(--placa-3)">${d}d</span>
             </div>
             <div class="bar"><i class="${cor}" style="width:${p}%"></i></div>
@@ -1494,8 +1496,8 @@ function vEstoque(){
       return `<div class="veic" onclick="detVeiculo('${v.id}')">
         ${thumb(v)}
         <div class="info">
-          <div class="nm">${v.marca} ${v.modelo}</div>
-          <div class="dt">${v.ano} · ${NUM(v.km)} km · ${v.cor}</div>
+          <div class="nm">${vNome(v)}</div>
+          <div class="dt">${esc(v.ano)} · ${NUM(v.km)} km · ${esc(v.cor)}</div>
           <div class="mt">
             <span class="pill ${st[0]}">${st[1]}</span>
             ${USER.verCustos?`<span class="pill mute">custo ${BRL(custoTotal(v))}</span>`:''}
@@ -1524,7 +1526,7 @@ function detVeiculo(id){
   modal(`${v.marca} ${v.modelo}`, `
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
       ${thumb(v,'lg')}
-      <div><div style="font-size:var(--t-sup);color:var(--placa-2)">${v.ano} · ${NUM(v.km)} km · ${v.cor}</div>
+      <div><div style="font-size:var(--t-sup);color:var(--placa-2)">${esc(v.ano)} · ${NUM(v.km)} km · ${esc(v.cor)}</div>
       <div style="font-size:var(--t-lab);color:var(--placa-3)">entrou em ${dataBR(v.entrada)} — há ${d} dias</div></div>
     </div>
     <div class="stat-line"><span>Valor de compra</span><b>${BRL(v.compra)}</b></div>
@@ -1607,8 +1609,8 @@ function vVendas(){
         return `<div class="veic">
           ${thumb({marca:s.desc.split(' ')[0],modelo:s.desc,placa:s.placa,foto:s.foto})}
           <div class="info">
-            <div class="nm">${s.desc}</div>
-            <div class="dt">${s.cliente} · ${dataBR(s.data)} · ${s.diasPatio} dias no pátio</div>
+            <div class="nm">${esc(s.desc)}</div>
+            <div class="dt">${esc(s.cliente)} · ${dataBR(s.data)} · ${s.diasPatio} dias no pátio</div>
             <div class="mt"><span class="pill ${f[1]}">${f[0]}</span>${s.retornoBanco?`<span class="pill blue">banco +${BRL(s.retornoBanco)}</span>`:''}</div>
           </div>
           <div class="pr">
@@ -1776,7 +1778,7 @@ function vDespesas(){
     <div class="card">
       ${DB.despesas.slice().sort((a,b)=>b.valor-a.valor).map(d=>`
         <div class="row">
-          <div class="grow"><div class="t">${d.desc}</div><div class="s">${d.cat}${d.dia?` · todo dia ${d.dia}`:' · conforme o movimento'}</div></div>
+          <div class="grow"><div class="t">${esc(d.desc)}</div><div class="s">${esc(d.cat)}${d.dia?` · todo dia ${d.dia}`:' · conforme o movimento'}</div></div>
           <div class="r"><div class="t num">${BRL(d.valor)}</div>
           <span class="pill ${d.tipo==='fixa'?'mute':'warn'}" style="margin-top:4px">${d.tipo==='fixa'?'fixa':'variável'}</span></div>
         </div>`).join('')}
@@ -1841,7 +1843,7 @@ function vDre(){
         const l=(v.valor-v.custo)+v.retornoBanco-v.comissao;
         return `<div class="row">
           <span class="num" style="width:22px;color:var(--placa-3);font-size:var(--t-sup)">${i+1}</span>
-          <div class="grow"><div class="t">${v.desc}</div><div class="s">${v.diasPatio} dias no pátio · ${dataBR(v.data)}</div></div>
+          <div class="grow"><div class="t">${esc(v.desc)}</div><div class="s">${v.diasPatio} dias no pátio · ${dataBR(v.data)}</div></div>
           <div class="r"><div class="t num" style="color:#5FD3A6">${BRL(l)}</div>
             <div class="s num">${PCT(l/v.custo*100)} sobre o custo</div></div>
         </div>`;
@@ -1865,7 +1867,7 @@ function vFin(){
         <label>Veículo</label>
         <select id="finVeic" onchange="finSelVeic()">
           <option value="">Valor manual</option>
-          ${est.map(v=>`<option value="${v.alvo}">${v.marca} ${v.modelo} — ${BRL(v.alvo)}</option>`).join('')}
+          ${est.map(v=>`<option value="${v.alvo}">${vNome(v)} — ${BRL(v.alvo)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -2017,7 +2019,7 @@ function vCarne(){
         <div class="field"><label>Veículo</label>
           <select id="carVeic" onchange="carSelVeic()">
             <option value="">Valor manual</option>
-            ${est.map(v=>`<option value="${v.alvo}" data-custo="${custoTotal(v)}">${v.marca} ${v.modelo} — ${BRL(v.alvo)}</option>`).join('')}
+            ${est.map(v=>`<option value="${v.alvo}" data-custo="${custoTotal(v)}">${vNome(v)} — ${BRL(v.alvo)}</option>`).join('')}
           </select>
         </div>
         <div class="field"><label>Preço de venda</label><input type="number" id="carValor" value="${CAR.valor}" oninput="carCalc()"></div>
@@ -2053,8 +2055,8 @@ function vCarne(){
         const prog=k.pagas/k.parcelas*100;
         return `<div class="veic" style="cursor:default">
           <div class="info">
-            <div class="nm">${k.cliente} ${k.atraso?`<span class="pill bad" style="margin-left:5px">${k.atraso} dias em atraso</span>`:''}</div>
-            <div class="dt">${k.veiculo} · ${k.tel}</div>
+            <div class="nm">${esc(k.cliente)} ${k.atraso?`<span class="pill bad" style="margin-left:5px">${k.atraso} dias em atraso</span>`:''}</div>
+            <div class="dt">${esc(k.veiculo)} · ${esc(k.tel)}</div>
             <div class="bar" style="margin-top:9px"><i class="${k.atraso?'red':'grn'}" style="width:${prog}%"></i></div>
             <div style="font-size:var(--t-lab);color:var(--placa-3);margin-top:5px">${k.pagas} de ${k.parcelas} pagas · faltam ${rest}</div>
           </div>
@@ -2191,8 +2193,8 @@ function vConsig(){
         return `<div class="veic" style="cursor:default">
           ${thumb(c)}
           <div class="info">
-            <div class="nm">${c.marca} ${c.modelo}</div>
-            <div class="dt">${c.ano} · ${NUM(c.km)} km · dono: ${c.dono}</div>
+            <div class="nm">${vNome(c)}</div>
+            <div class="dt">${esc(c.ano)} · ${NUM(c.km)} km · dono: ${esc(c.dono)}</div>
             <div class="mt">
               <span class="pill ${d>45?'warn':'mute'}">${d} dias</span>
               <span class="pill blue">comissão ${c.comissao}%</span>
@@ -2307,7 +2309,7 @@ function formVenda(preSel){
   if(!est.length){ toast('Não há carros no estoque'); return; }
   modal('Lançar venda',`
     <div class="field"><label>Veículo</label><select id="vdVeic" onchange="vdPreview()">
-      ${est.map(v=>`<option value="${v.id}" ${preSel===v.id?'selected':''}>${v.marca} ${v.modelo} — ${v.placa}</option>`).join('')}
+      ${est.map(v=>`<option value="${v.id}" ${preSel===v.id?'selected':''}>${vNome(v)} — ${esc(v.placa)}</option>`).join('')}
     </select></div>
     <div class="field"><label>Cliente</label><input id="vdCliente" placeholder="Nome do comprador"></div>
     <div class="f2">
@@ -2344,7 +2346,7 @@ function salvarVenda(){
   const v=DB.veiculos.find(x=>x.id===val('vdVeic'));
   const valor=numVal('vdValor');
   if(!v||!valor){ toast('Informe o valor fechado'); return; }
-  DB.vendas.push({id:uid(),desc:`${v.marca} ${v.modelo} ${v.ano.slice(0,4)}`,placa:v.placa,
+  DB.vendas.push({id:uid(),desc:`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`,placa:v.placa,
     custo:custoTotal(v),valor,data:dFwd(0),forma:val('vdForma'),
     comissao:numVal('vdCom'),retornoBanco:numVal('vdBanco'),
     diasPatio:dias(v.entrada),cliente:val('vdCliente')||'Não informado'});
@@ -2628,8 +2630,8 @@ function vRenave(){
         return `<div class="veic" onclick="rnVeiculo('${v.id}')">
           ${thumb(v)}
           <div class="info">
-            <div class="nm">${v.marca} ${v.modelo}</div>
-            <div class="dt">${v.ano} · entrou em ${dataBR(v.entrada)}</div>
+            <div class="nm">${vNome(v)}</div>
+            <div class="dt">${esc(v.ano)} · entrou em ${dataBR(v.entrada)}</div>
             <div class="mt">
               <span class="pill" style="background:${f.c}22;color:${f.c};border-color:${f.c}55">${f.n}</span>
               ${!ok?`<span class="pill bad">sem financiamento</span>`:''}
@@ -2665,8 +2667,8 @@ function vRenave(){
         <div class="veic" style="cursor:default">
           ${thumb(c)}
           <div class="info">
-            <div class="nm">${c.marca} ${c.modelo}</div>
-            <div class="dt">${c.dono} · ${c.tel}</div>
+            <div class="nm">${vNome(c)}</div>
+            <div class="dt">${esc(c.dono)} · ${esc(c.tel)}</div>
             <div class="mt">
               <span class="pill ${c.rnContrato?'ok':'bad'}">${c.rnContrato?'contrato registrado':'contrato pendente'}</span>
             </div>
@@ -2801,12 +2803,12 @@ function rnPacote(){
     </div>
     ${pend.length? pend.map(v=>`
       <div class="stat-line">
-        <span>${v.placa} · ${v.marca} ${v.modelo}</span>
+        <span>${esc(v.placa)} · ${vNome(v)}</span>
         <b style="color:${RN_FASES[rnFase(v)].c}">${RN_FASES[rnFase(v)].n}</b>
       </div>`).join('')
       : '<div class="empty"><strong>Nenhuma pendência</strong><p>Todo o pátio está regular.</p></div>'}
     ${r.consigSem.length? `<div style="margin-top:15px;font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin-bottom:8px">Contratos de consignação</div>`+
-      r.consigSem.map(c=>`<div class="stat-line"><span>${c.placa} · ${c.dono}</span><b style="color:#F58177">pendente</b></div>`).join('') : ''}`,
+      r.consigSem.map(c=>`<div class="stat-line"><span>${esc(c.placa)} · ${esc(c.dono)}</span><b style="color:#F58177">pendente</b></div>`).join('') : ''}`,
     `<button class="btn" data-close-modal>Fechar</button>
      <button class="btn pri" onclick="rnCopiar()">Copiar lista</button>`);
 }
@@ -2952,8 +2954,8 @@ function vNfe(){
       <div style="flex:1"><h3>Nota rejeitada</h3><p>a venda não está documentada</p></div></div>
     <div class="card-b" style="padding-top:10px">
       ${pend.map(n=>`
-        <div style="font-size:var(--t-sup);font-weight:600">nº ${n.numero} — ${n.dest}</div>
-        <div style="font-size:var(--t-sup);color:var(--placa-2);line-height:1.55;margin-top:5px">${n.rejeicao}</div>
+        <div style="font-size:var(--t-sup);font-weight:600">nº ${n.numero} — ${esc(n.dest)}</div>
+        <div style="font-size:var(--t-sup);color:var(--placa-2);line-height:1.55;margin-top:5px">${esc(n.rejeicao)}</div>
         <button class="btn amb blk" style="margin-top:11px" onclick="nfeCorrigir('${n.id}')">Corrigir e reenviar</button>`).join('')}
     </div>
   </div>`:''}
@@ -2968,8 +2970,8 @@ function vNfe(){
             <div style="font-size:var(--t-lab);color:var(--placa-3);letter-spacing:.06em;text-transform:uppercase">${n.tipo}</div>
           </div>
           <div class="info">
-            <div class="nm">${n.dest}</div>
-            <div class="dt">${n.desc}</div>
+            <div class="nm">${esc(n.dest)}</div>
+            <div class="dt">${esc(n.desc)}</div>
             <div class="mt"><span class="pill ${st[n.status][0]}">${st[n.status][1]}</span>
               <span class="pill mute">${dataBR(n.data)}</span></div>
           </div>
@@ -2993,7 +2995,7 @@ function nfeEmitir(){
     </div>
     <div id="nfeForm">
       <div class="field"><label>Veículo</label><select id="nfVeic" onchange="nfPrev()">
-        ${est.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo} — ${v.placa}</option>`).join('')}
+        ${est.map(v=>`<option value="${v.id}">${vNome(v)} — ${esc(v.placa)}</option>`).join('')}
       </select></div>
       <div class="field"><label>Destinatário</label><input id="nfDest" placeholder="Nome completo"></div>
       <div class="f2">
@@ -3042,7 +3044,7 @@ function nfeEnviar(){
     const num=DB.fiscal.proxNumero++;
     const chave='2926080000000000010055001000'+String(num).padStart(6,'0')+'11000'+String(num).padStart(5,'0');
     DB.notas.unshift({id:uid(),numero:num,tipo:'saida',dest,doc:val('nfDoc')||'—',
-      desc:`${v.marca} ${v.modelo} ${v.ano.slice(0,4)}`,valor,data:dFwd(0),status:'autorizada',
+      desc:`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`,valor,data:dFwd(0),status:'autorizada',
       chave,protocolo:'1292600'+Math.floor(Math.random()*9e6+1e6)});
     document.getElementById('nfeForm').innerHTML=`
       <div style="text-align:center;padding:16px 0">
@@ -3065,15 +3067,15 @@ function nfeEnviar(){
 function nfeDetalhe(id){
   const n=DB.notas.find(x=>x.id===id); if(!n) return;
   modal(`Nota ${n.numero}`,`
-    <div class="stat-line"><span>Destinatário</span><b style="font-family:'Archivo'">${n.dest}</b></div>
-    <div class="stat-line"><span>Documento</span><b>${n.doc}</b></div>
-    <div class="stat-line"><span>Descrição</span><b style="font-family:'Archivo'">${n.desc}</b></div>
+    <div class="stat-line"><span>Destinatário</span><b style="font-family:'Archivo'">${esc(n.dest)}</b></div>
+    <div class="stat-line"><span>Documento</span><b>${esc(n.doc)}</b></div>
+    <div class="stat-line"><span>Descrição</span><b style="font-family:'Archivo'">${esc(n.desc)}</b></div>
     <div class="stat-line"><span>Valor</span><b>${BRL(n.valor)}</b></div>
     <div class="stat-line"><span>Emissão</span><b>${dataBR(n.data)}</b></div>
     ${n.chave?`<div style="margin-top:13px">
       <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin-bottom:6px">Chave de acesso</div>
       <div class="num" style="font-size:var(--t-lab);word-break:break-all;padding:10px;background:var(--asfalto);border-radius:9px;border:1px solid var(--linha)">${n.chave}</div></div>`:''}
-    ${n.rejeicao?`<div style="margin-top:13px;padding:11px;border-radius:11px;background:var(--vermelho-esc);border:1px solid rgba(224,87,75,.35);font-size:var(--t-sup);line-height:1.55;color:#F58177">${n.rejeicao}</div>`:''}
+    ${n.rejeicao?`<div style="margin-top:13px;padding:11px;border-radius:11px;background:var(--vermelho-esc);border:1px solid rgba(224,87,75,.35);font-size:var(--t-sup);line-height:1.55;color:#F58177">${esc(n.rejeicao)}</div>`:''}
     ${n.motivo?`<div style="margin-top:13px;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);color:var(--placa-2)">${n.motivo}</div>`:''}`,
     n.status==='autorizada'
       ? `<button class="btn" data-close-modal>Fechar</button><button class="btn pri" onclick="toast('DANFE gerada')">Baixar DANFE</button>`
@@ -3153,13 +3155,13 @@ function vAnuncios(){
         <div class="portal">
           <div class="lg" style="background:${p.cor};color:${p.cor2||'#fff'}">${p.sigla}</div>
           <div class="grow">
-            <div class="t">${p.nome}</div>
+            <div class="t">${esc(p.nome)}</div>
             <div class="s">${p.ativo
               ? `${p.publicados} de ${p.limite} vagas · ${p.leads} leads · sincronizado ${p.ultimo===dFwd(0)?'hoje':dataBR(p.ultimo)}`
               : 'não conectado'}</div>
             ${p.ativo?`<div class="bar" style="margin-top:6px"><i class="${p.publicados>=p.limite?'amb':'grn'}" style="width:${p.publicados/p.limite*100}%"></i></div>`:''}
           </div>
-          <button class="sw ${p.ativo?'on':''}" onclick="anToggle('${p.id}')" aria-label="Ativar ${p.nome}"></button>
+          <button class="sw ${p.ativo?'on':''}" onclick="anToggle('${p.id}')" aria-label="Ativar ${esc(p.nome)}"></button>
         </div>`).join('')}
     </div>
   </div>
@@ -3172,7 +3174,7 @@ function vAnuncios(){
         return `<div class="veic" onclick="anVeiculo('${v.id}')">
           ${thumb(v)}
           <div class="info">
-            <div class="nm">${v.marca} ${v.modelo}</div>
+            <div class="nm">${vNome(v)}</div>
             <div class="dt">${BRL(v.alvo)} · ${dias(v.entrada)} dias anunciado</div>
             <div class="mt">${em.map(p=>`<span class="pill" style="background:${p.cor}22;color:${p.cor2||p.cor};border-color:${p.cor}55">${p.sigla}</span>`).join('')}</div>
           </div>
@@ -3198,7 +3200,7 @@ function anToggle(id){
   if(p.ativo){ p.publicados=Math.min(p.limite,patio().length); p.ultimo=dFwd(0); }
   else { p.publicados=0; p.leads=0; }
   render('anuncios'); atualizarTags();
-  toast(p.ativo?`${p.nome} conectado`:`${p.nome} desconectado`);
+  toast(p.ativo?`${esc(p.nome)} conectado`:`${esc(p.nome)} desconectado`);
 }
 function anPublicar(){
   const ativos=DB.portais.filter(p=>p.ativo);
@@ -3209,7 +3211,7 @@ function anPublicar(){
   const log=document.getElementById('anLog');
   ativos.forEach((p,i)=>{
     setTimeout(()=>{
-      log.innerHTML+=`<div><span style="color:${p.cor2||p.cor}">■</span> ${p.nome} — ${Math.min(p.limite,est.length)} veículos enviados <span style="color:#5FD3A6">ok</span></div>`;
+      log.innerHTML+=`<div><span style="color:${p.cor2||p.cor}">■</span> ${esc(p.nome)} — ${Math.min(p.limite,est.length)} veículos enviados <span style="color:#5FD3A6">ok</span></div>`;
       p.publicados=Math.min(p.limite,est.length); p.ultimo=dFwd(0);
       if(i===ativos.length-1){
         setTimeout(()=>{
@@ -3226,14 +3228,14 @@ function anVeiculo(id){
   modal(`${v.marca} ${v.modelo}`,`
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:15px">
       ${thumb(v,'lg')}
-      <div><div style="font-size:var(--t-sup);color:var(--placa-2)">${v.ano} · ${NUM(v.km)} km</div>
+      <div><div style="font-size:var(--t-sup);color:var(--placa-2)">${esc(v.ano)} · ${NUM(v.km)} km</div>
       <div class="num" style="font-size:var(--t-txt);font-weight:600;color:var(--ambar)">${BRL(v.alvo)}</div></div>
     </div>
     <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin-bottom:9px">Publicado em</div>
     ${ativos.map(p=>`
       <div class="perm">
         <div class="lg" style="width:28px;height:28px;border-radius:7px;background:${p.cor};color:${p.cor2||'#fff'};display:grid;place-items:center;font-size:var(--t-lab);font-weight:800;flex:none">${p.sigla}</div>
-        <div class="grow">${p.nome}<div class="s">${Math.round(v.alvo/22000)+1} contatos deste anúncio</div></div>
+        <div class="grow">${esc(p.nome)}<div class="s">${Math.round(v.alvo/22000)+1} contatos deste anúncio</div></div>
         <span class="pill ok">no ar</span>
       </div>`).join('')}
     <div style="margin-top:14px;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);line-height:1.55;color:var(--placa-2)">
@@ -3265,9 +3267,9 @@ function vVitrine(){
           ${est.slice(0,4).map(v=>`
             <div class="cc">
               <div class="ph">${v.foto
-                ? `<img src="${v.foto}" alt="">`
+                ? `<img src="${esc(v.foto)}" alt="">`
                 : `<svg viewBox="0 0 100 52" preserveAspectRatio="xMidYMid meet">${CARROCERIA[tipoCarroceria(v)]}${RODAS}</svg>`}</div>
-              <div class="n">${v.marca} ${v.modelo}</div>
+              <div class="n">${vNome(v)}</div>
               <div class="p">${BRL(v.alvo)}</div></div>`).join('')}
         </div>
       </div>
@@ -3490,8 +3492,8 @@ function vContratos(){
       ${DB.contratos.map(c=>`
         <div class="veic" onclick="ctVer('${c.id}')">
           <div class="info">
-            <div class="nm">${c.cliente}</div>
-            <div class="dt">${c.tipo} · ${c.veiculo}</div>
+            <div class="nm">${esc(c.cliente)}</div>
+            <div class="dt">${esc(c.tipo)} · ${esc(c.veiculo)}</div>
             <div class="mt"><span class="pill ${st[c.status][0]}">${st[c.status][1]}</span>
               <span class="pill mute">${dataBR(c.data)}</span></div>
           </div>
@@ -3513,17 +3515,17 @@ function docHTML(c){
         <small>CNPJ ${DB.fiscal.cnpj} · Lauro de Freitas — BA</small></div>
     </div>
     <div style="text-align:center;font-size:var(--t-sup);font-weight:800;letter-spacing:.03em;text-transform:uppercase;margin-bottom:4px">
-      Contrato de ${c.tipo}</div>
+      Contrato de ${esc(c.tipo)}</div>
     <div style="text-align:center;font-size:var(--t-lab);color:#78838F;margin-bottom:14px">
       Instrumento particular nº ${c.id.toUpperCase()}</div>
 
     <h4>Partes</h4>
     <p><b>Vendedora:</b> Vancar Veículos LTDA, inscrita no CNPJ ${DB.fiscal.cnpj}, com sede
     na 1ª Travessa Luiz Tarquínio Pontes, 223, Lauro de Freitas — BA.</p>
-    <p><b>Comprador:</b> ${c.cliente}, portador do documento ${c.doc}.</p>
+    <p><b>Comprador:</b> ${esc(c.cliente)}, portador do documento ${esc(c.doc)}.</p>
 
     <h4>Objeto</h4>
-    <p>Veículo ${c.veiculo}, entregue no estado em que se encontra, tendo o comprador
+    <p>Veículo ${esc(c.veiculo)}, entregue no estado em que se encontra, tendo o comprador
     vistoriado e aceito as condições no ato da assinatura.</p>
 
     <h4>Valor e pagamento</h4>
@@ -3537,7 +3539,7 @@ function docHTML(c){
 
     <div class="sig">
       <div><div class="line"></div><small>Vancar Veículos</small></div>
-      <div><div class="line"></div><small>${c.cliente}</small></div>
+      <div><div class="line"></div><small>${esc(c.cliente)}</small></div>
     </div>
 
     ${c.status==='assinado'?`
@@ -3574,7 +3576,7 @@ function ctNovo(tipo){
       <div class="field"><label>Valor</label><input type="number" id="ctVal"></div>
     </div>
     <div class="field"><label>Veículo</label><select id="ctVeic">
-      ${est.map(v=>`<option value="${v.marca} ${v.modelo} ${v.ano.slice(0,4)}">${v.marca} ${v.modelo} — ${v.placa}</option>`).join('')}
+      ${est.map(v=>`<option value="${esc(v.marca)} ${esc(v.modelo)} ${esc(String(v.ano||'').slice(0,4))}">${vNome(v)} — ${esc(v.placa)}</option>`).join('')}
     </select></div>
     <div class="field" style="margin-bottom:0"><label>Enviar para assinar via</label>
       <select id="ctVia"><option>WhatsApp</option><option>E-mail</option><option>Os dois</option></select>
@@ -3602,10 +3604,10 @@ function vEquipe(){
       <p>troque de usuário para conferir o que cada um enxerga</p></div></div>
     <div class="card-b">
       <div class="chips">
-        ${DB.usuarios.map(u=>`<button class="chip ${USER.id===u.id?'on':''}" onclick="trocarUser('${u.id}')">${u.nome.split(' ')[0]}</button>`).join('')}
+        ${DB.usuarios.map(u=>`<button class="chip ${USER.id===u.id?'on':''}" onclick="trocarUser('${u.id}')">${esc(u.nome.split(' ')[0])}</button>`).join('')}
       </div>
       <div style="margin-top:12px;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);line-height:1.55;color:var(--placa-2)">
-        Você está vendo como <b style="color:var(--placa)">${USER.nome}</b> (${USER.papel}).
+        Você está vendo como <b style="color:var(--placa)">${esc(USER.nome)}</b> (${esc(USER.papel)}).
         ${USER.verCustos?'Enxerga custo e lucro de cada carro.':'<b style="color:var(--ambar)">Não enxerga custo nem lucro</b> — só preço de venda.'}
         Tem acesso a ${USER.modulos.length} de ${MODULOS.length} telas.
       </div>
@@ -3621,8 +3623,8 @@ function vEquipe(){
             border:1px solid var(--linha-2);display:grid;place-items:center;font-size:var(--t-lab);
             font-weight:700;color:var(--placa-2);flex:none">${u.iniciais}</div>
           <div class="info">
-            <div class="nm">${u.nome}</div>
-            <div class="dt">${u.papel} · ${u.tel}</div>
+            <div class="nm">${esc(u.nome)}</div>
+            <div class="dt">${esc(u.papel)} · ${esc(u.tel)}</div>
             <div class="mt">
               <span class="pill blue">${u.modulos.length} telas</span>
               ${u.verCustos?'<span class="pill warn">vê custos</span>':'<span class="pill mute">sem custos</span>'}
@@ -3722,7 +3724,7 @@ function analisar(){
     const custoMes=custoTotal(v)*0.0135;
     const piso=Math.round((custoTotal(v)*1.06)/100)*100;
     out.push({tipo:d>90?'risk':'warn', peso:d>90?3:2,
-      titulo:`${v.marca} ${v.modelo} há ${d} dias no pátio`,
+      titulo:`${vNome(v)} há ${d} dias no pátio`,
       texto:`São <b>${BRL(custoTotal(v))}</b> parados, custando cerca de <b>${BRL(custoMes)}</b> por mês em capital imobilizado. Vender a <b>${BRL(piso)}</b> ainda deixa 6% de margem e libera dinheiro para dois carros de giro rápido.`});
   });
 
@@ -3731,13 +3733,13 @@ function analisar(){
   if(maior && custoTotal(maior)/m.capital>0.15){
     out.push({tipo:'risk',peso:3,
       titulo:`${PCT(custoTotal(maior)/m.capital*100)} do capital em um só carro`,
-      texto:`A ${maior.modelo} sozinha segura <b>${BRL(custoTotal(maior))}</b> do pátio. Se ela demorar, o caixa inteiro sente. Para o porte da loja, o ideal é nenhum veículo passar de 12% do estoque.`});
+      texto:`A ${esc(maior.modelo)} sozinha segura <b>${BRL(custoTotal(maior))}</b> do pátio. Se ela demorar, o caixa inteiro sente. Para o porte da loja, o ideal é nenhum veículo passar de 12% do estoque.`});
   }
 
   /* 3. margem abaixo do padrão */
   est.filter(v=>margemPct(v)<9).forEach(v=>{
     out.push({tipo:'warn',peso:1,
-      titulo:`Margem apertada na ${v.modelo}`,
+      titulo:`Margem apertada na ${esc(v.modelo)}`,
       texto:`Anunciada com <b>${PCT(margemPct(v))}</b> sobre o custo, contra ${PCT(m.margemMedia)} de média da loja. Sem espaço para negociar: qualquer desconto zera o lucro.`});
   });
 
@@ -3746,14 +3748,14 @@ function analisar(){
   if(atras.length){
     out.push({tipo:'risk',peso:3,
       titulo:`${atras.length} cliente(s) esperando retorno`,
-      texto:`${atras.map(l=>l.nome).join(', ')} passaram da data combinada, somando <b>${BRL(atras.reduce((s,l)=>s+l.orcamento,0))}</b> em orçamento. Lead de loja de carro esfria em 48 horas — essa é a venda mais barata que existe.`});
+      texto:`${atras.map(l=>esc(l.nome)).join(', ')} passaram da data combinada, somando <b>${BRL(atras.reduce((s,l)=>s+l.orcamento,0))}</b> em orçamento. Lead de loja de carro esfria em 48 horas — essa é a venda mais barata que existe.`});
   }
 
   /* 5. inadimplência no carnê */
   if(m.inadimplente.length){
     const k=m.inadimplente[0];
     out.push({tipo:'risk',peso:2,
-      titulo:`Carnê de ${k.cliente} com ${k.atraso} dias de atraso`,
+      titulo:`Carnê de ${esc(k.cliente)} com ${k.atraso} dias de atraso`,
       texto:`Restam <b>${BRL(pmt(k.financiado,k.taxa,k.parcelas)*(k.parcelas-k.pagas))}</b> a receber nesse contrato. Perfil ${k.score} entra em atraso em ~22% dos casos: acione hoje, antes de virar 30 dias.`});
   }
 
@@ -3786,19 +3788,19 @@ function analisar(){
   if(rej.length){
     out.push({tipo:'risk',peso:4,
       titulo:`${rej.length} nota fiscal rejeitada pela SEFAZ`,
-      texto:`A venda de <b>${rej[0].dest}</b> (${BRL(rej[0].valor)}) está sem documento fiscal válido. Enquanto não for corrigida, o carro não transfere e a receita não entra na contabilidade.`});
+      texto:`A venda de <b>${esc(rej[0].dest)}</b> (${BRL(rej[0].valor)}) está sem documento fiscal válido. Enquanto não for corrigida, o carro não transfere e a receita não entra na contabilidade.`});
   }
   const offs = DB.portais.filter(p=>!p.ativo);
   if(offs.length>=2){
     out.push({tipo:'opp',peso:2,
       titulo:`${offs.length} portais de anúncio desligados`,
-      texto:`${offs.map(p=>p.nome).join(' e ')} estão desconectados. Os ${DB.portais.filter(p=>p.ativo).length} ativos já trazem <b>${DB.portais.reduce((s,p)=>s+p.leads,0)} leads por mês</b> — ligar os demais custa apenas o plano de cada portal, e a publicação é automática.`});
+      texto:`${offs.map(p=>esc(p.nome)).join(' e ')} estão desconectados. Os ${DB.portais.filter(p=>p.ativo).length} ativos já trazem <b>${DB.portais.reduce((s,p)=>s+p.leads,0)} leads por mês</b> — ligar os demais custa apenas o plano de cada portal, e a publicação é automática.`});
   }
   const ctAg = DB.contratos.filter(c=>c.status==='aguardando');
   if(ctAg.length){
     out.push({tipo:'warn',peso:2,
       titulo:`${ctAg.length} contrato aguardando assinatura`,
-      texto:`${ctAg.map(c=>c.cliente).join(', ')} — <b>${BRL(ctAg.reduce((s,c)=>s+c.valor,0))}</b> em negócios que ainda não estão formalizados. Um lembrete pelo WhatsApp resolve na maioria dos casos.`});
+      texto:`${ctAg.map(c=>esc(c.cliente)).join(', ')} — <b>${BRL(ctAg.reduce((s,c)=>s+c.valor,0))}</b> em negócios que ainda não estão formalizados. Um lembrete pelo WhatsApp resolve na maioria dos casos.`});
   }
 
   /* 6. oportunidade: modelo que gira rápido */
@@ -4007,21 +4009,21 @@ function responder(q){
     `• Notas autorizadas: <b>${aut.length}</b>\n`+
     `• Rejeitadas: <b>${rj.length}</b>\n`+
     `• Próxima nota: nº ${DB.fiscal.proxNumero}\n\n<hr>`+
-    `${rj.length?`A nota de <b>${rj[0].dest}</b> foi rejeitada: ${rj[0].rejeicao}. Corrija na tela de Nota fiscal — leva um clique.`:'Nenhuma pendência fiscal. Toda venda lançada gera a nota automaticamente.'}`
+    `${rj.length?`A nota de <b>${esc(rj[0].dest)}</b> foi rejeitada: ${esc(rj[0].rejeicao)}. Corrija na tela de Nota fiscal — leva um clique.`:'Nenhuma pendência fiscal. Toda venda lançada gera a nota automaticamente.'}`
     + botaoIr('nfe', rj.length?'Corrigir a nota agora':'Abrir Nota fiscal');
   }
 
   if(tem('anúncio','anuncio','portal','portais','olx','webmotors','icarros','divulga')){
     const at=DB.portais.filter(p=>p.ativo), off=DB.portais.filter(p=>!p.ativo);
     return `Seus anúncios hoje:\n\n`+
-    at.map(p=>`• <b>${p.nome}</b> — ${p.publicados} carros, ${p.leads} leads`).join('\n')+
+    at.map(p=>`• <b>${esc(p.nome)}</b> — ${p.publicados} carros, ${p.leads} leads`).join('\n')+
     `\n\nTotal: <b>${at.reduce((s,p)=>s+p.leads,0)} contatos no mês</b>\n\n<hr>`+
-    `${off.length?`${off.map(p=>p.nome).join(' e ')} estão desligados. Cada portal a mais é vitrine nova sem trabalho extra.`:'Todos os portais conectados.'}` + botaoIr('anuncios');
+    `${off.length?`${off.map(p=>esc(p.nome)).join(' e ')} estão desligados. Cada portal a mais é vitrine nova sem trabalho extra.`:'Todos os portais conectados.'}` + botaoIr('anuncios');
   }
 
   if(tem('vendedor','equipe','permiss','acesso','funcionário','funcionario')){
     return `Sua equipe no sistema:\n\n`+
-    DB.usuarios.map(u=>`• <b>${u.nome}</b> (${u.papel}) — ${u.modulos.length} telas${u.verCustos?', vê custos':', sem acesso a custo'}`).join('\n')+
+    DB.usuarios.map(u=>`• <b>${esc(u.nome)}</b> (${esc(u.papel)}) — ${u.modulos.length} telas${u.verCustos?', vê custos':', sem acesso a custo'}`).join('\n')+
     `\n\n<hr>Vendedor não enxerga quanto a loja pagou no carro nem a margem — só o preço de venda e o quanto pode negociar.` + botaoIr('equipe','Abrir Equipe');
   }
 
@@ -4038,7 +4040,7 @@ function responder(q){
     `• Assinados: <b>${DB.contratos.filter(c=>c.status==='assinado').length}</b>\n`+
     `• Aguardando: <b>${ag.length}</b>\n`+
     `• Modelos disponíveis: compra e venda, consignação, carnê próprio e recibo de sinal\n\n<hr>`+
-    `${ag.length?`${ag.map(c=>c.cliente).join(', ')} ainda não assinou — são ${BRL(ag.reduce((s,c)=>s+c.valor,0))} em negócio não formalizado.`:'Tudo formalizado.'} O cliente assina pelo celular, sem imprimir e sem instalar aplicativo.` + botaoIr('contratos');
+    `${ag.length?`${ag.map(c=>esc(c.cliente)).join(', ')} ainda não assinou — são ${BRL(ag.reduce((s,c)=>s+c.valor,0))} em negócio não formalizado.`:'Tudo formalizado.'} O cliente assina pelo celular, sem imprimir e sem instalar aplicativo.` + botaoIr('contratos');
   }
 
   if(tem('site','vitrine','página','pagina','web')){
@@ -4074,7 +4076,7 @@ function responder(q){
   }
 
   if(tem('caixa','dinheiro parado','travando','capital','imobilizado')){
-    const p=m.parados.map(v=>`• ${v.marca} ${v.modelo} — ${BRL(custoTotal(v))}, ${dias(v.entrada)} dias`).join('\n');
+    const p=m.parados.map(v=>`• ${vNome(v)} — ${BRL(custoTotal(v))}, ${dias(v.entrada)} dias`).join('\n');
     return `O que está segurando seu caixa:\n\n${p||'Nada parado acima de 60 dias — pátio saudável.'}\n\n`+
     `Total travado: <b>${BRL(m.capitalParado)}</b> de <b>${BRL(m.capital)}</b> aplicados (${PCT(m.capitalParado/m.capital*100)}).\n\n<hr>`+
     `Girando esses carros com 6% de margem em vez de esperar o preço cheio, você libera capital para comprar ${Math.floor(m.capitalParado/70000)} carros na faixa de ${BRL(70000)}.` + botaoIr('estoque','Ver no estoque');
@@ -4103,7 +4105,7 @@ function responder(q){
     const at=DB.leads.filter(l=>!['fechado','perdido'].includes(l.etapa)&&l.proximo&&l.proximo<=dFwd(0));
     const prop=DB.leads.filter(l=>l.etapa==='proposta');
     return `Sua lista de hoje:\n\n`+
-      (at.length? at.map(l=>`• <b>${l.nome}</b> — ${l.interesse}, ${BRL(l.orcamento)}\n  ${l.obs}`).join('\n\n') : 'Nenhum follow-up vencido.')+
+      (at.length? at.map(l=>`• <b>${esc(l.nome)}</b> — ${esc(l.interesse)}, ${BRL(l.orcamento)}\n  ${esc(l.obs)}`).join('\n\n') : 'Nenhum follow-up vencido.')+
       `\n\n<hr>Em proposta aberta: ${prop.length} cliente(s), somando <b>${BRL(prop.reduce((s,l)=>s+l.orcamento,0))}</b>. Fechar duas dessas já resolve o mês.`
       + botaoIr('crm','Abrir o funil');
   }
@@ -4114,9 +4116,9 @@ function responder(q){
     return `Onde você pode dar desconto sem se machucar:\n\n`+
       m.est.slice().sort((a,b)=>dias(b.entrada)-dias(a.entrada)).slice(0,3).map(v=>{
         const p=Math.round((custoTotal(v)*1.06)/100)*100;
-        return `• <b>${v.modelo}</b> — anúncio ${BRL(v.alvo)}, piso ${BRL(p)} (espaço de ${BRL(v.alvo-p)})`;
+        return `• <b>${esc(v.modelo)}</b> — anúncio ${BRL(v.alvo)}, piso ${BRL(p)} (espaço de ${BRL(v.alvo-p)})`;
       }).join('\n')+
-      `\n\n<hr>Regra prática: nunca abaixo de 6% sobre o custo total. Na ${alvo.modelo}, isso significa fechar no mínimo em <b>${BRL(piso)}</b>.`;
+      `\n\n<hr>Regra prática: nunca abaixo de 6% sobre o custo total. Na ${esc(alvo.modelo)}, isso significa fechar no mínimo em <b>${BRL(piso)}</b>.`;
   }
 
   if(tem('carnê','carne','financiamento próprio','proprio','parcelar')){
