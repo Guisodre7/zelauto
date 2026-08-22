@@ -583,6 +583,15 @@ create policy subir_fotos on storage.objects
 Buckets `contratos` e `fiscal` ficam **privados**, com URL assinada de validade
 curta gerada por Edge Function.
 
+**Implementado (migration 0007) para `veiculos`:** o bucket `veiculos` também é
+**privado** — foto de carro é anúncio, mas o isolamento de leitura vale a decisão.
+Caminho dos objetos: `{loja_id}/{veiculo_id}/foto.jpg`, então
+`(storage.foldername(name))[1] = app.loja_id()::text`. Políticas de select,
+insert, **update e delete** (as duas últimas para trocar/remover a foto), todas
+restritas ao prefixo da loja. A coluna `veiculos.foto_url` guarda o **path** do
+objeto; o front resolve para **URL assinada** (`createSignedUrl`, ~1h) na
+exibição. O `authenticated` já tem `grant update(foto_url)` (seção 3.4).
+
 ---
 
 ## 4. Numeração fiscal — o único ponto que exige transação

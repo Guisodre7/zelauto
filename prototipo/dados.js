@@ -125,7 +125,50 @@ async function listarVeiculos() {
 
   const prep = {};
   for (const c of custos || []) prep[c.veiculo_id] = (prep[c.veiculo_id] || 0) + Number(c.valor);
-  return (veic || []).map(v => veiculoParaProto(v, prep));
+  const lista = (veic || []).map(v => veiculoParaProto(v, prep));
+
+  // foto: veiculoParaProto colocou o PATH (foto_url) em v.foto; troca por URL
+  // assinada (bucket privado). Uma chamada em lote (createSignedUrls) em vez de N.
+  const comFoto = lista.filter(v => v.foto);
+  if (comFoto.length) {
+    const { data: assinadas } = await sb.storage.from('veiculos')
+      .createSignedUrls(comFoto.map(v => v.foto), FOTO_TTL);
+    const mapa = {};
+    for (const a of assinadas || []) if (a && a.path && a.signedUrl) mapa[a.path] = a.signedUrl;
+    for (const v of lista) v.foto = v.foto ? (mapa[v.foto] || '') : '';
+  }
+  return lista;
+}
+
+/* Foto: bucket privado 'veiculos', caminho {loja_id}/{veiculo_id}/foto.jpg */
+const FOTO_TTL = 60 * 60 * 24;   // 24h: cobre um turno inteiro sem a foto quebrar
+
+function dataUrlParaBlob(dataUrl) {
+  const [meta, b64] = String(dataUrl).split(',');
+  if (!b64) throw new Error('imagem inválida (dataURL sem conteúdo)');
+  const mime = (meta.match(/data:(.*?);/) || [])[1] || 'image/jpeg';
+  const bin = atob(b64); const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+async function urlFotoVeiculo(path) {
+  if (!path) return '';
+  const { data, error } = await sb.storage.from('veiculos').createSignedUrl(path, FOTO_TTL);
+  if (error) return '';
+  return data.signedUrl;
+}
+
+async function subirFotoVeiculo(veiculoId, dataUrl) {
+  const { lojaId } = exigirContexto();
+  const blob = dataUrlParaBlob(dataUrl);
+  const path = `${lojaId}/${veiculoId}/foto.jpg`;
+  const { error: upErr } = await sb.storage.from('veiculos')
+    .upload(path, blob, { upsert: true, contentType: blob.type || 'image/jpeg' });
+  if (upErr) throw upErr;
+  const { error: updErr } = await sb.from('veiculos').update({ foto_url: path }).eq('id', veiculoId);
+  if (updErr) throw updErr;
+  return await urlFotoVeiculo(path);
 }
 
 async function salvarVeiculo(v) {
@@ -150,10 +193,13 @@ async function salvarVeiculo(v) {
       .insert({ loja_id: lojaId, veiculo_id: salvo.id, descricao: 'Preparação', categoria: 'preparacao', valor: prep });
     if (error) throw error;
   }
-  return salvo.id;
+  return { id: salvo.id, entrada: salvo.entrada_em };   // devolve a data real do banco
 }
 
 async function removerVeiculo(id) {
+  const { lojaId } = exigirContexto();
+  // remove também a foto do Storage (evita objeto órfão no bucket privado)
+  await sb.storage.from('veiculos').remove([`${lojaId}/${id}/foto.jpg`]);
   const { error } = await sb.from('veiculos').delete().eq('id', id);
   if (error) throw error;
 }
@@ -291,7 +337,7 @@ window.Dados = {
   // conexão / sessão
   entrar, sair, sessaoAtual, carregarPerfil, contexto,
   // veículos
-  listarVeiculos, salvarVeiculo, removerVeiculo,
+  listarVeiculos, salvarVeiculo, removerVeiculo, subirFotoVeiculo,
   // clientes
   listarClientes, salvarCliente, removerCliente,
   // vendas

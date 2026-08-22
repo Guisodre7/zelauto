@@ -109,6 +109,11 @@ insert into public.auditoria (loja_id, tabela, acao) values
   ('11111111-1111-1111-1111-111111111111','veiculos','insert'),
   ('22222222-2222-2222-2222-222222222222','veiculos','insert');
 
+-- storage (bucket 'veiculos' criado na 0007) — uma foto por loja
+insert into storage.objects (bucket_id, name) values
+  ('veiculos','11111111-1111-1111-1111-111111111111/va/foto.jpg'),
+  ('veiculos','22222222-2222-2222-2222-222222222222/vb/foto.jpg');
+
 -- -----------------------------------------------------------------------------
 -- Assume o token da Loja A (proprietario)
 -- -----------------------------------------------------------------------------
@@ -339,6 +344,20 @@ select throws_ok(
   $$ insert into public.perfis (id, loja_id, nome)
      values ('cccc3333-3333-3333-3333-333333333333','33333333-3333-3333-3333-333333333333','x') $$,
   '42501', 'perfis: A não grava em outra loja');
+
+-- storage (bucket veiculos): leitura e escrita de fotos isoladas por loja
+select isnt((select count(*) from storage.objects
+              where bucket_id='veiculos'
+                and (storage.foldername(name))[1]='11111111-1111-1111-1111-111111111111'), 0::bigint,
+            'storage: A vê a própria foto');
+select is((select count(*) from storage.objects
+            where bucket_id='veiculos'
+              and (storage.foldername(name))[1]='22222222-2222-2222-2222-222222222222'), 0::bigint,
+          'storage: A não vê foto da B');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name)
+     values ('veiculos','33333333-3333-3333-3333-333333333333/x/foto.jpg') $$,
+  '42501', 'storage: A não grava foto em outra loja');
 
 -- -----------------------------------------------------------------------------
 -- Controles positivos de escrita: A grava na própria loja
