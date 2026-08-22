@@ -434,6 +434,14 @@ grant usage  on schema public to supabase_auth_admin;
 grant execute on function public.custom_access_token_hook to supabase_auth_admin;
 revoke execute on function public.custom_access_token_hook from authenticated, anon, public;
 grant select on public.perfis to supabase_auth_admin;
+
+-- IMPORTANTE: perfis tem `force row level security`, então o GRANT acima NÃO
+-- basta — o hook (que roda como supabase_auth_admin) precisa de uma POLÍTICA
+-- para ler perfis. Sem ela, o JWT sai sem loja_id, app.loja_id() vira null e o
+-- usuário nem enxerga o próprio perfil (login retorna 406). Aplicada na 0006.
+create policy hook_auth_le_perfis on public.perfis
+  as permissive for select to supabase_auth_admin
+  using (true);
 ```
 
 Depois: **Dashboard → Authentication → Hooks → Customize Access Token → ativar.**
@@ -846,6 +854,8 @@ Cole um por vez. Não peça tudo de uma vez.
 | Schema alterado pelo painel | Dev e produção divergem | Só migration versionada |
 | Schema novo (ex.: `app`) sem `grant usage` ao `authenticated` | Toda leitura/escrita quebra com 42501 — a política não consegue chamar `app.loja_id()` | `grant usage on schema app to authenticated` + `grant execute` nas funções (migration 0003) |
 | Verificar RLS só como superuser/painel | O superuser ignora RLS; o bug do `authenticated` passa batido | Teste de isolamento rodando com `set role authenticated` |
+| Hook do token sob `force RLS` sem política para `supabase_auth_admin` | O hook não lê `perfis`, o JWT sai sem `loja_id` e o login volta 406 | Política `for select to supabase_auth_admin using (true)` (migration 0006) |
+| Testar só com `set request.jwt.claims` na mão | Pula o hook; o furo do hook só aparece no login real ponta-a-ponta | Fazer um login de verdade antes de dar o passo por pronto |
 | Vender NF-e antes de existir | Cliente cobra o que não há | Fase 4, módulo à parte |
 
 ---
