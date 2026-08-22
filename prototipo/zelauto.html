@@ -2407,10 +2407,16 @@ function formDespesa(){
     <div class="field" style="margin-bottom:0"><label>Valor mensal</label><input type="number" id="dpValor" placeholder="1200"></div>`,
     `<button class="btn" data-close-modal>Cancelar</button><button class="btn pri" onclick="salvarDespesa()">Lançar</button>`);
 }
-function salvarDespesa(){
+async function salvarDespesa(){
   const desc=val('dpDesc'), valor=numVal('dpValor');
   if(!desc||!valor){ toast('Informe descrição e valor'); return; }
-  DB.despesas.push({id:uid(),cat:val('dpCat'),desc,valor,tipo:val('dpTipo'),dia:0});
+  // Item 8: grava a despesa no Supabase antes de mexer na memória.
+  const despesa={ cat:val('dpCat'), desc, valor, tipo:val('dpTipo'), dia:0 };
+  let id;
+  try{
+    id = await Dados.salvarDespesa(despesa);
+  }catch(e){ toast('Erro ao lançar a despesa: '+(e.message||e)); return; }
+  DB.despesas.push({ id, ...despesa });
   fecharModal(); go('despesas'); toast('Despesa lançada');
 }
 
@@ -4341,6 +4347,7 @@ atualizarTags();
     const pVeic = Dados.listarVeiculos();
     const pCli  = Dados.listarClientes();
     const pVend = Dados.listarVendas();
+    const pDesp = Dados.listarDespesas();
     try{ DB.veiculos = await pVeic; }
     catch(e){
       console.error('[ZelAuto] falha ao carregar veículos do banco:', e);
@@ -4358,6 +4365,12 @@ atualizarTags();
       console.error('[ZelAuto] falha ao carregar vendas do banco:', e);
       DB.vendas = [];
       if(typeof toast==='function') toast('Não consegui carregar as vendas. Verifique a conexão e recarregue.');
+    }
+    try{ DB.despesas = await pDesp; }
+    catch(e){
+      console.error('[ZelAuto] falha ao carregar despesas do banco:', e);
+      DB.despesas = [];
+      if(typeof toast==='function') toast('Não consegui carregar as despesas. Verifique a conexão e recarregue.');
     }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
