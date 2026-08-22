@@ -2261,13 +2261,18 @@ function formVeiculo(){
     ${campoFoto('nvFoto')}`,
     `<button class="btn" data-close-modal>Cancelar</button><button class="btn pri" onclick="salvarVeiculo()">Salvar no estoque</button>`);
 }
-function salvarVeiculo(){
+async function salvarVeiculo(){
   const marca=val('nvMarca'), modelo=val('nvModelo'), compra=numVal('nvCompra'), alvo=numVal('nvAlvo');
   if(!marca||!modelo||!compra||!alvo){ toast('Preencha marca, modelo, valor pago e preço de anúncio'); return; }
-  DB.veiculos.push({id:uid(),marca,modelo,ano:val('nvAno')||'—',km:numVal('nvKm'),
-    placa:(val('nvPlaca')||'ABC0A00').toUpperCase(),cor:val('nvCor')||'—',
-    compra,prep:numVal('nvPrep'),alvo,entrada:dFwd(0),status:'estoque',
-    foto:window.__foto_nvFoto||''});
+  // Item 7: grava de verdade no Supabase e re-hidrata o pátio a partir do banco.
+  // (foto ainda é passo de Storage; venda tem passo próprio.)
+  const novo={ marca, modelo, ano:val('nvAno')||'', km:numVal('nvKm'),
+    placa:(val('nvPlaca')||'').toUpperCase(), cor:val('nvCor')||'',
+    compra, prep:numVal('nvPrep'), alvo, status:'estoque' };
+  try{
+    await Dados.salvarVeiculo(novo);
+    DB.veiculos = await Dados.listarVeiculos();
+  }catch(e){ toast('Erro ao salvar: '+(e.message||e)); return; }
   window.__foto_nvFoto='';
   fecharModal(); go('estoque'); atualizarTags();
   toast(`${marca} ${modelo} entrou no pátio`);
@@ -4289,6 +4294,9 @@ atualizarTags();
     USER = perfil;                                  // reatribui o global do protótipo
     USER.papel = LABELS[perfil.papel] || perfil.papel;
     if(!USER.iniciais) USER.iniciais = (USER.nome||'?').trim().slice(0,2).toUpperCase();
+    // Item 7: veículos vêm do banco. As demais telas seguem no DB em memória.
+    try{ DB.veiculos = await Dados.listarVeiculos(); }
+    catch(e){ console.warn('[ZelAuto] não carreguei veículos do banco, mantendo dados locais:', e); }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');
