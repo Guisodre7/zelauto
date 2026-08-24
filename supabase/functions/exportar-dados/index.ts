@@ -33,6 +33,9 @@ function paraCsv(rows: any[]): string {
   const esc = (v: unknown) => {
     if (v == null) return '';
     let s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+    // anti CSV-injection: uma célula que começa com =,+,-,@ (ou tab/CR) é tratada
+    // como fórmula por Excel/Sheets. Prefixa com apóstrofo para desarmar.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
     return s;
   };
@@ -65,15 +68,17 @@ Deno.serve(async (req) => {
 
   // um CSV por tabela, sempre da loja do chamador
   const arquivos: Record<string, Uint8Array> = {};
+  const falhas: string[] = [];
   for (const t of TABELAS) {
     const { data, error } = await admin.from(t).select('*').eq('loja_id', caller.loja_id);
-    if (error) continue;   // tabela ausente/sem loja_id não derruba o export
+    if (error) { falhas.push(`${t}: ${error.message}`); continue; }
     arquivos[`${t}.csv`] = strToU8(paraCsv(data || []));
   }
-  // um resumo no topo do zip
+  // resumo no topo do zip — inclui as tabelas que falharam, para não sumir em silêncio
   arquivos['_leia-me.txt'] = strToU8(
     `Exportação ZelAuto\nLoja: ${caller.loja_id}\nGerado em: ${new Date().toISOString()}\n` +
-    `Tabelas: ${Object.keys(arquivos).filter((n) => n.endsWith('.csv')).join(', ')}\n`,
+    `Tabelas exportadas: ${Object.keys(arquivos).filter((n) => n.endsWith('.csv')).join(', ')}\n` +
+    (falhas.length ? `\nATENÇÃO — tabelas que falharam (rode de novo):\n- ${falhas.join('\n- ')}\n` : 'Todas as tabelas exportadas com sucesso.\n'),
   );
 
   const zipped = zipSync(arquivos, { level: 6 });

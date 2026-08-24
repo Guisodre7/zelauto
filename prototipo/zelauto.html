@@ -1716,7 +1716,7 @@ function vVendas(){
     <div class="card">
       ${DB.vendas.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(s=>{
         const lucro=(s.valor-s.custo)+s.retornoBanco-s.comissao;
-        const pct=(s.valor-s.custo)/s.custo*100;
+        const pct=s.custo?((s.valor-s.custo)/s.custo*100):0;
         const f=formas[s.forma];
         return `<div class="veic">
           ${thumb({marca:s.desc.split(' ')[0],modelo:s.desc,placa:s.placa,foto:s.foto})}

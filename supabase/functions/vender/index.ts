@@ -4,8 +4,8 @@
 // Grava a venda no servidor, congelando o CUSTO real do veículo (compra +
 // preparação) no momento da venda. Necessário porque o custo foi tirado do
 // acesso do vendedor (0009/0010): ele não conseguiria calcular custo_total no
-// cliente. Também marca o veículo como vendido — os dois passos num lugar só,
-// sem meio-estado.
+// cliente. Também marca o veículo como vendido (venda primeiro, depois a baixa)
+// e barra vender um carro já vendido.
 //
 // Autorização: qualquer perfil ativo da loja pode registrar uma venda (o
 // vendedor fecha o negócio). A loja e o vendedor saem do JWT, nunca do corpo.
@@ -62,10 +62,11 @@ Deno.serve(async (req) => {
   let placa = body.placa ? String(body.placa) : null;
   if (veiculoId) {
     const { data: v, error: vErr } = await admin
-      .from('veiculos').select('id, marca, modelo, ano_fab, placa, compra, loja_id')
+      .from('veiculos').select('id, marca, modelo, ano_fab, placa, compra, loja_id, status')
       .eq('id', veiculoId).single();
     if (vErr || !v) return json({ error: 'veículo não encontrado' }, 404);
     if (v.loja_id !== caller.loja_id) return json({ error: 'veículo de outra loja' }, 403);
+    if (v.status === 'vendido') return json({ error: 'este veículo já foi vendido' }, 409);
     const { data: custos } = await admin
       .from('veiculo_custos').select('valor')
       .eq('veiculo_id', v.id).eq('categoria', 'preparacao');
@@ -92,7 +93,11 @@ Deno.serve(async (req) => {
   }).select('id').single();
   if (iErr) return json({ error: 'falha ao registrar a venda: ' + iErr.message }, 400);
 
-  // tira o carro do pátio
+  // Baixa o carro. São dois statements (a venda já foi inserida acima) — não é
+  // uma transação única. A ordem é proposital: se este passo falhar, resta uma
+  // venda real gravada com o carro ainda em estoque (recuperável), nunca um carro
+  // baixado sem venda. Só ocorre em falha rara (o guard de status já barra a
+  // venda dupla). Se precisar de atomicidade estrita, vira um RPC transacional.
   if (veiculoId) {
     const { error: upErr } = await admin.from('veiculos').update({ status: 'vendido' }).eq('id', veiculoId);
     if (upErr) return json({ error: 'venda gravada, mas falha ao baixar o veículo: ' + upErr.message }, 400);

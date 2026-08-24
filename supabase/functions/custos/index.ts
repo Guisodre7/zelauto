@@ -37,13 +37,16 @@ Deno.serve(async (req) => {
 
   const admin = createClient(URL, SERVICE);
   const { data: caller, error: cErr } = await admin
-    .from('perfis').select('loja_id, papel, ver_custos, ativo').eq('id', user.id).single();
+    .from('perfis').select('loja_id, papel, ver_custos, ver_lucro, ativo').eq('id', user.id).single();
   if (cErr || !caller) return json({ error: 'perfil não encontrado' }, 403);
   if (!caller.ativo) return json({ error: 'perfil inativo' }, 403);
 
-  // Sem permissão de custo → devolve mapa vazio (não é erro; o front segue sem custo).
-  const pode = caller.ver_custos === true || ['proprietario', 'gerente'].includes(caller.papel);
-  if (!pode) return json({ custos: {} });
+  // Sem permissão → mapas vazios (não é erro; o front segue sem custo).
+  // ver_lucro TAMBÉM libera o custo: o lucro não fecha sem o custo (e revelaria
+  // o custo de qualquer jeito, valor − lucro). Então quem vê lucro precisa do custo.
+  const pode = caller.ver_custos === true || caller.ver_lucro === true
+    || ['proprietario', 'gerente'].includes(caller.papel);
+  if (!pode) return json({ custos: {}, vendas: {} });
 
   // compra por veículo + preparação somada, sempre da loja do chamador.
   const { data: veic, error: vErr } = await admin

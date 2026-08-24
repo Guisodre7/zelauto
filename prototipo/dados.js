@@ -121,10 +121,18 @@ const VEIC_COLS = 'id, loja_id, marca, modelo, ano_fab, ano_mod, km, placa, chas
 /* Custo (compra/preparação dos veículos e custo_total das vendas) vem só pela
    Edge Function `custos`, que confere a permissão do perfil. Sem permissão,
    devolve mapas vazios e o app segue sem custo. */
+let _custosEmVoo = null;
 async function custosDaLoja() {
-  const { data, error } = await sb.functions.invoke('custos', { body: {} });
-  if (error) return { custos: {}, vendas: {} };
-  return { custos: (data && data.custos) || {}, vendas: (data && data.vendas) || {} };
+  // dedupe: no login, listarVeiculos e listarVendas chamam isto em paralelo —
+  // uma requisição em voo é compartilhada. Limpa ao concluir (edições futuras
+  // buscam de novo).
+  if (_custosEmVoo) return _custosEmVoo;
+  _custosEmVoo = (async () => {
+    const { data, error } = await sb.functions.invoke('custos', { body: {} });
+    if (error) return { custos: {}, vendas: {} };
+    return { custos: (data && data.custos) || {}, vendas: (data && data.vendas) || {} };
+  })().finally(() => { _custosEmVoo = null; });
+  return _custosEmVoo;
 }
 
 async function listarVeiculos() {
@@ -450,7 +458,7 @@ async function mensagemErroFn(error) {
       if (j && j.error) return j.error;
     }
   } catch (_) { /* ignora */ }
-  return (error && error.message) || 'erro na gestão de equipe';
+  return (error && error.message) || 'não foi possível concluir a operação';
 }
 
 async function criarMembro(m) {
