@@ -559,6 +559,14 @@ grant update (compra, entrada_em, status, origem)
 > mais simples na fase 1: manter o filtro no frontend e aceitar que é
 > conveniência, não segurança — **e não prometer ao cliente que é segurança.**
 
+> **Implementado (migration 0009, seção 5.5):** custo virou segurança de verdade.
+> `veiculos.compra` e a tabela `veiculo_custos` tiveram o SELECT **removido do
+> papel `authenticated`** (privilégio de coluna/tabela). Como dono e vendedor são
+> o mesmo papel de banco, o custo some para todos no acesso via API e volta só
+> pela Edge Function `custos`, que confere `ver_custos`/papel do perfil e devolve
+> compra + preparação escopados à loja. Testes de isolamento cobrem o SELECT
+> negado. O isolamento entre lojas segue sendo a RLS — isto é o reforço interno.
+
 ### 3.5 Storage
 
 Um bucket por finalidade, caminho começando pelo `loja_id`.
@@ -724,6 +732,27 @@ Segredos: a função usa `SUPABASE_SERVICE_ROLE_KEY` e `SUPABASE_URL`, injetados
 automaticamente no runtime da Edge Function. **Nada de service_role no front.**
 
 Deploy: `supabase functions deploy equipe`.
+
+### 5.5 Edge Function `custos` — custo só para quem pode ver
+
+A migration 0009 tira `veiculos.compra` e a tabela `veiculo_custos` do SELECT do
+papel `authenticated`. Como dono e vendedor compartilham esse papel (o que os
+separa é o token, que a RLS usa para LINHAS, não colunas), esconder o custo por
+privilégio some com ele para todos no cliente. A Edge Function `custos` devolve o
+custo de volta só para quem pode:
+
+- Autentica o chamador pelo JWT, lê o perfil dele com `service_role`.
+- Se `ver_custos = true` **ou** papel ∈ {proprietario, gerente}: devolve
+  `{ custos: { veiculo_id: { compra, prep } } }` da loja do chamador.
+- Senão: devolve `{ custos: {} }` (não é erro; o pátio segue sem custo).
+
+O front (`listarVeiculos`) lê os veículos **sem** `compra`, chama `custos` e
+funde compra/preparação para quem tem direito. Gravação de custo continua na
+tabela por insert/update (o `.select()` do RETURNING foi restringido a `id`/
+`entrada_em`, senão bateria no SELECT negado de `compra`). Escrita de `compra`
+segue com o grant de update por coluna (§3.4).
+
+Deploy: `supabase functions deploy custos`.
 
 ---
 

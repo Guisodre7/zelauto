@@ -94,7 +94,9 @@ function veiculoParaProto(v, prepPorVeiculo) {
     ano: (v.ano_fab && v.ano_mod) ? `${v.ano_fab}/${v.ano_mod}`
         : (v.ano_fab ? String(v.ano_fab) : ''),
     km: v.km, placa: v.placa || '', cor: v.cor || '',
-    compra: Number(v.compra), alvo: Number(v.alvo),
+    // compra não vem no SELECT (privilégio removido na 0009); entra no merge do
+    // custo via Edge Function para quem pode ver. Default 0 para não dar NaN.
+    compra: v.compra == null ? 0 : Number(v.compra), alvo: Number(v.alvo),
     prep: prepPorVeiculo[v.id] || 0,
     entrada: v.entrada_em, status: v.status,
     foto: v.foto_url || '',            // mapeado p/ quando o Storage entrar
@@ -113,19 +115,30 @@ function veiculoParaBanco(v) {
   };
 }
 
+// Colunas de veículos legíveis pelo authenticated (compra ficou de fora na 0009).
+const VEIC_COLS = 'id, loja_id, marca, modelo, ano_fab, ano_mod, km, placa, chassi, renavam, cor, alvo, entrada_em, status, renave_fase, foto_url, origem, criado_por, criado_em, atualizado_em';
+
+/* Custo (compra + preparação) vem só pela Edge Function `custos`, que confere a
+   permissão do perfil. Sem permissão, devolve {} e o pátio segue sem custo. */
+async function custosVeiculos() {
+  const { data, error } = await sb.functions.invoke('custos', { body: {} });
+  if (error) return {};
+  return (data && data.custos) || {};
+}
+
 async function listarVeiculos() {
   const { lojaId } = exigirContexto();
   const { data: veic, error } = await sb.from('veiculos')
-    .select('*').eq('loja_id', lojaId).order('entrada_em', { ascending: false });
+    .select(VEIC_COLS).eq('loja_id', lojaId).order('entrada_em', { ascending: false });
   if (error) throw error;
 
-  const { data: custos, error: e2 } = await sb.from('veiculo_custos')
-    .select('veiculo_id, valor, categoria').eq('loja_id', lojaId).eq('categoria', 'preparacao');
-  if (e2) throw e2;
+  const lista = (veic || []).map(v => veiculoParaProto(v, {}));  // custo entra no merge
 
-  const prep = {};
-  for (const c of custos || []) prep[c.veiculo_id] = (prep[c.veiculo_id] || 0) + Number(c.valor);
-  const lista = (veic || []).map(v => veiculoParaProto(v, prep));
+  // funde compra/prep para quem pode ver custo (Edge Function service_role)
+  try {
+    const mapa = await custosVeiculos();
+    for (const v of lista) { const c = mapa[v.id]; if (c) { v.compra = Number(c.compra) || 0; v.prep = Number(c.prep) || 0; } }
+  } catch (_) { /* sem custo visível: segue com 0 */ }
 
   // foto: veiculoParaProto colocou o PATH (foto_url) em v.foto; troca por URL
   // assinada (bucket privado). Uma chamada em lote (createSignedUrls) em vez de N.
@@ -176,12 +189,14 @@ async function salvarVeiculo(v) {
   const row = veiculoParaBanco(v);
   let salvo;
 
+  // RETURNING só id e entrada_em: `compra` perdeu o SELECT na 0009, então um
+  // .select() cheio (RETURNING *) seria negado por privilégio de coluna.
   if (ehUuid(v.id)) {
-    const { data, error } = await sb.from('veiculos').update(row).eq('id', v.id).select().single();
+    const { data, error } = await sb.from('veiculos').update(row).eq('id', v.id).select('id, entrada_em').single();
     if (error) throw error; salvo = data;
   } else {
     const { data, error } = await sb.from('veiculos')
-      .insert({ ...row, loja_id: lojaId, criado_por: userId }).select().single();
+      .insert({ ...row, loja_id: lojaId, criado_por: userId }).select('id, entrada_em').single();
     if (error) throw error; salvo = data;
   }
 
@@ -465,6 +480,8 @@ window.Dados = {
   listarVendas, salvarVenda,
   // despesas
   listarDespesas, salvarDespesa, removerDespesa,
+  // custos (Edge Function)
+  custosVeiculos,
   // equipe / perfis
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // acesso cru ao client, se precisar

@@ -152,17 +152,22 @@ select throws_ok(
      values ('33333333-3333-3333-3333-333333333333','X','Y') $$,
   '42501', 'veiculos: A não grava em outra loja');
 
--- veiculo_custos
-select isnt((select count(*) from public.veiculo_custos
-              where loja_id='11111111-1111-1111-1111-111111111111'), 0::bigint,
-            'veiculo_custos: A vê os próprios');
-select is((select count(*) from public.veiculo_custos
-            where loja_id='22222222-2222-2222-2222-222222222222'), 0::bigint,
-          'veiculo_custos: A não vê os da B');
+-- veiculo_custos — 0009: leitura tirada do authenticated (custo só via Edge Function)
+select throws_ok(
+  $$ select valor from public.veiculo_custos limit 1 $$,
+  '42501', 'veiculo_custos: SELECT negado ao authenticated (0009)');
 select throws_ok(
   $$ insert into public.veiculo_custos (loja_id, veiculo_id, descricao, valor)
      values ('33333333-3333-3333-3333-333333333333','b0000000-0000-0000-0000-0000000000b1','x',1) $$,
   '42501', 'veiculo_custos: A não grava em outra loja');
+
+-- veiculos.compra — 0009: coluna de custo tirada do authenticated; o resto legível
+select throws_ok(
+  $$ select compra from public.veiculos limit 1 $$,
+  '42501', 'veiculos.compra: SELECT negado ao authenticated (0009)');
+select lives_ok(
+  $$ select id, alvo, marca from public.veiculos limit 1 $$,
+  'veiculos: colunas sem custo seguem legíveis');
 
 -- consignacoes
 select isnt((select count(*) from public.consignacoes

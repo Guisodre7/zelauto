@@ -172,10 +172,13 @@ insert into _res(verifica,ok,detalhe) select 'veiculos: A vê os próprios', (co
 insert into _res(verifica,ok,detalhe) select 'veiculos: A não vê os da B', (count(*)=0), 'linhas='||count(*) from public.veiculos where loja_id='22222222-2222-2222-2222-222222222222';
 insert into _res(verifica,ok,detalhe) select 'veiculos: A não grava em outra loja', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.veiculos (loja_id,marca,modelo) values ('33333333-3333-3333-3333-333333333333','X','Y')$$) r) t;
 
--- veiculo_custos
-insert into _res(verifica,ok,detalhe) select 'veiculo_custos: A vê os próprios', (count(*)>0), 'linhas='||count(*) from public.veiculo_custos where loja_id='11111111-1111-1111-1111-111111111111';
-insert into _res(verifica,ok,detalhe) select 'veiculo_custos: A não vê os da B', (count(*)=0), 'linhas='||count(*) from public.veiculo_custos where loja_id='22222222-2222-2222-2222-222222222222';
+-- veiculo_custos — 0009: leitura tirada do authenticated (custo só via Edge Function)
+insert into _res(verifica,ok,detalhe) select 'veiculo_custos: SELECT negado ao authenticated (0009)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$select valor from public.veiculo_custos limit 1$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'veiculo_custos: A não grava em outra loja', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.veiculo_custos (loja_id,veiculo_id,descricao,valor) values ('33333333-3333-3333-3333-333333333333','b0000000-0000-0000-0000-0000000000b1','x',1)$$) r) t;
+
+-- veiculos.compra — 0009: coluna de custo tirada do authenticated; o resto segue legível
+insert into _res(verifica,ok,detalhe) select 'veiculos.compra: SELECT negado ao authenticated (0009)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$select compra from public.veiculos limit 1$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'veiculos: colunas sem custo seguem legíveis', (r='OK_SEM_ERRO'), r from (select pg_temp.tenta($$select id, alvo, marca from public.veiculos limit 1$$) r) t;
 
 -- consignacoes
 insert into _res(verifica,ok,detalhe) select 'consignacoes: A vê as próprias', (count(*)>0), 'linhas='||count(*) from public.consignacoes where loja_id='11111111-1111-1111-1111-111111111111';

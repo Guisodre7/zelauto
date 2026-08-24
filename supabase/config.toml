@@ -12,3 +12,7 @@
 # no lugar certo.
 [functions.equipe]
 verify_jwt = false
+
+# A função `custos` também verifica a autenticação por dentro (getUser + perfil).
+[functions.custos]
+verify_jwt = false
