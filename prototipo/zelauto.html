@@ -1577,8 +1577,57 @@ function detVeiculo(id){
         ? `Ainda dentro do prazo, mas passando do giro médio da loja (${Math.round(M().giro)} dias). Vale reforçar o anúncio antes de mexer no preço.`
         : `Dentro do giro saudável. Segure o preço: há margem de <b style="color:#5FD3A6">${PCT(mp)}</b> e o carro é novo de pátio.`}
     </div>`,
-    `<button class="btn" onclick="trocarFoto('${v.id}')">${v.foto?'Trocar foto':'Adicionar foto'}</button>
-     <button class="btn pri" onclick="fecharModal();formVenda('${v.id}')">Vender este carro</button>`);
+    `<button class="btn" onclick="editarVeiculo('${v.id}')">Editar</button>
+     <button class="btn" onclick="trocarFoto('${v.id}')">${v.foto?'Trocar foto':'Adicionar foto'}</button>
+     <button class="btn pri" onclick="fecharModal();formVenda('${v.id}')">Vender</button>`);
+}
+
+/* Edição do veículo. marca/modelo/ano/placa são imutáveis pelo cliente (sem
+   grant de update, §3.4) — mostramos só como referência. Custo e preparação só
+   aparecem para quem vê custos, e só então são enviados. */
+function editarVeiculo(id){
+  const v=DB.veiculos.find(x=>x.id===id); if(!v) return;
+  modal(`Editar ${v.marca} ${v.modelo}`,`
+    <div style="font-size:var(--t-sup);color:var(--placa-3);margin-bottom:12px">
+      ${esc(v.marca)} ${esc(v.modelo)} · ${esc(v.ano)} · ${esc(v.placa||'sem placa')}
+      <span style="opacity:.7">(identidade não editável)</span></div>
+    <div class="f2">
+      <div class="field"><label>Quilometragem</label><input type="number" id="edKm" value="${esc(v.km||0)}"></div>
+      <div class="field"><label>Cor</label><input id="edCor" value="${esc(v.cor||'')}"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Preço de anúncio</label><input type="number" id="edAlvo" value="${esc(v.alvo||0)}"></div>
+      <div class="field"><label>Situação</label><select id="edStatus">
+        ${[['estoque','No pátio'],['vendido','Vendido'],['devolvido','Devolvido']].map(([k,n])=>`<option value="${k}" ${v.status===k?'selected':''}>${n}</option>`).join('')}
+      </select></div>
+    </div>
+    ${USER.verCustos?`<div class="f2">
+      <div class="field"><label>Valor pago</label><input type="number" id="edCompra" value="${esc(v.compra||0)}"></div>
+      <div class="field"><label>Preparação</label><input type="number" id="edPrep" value="${esc(v.prep||0)}"></div>
+    </div>`:''}`,
+    `<button class="btn" data-close-modal>Cancelar</button>
+     <button class="btn pri" id="edSalvar" onclick="salvarEdicaoVeiculo('${id}')">Salvar alterações</button>`);
+}
+let salvandoVeic=false;
+async function salvarEdicaoVeiculo(id){
+  if(salvandoVeic) return;
+  const v=DB.veiculos.find(x=>x.id===id); if(!v) return;
+  const campos={ km:numVal('edKm'), cor:val('edCor'), alvo:numVal('edAlvo'), status:val('edStatus') };
+  if(USER.verCustos){ campos.compra=numVal('edCompra'); campos.prep=numVal('edPrep'); }
+  const btn=document.getElementById('edSalvar');
+  salvandoVeic=true; if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  try{
+    await Dados.atualizarVeiculo(id, campos);
+  }catch(e){
+    toast('Erro ao salvar: '+(e.message||e));
+    if(btn){ btn.disabled=false; btn.textContent='Salvar alterações'; }
+    salvandoVeic=false; return;
+  }
+  // reflete em memória só depois de persistir
+  v.km=campos.km; v.cor=campos.cor; v.alvo=campos.alvo; v.status=campos.status;
+  if(USER.verCustos){ v.compra=campos.compra; v.prep=campos.prep; }
+  salvandoVeic=false;
+  fecharModal(); render('estoque'); atualizarTags(); toast('Veículo atualizado');
 }
 
 function trocarFoto(id){

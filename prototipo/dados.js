@@ -196,6 +196,36 @@ async function salvarVeiculo(v) {
   return { id: salvo.id, entrada: salvo.entrada_em };   // devolve a data real do banco
 }
 
+/* Edição de veículo: atualiza SÓ os campos enviados (whitelist das colunas que o
+   authenticated tem privilégio de UPDATE: km, cor, alvo, status, compra). Não usa
+   o mapeador cheio de propósito — assim, quando quem edita não vê custo, compra e
+   prep simplesmente não são enviados e ficam intactos (nada de zerar). marca,
+   modelo, ano e placa são imutáveis pelo cliente (sem grant de update). */
+async function atualizarVeiculo(id, campos) {
+  const row = {};
+  if (campos.km    != null) row.km     = num(campos.km);
+  if (campos.cor   != null) row.cor    = campos.cor || null;
+  if (campos.alvo  != null) row.alvo   = num(campos.alvo) ?? 0;
+  if (campos.status!= null) row.status = campos.status;
+  if (campos.compra!= null) row.compra = num(campos.compra) ?? 0;
+  if (Object.keys(row).length) {
+    const { error } = await sb.from('veiculos').update(row).eq('id', id);
+    if (error) throw error;
+  }
+  // prep é uma linha em veiculo_custos — só mexe se veio (cost-viewer)
+  if (campos.prep != null) {
+    const { lojaId } = exigirContexto();
+    await sb.from('veiculo_custos').delete().eq('veiculo_id', id).eq('categoria', 'preparacao');
+    const p = num(campos.prep);
+    if (p && p > 0) {
+      const { error } = await sb.from('veiculo_custos')
+        .insert({ loja_id: lojaId, veiculo_id: id, descricao: 'Preparação', categoria: 'preparacao', valor: p });
+      if (error) throw error;
+    }
+  }
+  return id;
+}
+
 async function removerVeiculo(id) {
   const { lojaId } = exigirContexto();
   // remove também a foto do Storage (evita objeto órfão no bucket privado)
@@ -428,7 +458,7 @@ window.Dados = {
   // conexão / sessão
   entrar, sair, sessaoAtual, carregarPerfil, contexto,
   // veículos
-  listarVeiculos, salvarVeiculo, removerVeiculo, subirFotoVeiculo,
+  listarVeiculos, salvarVeiculo, atualizarVeiculo, removerVeiculo, subirFotoVeiculo,
   // clientes
   listarClientes, salvarCliente, removerCliente,
   // vendas
