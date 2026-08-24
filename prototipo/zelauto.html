@@ -267,6 +267,12 @@ select:focus-visible,textarea:focus-visible,.chip:focus-visible{outline:2.5px so
 .busca input::placeholder{color:var(--tx2)}
 .busca .i20{position:absolute;left:14px;top:50%;transform:translateY(-50%);
   width:18px;height:18px;color:var(--tx2);pointer-events:none}
+.perm-h{display:flex;align-items:center;gap:8px;font-size:var(--t-lab);font-weight:700;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--tx2);margin:18px 0 8px}
+.perm-h .btn.sm{margin-left:auto;font-weight:600}
+.perm-h .btn.sm+.btn.sm{margin-left:0}
+.perm-box{max-height:210px;overflow-y:auto;border:1.5px solid var(--ln2);
+  border-radius:11px;padding:2px 12px;background:var(--bg)}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:0 11px}
 .rangewrap{display:flex;align-items:center;gap:12px}
 input[type=range]{-webkit-appearance:none;appearance:none;height:6px;background:var(--ln2);
@@ -3666,16 +3672,17 @@ function vEquipe(){
     <div class="sec-h"><h2>Equipe</h2><div class="rule"></div></div>
     <div class="card">
       ${DB.usuarios.map(u=>`
-        <div class="veic" onclick="userEditar('${u.id}')">
+        <div class="veic" onclick="userEditar('${u.id}')" style="${u.ativo===false?'opacity:.55':''}">
           <div class="who" style="width:38px;height:38px;border-radius:11px;background:var(--patio-2);
             border:1px solid var(--linha-2);display:grid;place-items:center;font-size:var(--t-lab);
-            font-weight:700;color:var(--placa-2);flex:none">${u.iniciais}</div>
+            font-weight:700;color:var(--placa-2);flex:none">${esc(u.iniciais)}</div>
           <div class="info">
             <div class="nm">${esc(u.nome)}</div>
-            <div class="dt">${esc(u.papel)} · ${esc(u.tel)}</div>
+            <div class="dt">${esc(u.papel)} · ${esc(u.tel||'—')}</div>
             <div class="mt">
-              <span class="pill blue">${u.modulos.length} telas</span>
+              <span class="pill blue">${(u.modulos||[]).length} telas</span>
               ${u.verCustos?'<span class="pill warn">vê custos</span>':'<span class="pill mute">sem custos</span>'}
+              ${u.ativo===false?'<span class="pill bad">bloqueado</span>':''}
               ${u.vendasMes?`<span class="pill ok">${u.vendasMes} vendas no mês</span>`:''}
             </div>
           </div>
@@ -3684,8 +3691,8 @@ function vEquipe(){
     </div>
   </div>
 
-  <button class="btn pri blk" style="margin-top:14px" onclick="userEditar()">
-    ${svgi('<path d="M12 5v14M5 12h14"/>')}Cadastrar usuário</button>`;
+  ${podeGerir()?`<button class="btn pri blk" style="margin-top:14px" onclick="membroForm()">
+    ${svgi('<path d="M12 5v14M5 12h14"/>')}Adicionar membro</button>`:''}`;
 }
 
 function trocarUser(id){
@@ -3695,62 +3702,144 @@ function trocarUser(id){
   toast(`Vendo como ${USER.nome}`);
 }
 
+/* Só proprietário e gerente gerenciam a equipe (a Edge Function confere isso de
+   novo no servidor — aqui é só a UI). */
+const podeGerir = () => ['proprietario','gerente'].includes(USER.papelChave);
+const PAPEL_ROTULO = {proprietario:'Proprietário',gerente:'Gerente',vendedor:'Vendedor',administrativo:'Administrativo'};
+const iniciaisDe = nome => (nome||'').trim().split(/\s+/).map(p=>p[0]||'').slice(0,2).join('').toUpperCase();
+
 function userEditar(id){
-  // Sem id = cadastrar novo login: isso cria um usuário no Auth, o que é
-  // server-side (service_role/Edge Function). Não dá pelo navegador — seria
-  // um vetor de escalonamento. Explicamos em vez de fingir que salva.
-  if(!id){
-    modal('Adicionar membro',`
-      <div style="font-size:var(--t-txt);line-height:1.6;color:var(--placa-2)">
-        <p>Criar um novo login de equipe cria um usuário de acesso no sistema —
-        isso é feito pelo servidor, com segurança, não pelo navegador.</p>
-        <p style="margin-top:10px">O convite de membros (com e-mail e senha) é a
-        próxima etapa, por Edge Function. Por enquanto, os acessos são criados no
-        cadastro inicial da loja.</p>
-      </div>`,
-      `<button class="btn pri" data-close-modal>Entendi</button>`);
-    return;
-  }
+  // Gestor cria/edita de verdade (via Edge Function). Não-gestor só vê.
+  if(podeGerir()) return membroForm(id);
+  if(id) return userVer(id);
+}
+
+/* Ficha só-leitura para quem não gerencia a equipe. */
+function userVer(id){
   const u=DB.usuarios.find(x=>x.id===id); if(!u) return;
   const modOn = k => (u.modulos||[]).includes(k);
   modal(u.nome,`
-    <div class="field"><label>Nome</label><input id="usNome" value="${esc(u.nome)}" placeholder="Nome completo"></div>
-    <div class="field"><label>Telefone</label><input id="usTel" value="${esc(u.tel)}" placeholder="(71) 90000-0000"></div>
-
-    <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin:18px 0 8px">
-      Função e permissões</div>
     <div style="padding:11px 13px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);line-height:1.55;color:var(--placa-2)">
       <div class="stat-line"><span>Função</span><b>${esc(u.papel)}</b></div>
+      <div class="stat-line"><span>Telefone</span><b>${esc(u.tel||'—')}</b></div>
       <div class="stat-line"><span>Telas liberadas</span><b>${(u.modulos||[]).length} de ${MODULOS.length}</b></div>
       <div class="stat-line"><span>Vê custo de compra</span><b>${u.verCustos?'Sim':'Não'}</b></div>
       <div class="stat-line" style="border-bottom:0"><span>Vê lucro e margem</span><b>${u.verLucro?'Sim':'Não'}</b></div>
     </div>
-    <div style="max-height:180px;overflow-y:auto;border:1px solid var(--linha);border-radius:11px;padding:4px 12px;background:var(--asfalto);margin-top:8px">
+    <div class="perm-box" style="margin-top:8px">
       ${MODULOS.map(m=>`
         <div class="perm">
           <div class="grow" style="${modOn(m.k)?'':'opacity:.5'}">${m.n}</div>
           <span class="pill ${modOn(m.k)?'ok':'mute'}">${modOn(m.k)?'liberada':'—'}</span>
         </div>`).join('')}
     </div>
-    <div style="font-size:var(--t-sup);color:var(--ambar);margin-top:10px;line-height:1.5">
-      Função e permissões são definidas pelo servidor por segurança (impede que
-      alguém amplie o próprio acesso). Edição de permissões chega numa etapa
-      própria. Aqui você atualiza nome e telefone.</div>`,
-    `<button class="btn" data-close-modal>Cancelar</button>
-     <button class="btn pri" onclick="salvarUser('${id}')">Salvar nome e telefone</button>`);
+    <div style="font-size:var(--t-sup);color:var(--placa-3);margin-top:10px;line-height:1.5">
+      Só o proprietário ou o gerente alteram funções e permissões.</div>`,
+    `<button class="btn pri" data-close-modal>Fechar</button>`);
 }
-async function salvarUser(id){
-  const u=DB.usuarios.find(x=>x.id===id); if(!u) return;
-  const nome=val('usNome');
-  if(!nome){ toast('Informe o nome'); return; }
-  const tel=val('usTel');
+
+/* Formulário real de membro — criar (com login + senha provisória) ou editar
+   (nome, telefone, função, telas, custo/lucro, ativo). Persiste pela Edge
+   Function `equipe`. */
+function membroForm(id){
+  const novo=!id;
+  const u=id?DB.usuarios.find(x=>x.id===id):{nome:'',tel:'',papelChave:'vendedor',modulos:['dash','estoque','crm'],verCustos:false,verLucro:false,ativo:true};
+  if(id && !u) return;
+  const souGerente = USER.papelChave==='gerente';
+  const papeis=[['proprietario','Proprietário'],['gerente','Gerente'],['vendedor','Vendedor'],['administrativo','Administrativo']];
+  const eProprio = id===USER.id;
+  modal(novo?'Adicionar membro':`Editar ${u.nome}`,`
+    <div class="field"><label>Nome</label><input id="mbNome" value="${esc(u.nome)}" placeholder="Nome completo"></div>
+    ${novo?`<div class="field"><label>E-mail de acesso</label><input id="mbEmail" type="email" value="" placeholder="email@exemplo.com" autocomplete="off"></div>`:''}
+    <div class="field"><label>Telefone</label><input id="mbTel" value="${esc(u.tel)}" placeholder="(71) 90000-0000"></div>
+    <div class="field"><label>Função</label><select id="mbPapel">
+      ${papeis.map(([k,n])=>`<option value="${k}" ${u.papelChave===k?'selected':''} ${souGerente&&k==='proprietario'?'disabled':''}>${n}</option>`).join('')}
+    </select></div>
+
+    <div class="perm-h">Telas que pode acessar
+      <button type="button" class="btn sm" onclick="mbTodas(true)">Todas</button>
+      <button type="button" class="btn sm" onclick="mbTodas(false)">Nenhuma</button></div>
+    <div class="perm-box">
+      ${MODULOS.map(m=>`
+        <div class="perm">
+          <div class="grow">${m.n}</div>
+          <button type="button" class="sw ${(u.modulos||[]).includes(m.k)?'on':''}" data-mod="${m.k}" onclick="this.classList.toggle('on')" aria-label="${esc(m.n)}"></button>
+        </div>`).join('')}
+    </div>
+
+    <div class="perm-h">O que pode enxergar</div>
+    <div class="perm"><div class="grow">Custo de compra dos carros<div class="s">quanto a loja pagou em cada veículo</div></div>
+      <button type="button" class="sw ${u.verCustos?'on':''}" id="mbCustos" onclick="this.classList.toggle('on')"></button></div>
+    <div class="perm"><div class="grow">Lucro e margem<div class="s">resultado por venda e do mês</div></div>
+      <button type="button" class="sw ${u.verLucro?'on':''}" id="mbLucro" onclick="this.classList.toggle('on')"></button></div>
+    ${novo?'':`<div class="perm"><div class="grow">Acesso ativo<div class="s">${eProprio?'você não pode bloquear a si mesmo':'desligue para bloquear o login sem apagar o histórico'}</div></div>
+      <button type="button" class="sw ${u.ativo?'on':''}" id="mbAtivo" ${eProprio?'disabled style="opacity:.4"':`onclick="this.classList.toggle('on')"`}></button></div>`}`,
+    `<button class="btn" data-close-modal>Cancelar</button>
+     <button class="btn pri" id="mbSalvar" onclick="salvarMembro('${id||''}')">${novo?'Criar acesso':'Salvar'}</button>`);
+}
+
+function mbTodas(on){ document.querySelectorAll('[data-mod]').forEach(b=>b.classList.toggle('on', on)); }
+
+let salvandoMembro=false;
+async function salvarMembro(id){
+  if(salvandoMembro) return;
+  const nome=val('mbNome'); if(!nome){ toast('Informe o nome'); return; }
+  const mods=[...document.querySelectorAll('[data-mod].on')].map(e=>e.dataset.mod);
+  const papelChave=val('mbPapel');
+  const verCustos=document.getElementById('mbCustos').classList.contains('on');
+  const verLucro=document.getElementById('mbLucro').classList.contains('on');
+  const tel=val('mbTel');
+  const btn=document.getElementById('mbSalvar');
+  salvandoMembro=true; if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
   try{
-    await Dados.salvarPerfilBasico({ id, nome, tel });
-  }catch(e){ toast('Erro ao salvar: '+(e.message||e)); return; }
-  u.nome=nome; u.tel=tel;
-  u.iniciais=nome.trim().split(/\s+/).map(p=>p[0]||'').slice(0,2).join('').toUpperCase();
-  if(u.id===USER.id){ USER.nome=nome; USER.tel=tel; USER.iniciais=u.iniciais; aplicarPermissoes(); }
-  fecharModal(); render('equipe'); atualizarTags(); toast('Dados atualizados');
+    if(!id){
+      const email=val('mbEmail');
+      const r=await Dados.criarMembro({ nome, email, tel, papelChave, modulos:mods, verCustos, verLucro });
+      fecharModal();
+      try{ DB.usuarios = await Dados.listarEquipe(); }catch(_){}
+      render('equipe'); atualizarTags();
+      mostrarSenha(r.email, r.senha);
+    } else {
+      const aBtn=document.getElementById('mbAtivo');
+      const ativo=aBtn?aBtn.classList.contains('on'):undefined;
+      await Dados.atualizarMembro({ id, nome, tel, papelChave, modulos:mods, verCustos, verLucro, ...(ativo!=null?{ativo}:{}) });
+      const u=DB.usuarios.find(x=>x.id===id);
+      if(u) Object.assign(u,{nome,tel,papel:PAPEL_ROTULO[papelChave]||papelChave,papelChave,modulos:mods,verCustos,verLucro,iniciais:iniciaisDe(nome),...(ativo!=null?{ativo}:{})});
+      if(id===USER.id){
+        USER.papelChave=papelChave; USER.papel=PAPEL_ROTULO[papelChave]||papelChave;
+        USER.modulos=mods; USER.verCustos=verCustos; USER.verLucro=verLucro;
+        USER.nome=nome; USER.tel=tel; USER.iniciais=iniciaisDe(nome);
+        aplicarPermissoes();
+      }
+      fecharModal(); render('equipe'); atualizarTags(); toast('Membro atualizado');
+    }
+  }catch(e){
+    toast('Erro: '+(e.message||e));
+    if(btn){ btn.disabled=false; btn.textContent=id?'Salvar':'Criar acesso'; }
+  }finally{ salvandoMembro=false; }
+}
+
+/* Tela de sucesso: mostra a senha provisória UMA vez, com botão de copiar. */
+function mostrarSenha(email, senha){
+  modal('Acesso criado',`
+    <div style="font-size:var(--t-txt);line-height:1.6;color:var(--placa-2)">
+      Passe estes dados ao funcionário. A senha provisória aparece <b>uma única vez</b> —
+      no primeiro acesso ele define a senha dele.</div>
+    <div class="field" style="margin-top:12px"><label>E-mail</label>
+      <input id="okEmail" value="${esc(email)}" readonly onclick="this.select()"></div>
+    <div class="field" style="margin-bottom:0"><label>Senha provisória</label>
+      <input id="okSenha" value="${esc(senha)}" readonly onclick="this.select()"></div>`,
+    `<button class="btn" onclick="copiarAcesso()">Copiar os dois</button>
+     <button class="btn pri" data-close-modal>Concluir</button>`);
+}
+function copiarAcesso(){
+  // lê dos campos (evita injeção por passar e-mail/senha no atributo onclick)
+  const email=(document.getElementById('okEmail')||{}).value||'';
+  const senha=(document.getElementById('okSenha')||{}).value||'';
+  const txt=`Acesso ZelAuto\nE-mail: ${email}\nSenha provisória: ${senha}`;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast('Copiado'),()=>toast('Copie manualmente'));
+  } else { toast('Copie manualmente'); }
 }
 
 function aplicarPermissoes(){
@@ -4373,6 +4462,7 @@ atualizarTags();
     const perfil = await Dados.carregarPerfil();
     if(!perfil) return false;
     USER = perfil;                                  // reatribui o global do protótipo
+    USER.papelChave = perfil.papel;                 // guarda o enum (autoriza a UI de equipe)
     USER.papel = LABELS[perfil.papel] || perfil.papel;
     if(!USER.iniciais) USER.iniciais = (USER.nome||'?').trim().slice(0,2).toUpperCase();
     // Itens 7–8: veículos, clientes e vendas vêm do banco. As demais telas

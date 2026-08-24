@@ -380,6 +380,48 @@ async function salvarPerfilBasico(p) {
   return p.id;
 }
 
+/* Criar membro e alterar permissões passam pela Edge Function `equipe`
+   (service_role, server-side). O invoke já envia o token do usuário logado no
+   Authorization; a função confere papel/loja e aplica o teto do gerente. */
+
+async function mensagemErroFn(error) {
+  // supabase-js põe o corpo do erro (não-2xx) em error.context (uma Response)
+  try {
+    if (error && error.context && typeof error.context.json === 'function') {
+      const j = await error.context.json();
+      if (j && j.error) return j.error;
+    }
+  } catch (_) { /* ignora */ }
+  return (error && error.message) || 'erro na gestão de equipe';
+}
+
+async function criarMembro(m) {
+  const { data, error } = await sb.functions.invoke('equipe', {
+    body: {
+      acao: 'criar', nome: m.nome, email: m.email, telefone: m.tel,
+      papel: m.papelChave, modulos: m.modulos, ver_custos: m.verCustos, ver_lucro: m.verLucro,
+    },
+  });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;   // { ok, email, senha }
+}
+
+async function atualizarMembro(m) {
+  const body = { acao: 'atualizar', id: m.id };
+  if (m.nome != null) body.nome = m.nome;
+  if (m.tel != null) body.telefone = m.tel;
+  if (m.papelChave) body.papel = m.papelChave;
+  if (m.modulos) body.modulos = m.modulos;
+  if (m.verCustos != null) body.ver_custos = m.verCustos;
+  if (m.verLucro != null) body.ver_lucro = m.verLucro;
+  if (m.ativo != null) body.ativo = m.ativo;
+  const { data, error } = await sb.functions.invoke('equipe', { body });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;   // { ok }
+}
+
 /* ============================ INTERFACE PÚBLICA =========================== */
 
 window.Dados = {
@@ -394,7 +436,7 @@ window.Dados = {
   // despesas
   listarDespesas, salvarDespesa, removerDespesa,
   // equipe / perfis
-  listarEquipe, salvarPerfilBasico,
+  listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // acesso cru ao client, se precisar
   _sb: sb,
 };

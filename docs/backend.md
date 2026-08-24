@@ -691,6 +691,40 @@ Faça um comando que aceite CSV com `marca, modelo, ano, km, placa, cor, compra,
 preparacao, alvo, entrada_em`. É o que transforma uma hora de digitação em cinco
 minutos, e é o que faz a demonstração virar contrato.
 
+### 5.4 Edge Function `equipe` — gestão de time pelo próprio lojista
+
+O dono precisa **criar membros e definir permissões sozinho**, sem CLI e sem
+abrir o painel. Mas `papel`, `modulos`, `ver_custos`, `ver_lucro` e a criação de
+login no Auth **não podem sair do navegador** (§3.4) — senão um vendedor se
+promove. A ponte é uma Edge Function `equipe` que roda com `service_role`,
+**confere quem chamou pelo JWT** e só então age.
+
+**Autorização (dentro da função):**
+- Identifica o chamador pelo token (client escopo-usuário → `auth.getUser()`),
+  lê o `perfis` dele com `service_role` e exige `ativo = true` e
+  `papel ∈ {proprietario, gerente}`.
+- A loja alvo é **sempre** a `loja_id` do chamador — nunca o que o corpo mandar.
+- **Gerente tem teto:** não cria nem promove a `proprietario`, e não altera um
+  membro que já é `proprietario`.
+
+**Ações (uma função, campo `acao` no corpo):**
+
+| `acao` | O que faz | Retorno |
+|---|---|---|
+| `criar` | `auth.admin.createUser({email, password, email_confirm:true})` + `insert` em `perfis` (loja do chamador, papel, modulos, ver_custos, ver_lucro) | `{ email, senha }` provisória para exibir |
+| `atualizar` | `update` em `perfis` do alvo (nome, telefone, papel, modulos, ver_custos, ver_lucro, ativo), validando mesma loja e o teto do gerente | `{ ok: true }` |
+
+A **senha provisória** é gerada na função e devolvida **uma vez** para o dono
+repassar; o funcionário troca depois. Não vai por e-mail na fase 1 (não depende
+de SMTP configurado). O `email_confirm:true` deixa o membro entrar de imediato.
+O hook de token (§3.1) preenche `loja_id`/`papel` no JWT no primeiro login,
+porque o `perfis` já foi inserido.
+
+Segredos: a função usa `SUPABASE_SERVICE_ROLE_KEY` e `SUPABASE_URL`, injetados
+automaticamente no runtime da Edge Function. **Nada de service_role no front.**
+
+Deploy: `supabase functions deploy equipe`.
+
 ---
 
 ## 6. Ambientes e migrations

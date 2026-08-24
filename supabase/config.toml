@@ -1,0 +1,14 @@
+# =============================================================================
+# ZelAuto — config.toml (configuração local do Supabase CLI)
+#
+# Só o necessário para as Edge Functions. O restante usa os defaults do CLI.
+# =============================================================================
+
+# A função `equipe` NÃO usa o verify_jwt da plataforma: com ele ligado, o
+# preflight CORS (OPTIONS, que o navegador manda sem token) é rejeitado e a
+# chamada do front quebra. A autenticação é feita DENTRO da função — ela lê o
+# token do Authorization, confirma o usuário (auth.getUser) e exige que o perfil
+# do chamador esteja ativo e seja proprietario/gerente. É verificação real, só
+# no lugar certo.
+[functions.equipe]
+verify_jwt = false
