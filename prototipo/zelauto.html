@@ -662,6 +662,14 @@ const uid = () => Math.random().toString(36).slice(2,9);
 const esc = s => String(s??'').replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
 /* nome do veículo escapado (marca + modelo) para uso seguro em innerHTML */
 const vNome = v => `${esc(v.marca)} ${esc(v.modelo)}`;
+/* devolve o foco (e o cursor no fim) a um input após um re-render da tela — sem
+   isso, a busca ao vivo perderia o foco a cada tecla digitada. */
+const foco = id => { const n=document.getElementById(id); if(n){ n.focus(); if(n.setSelectionRange) try{ n.setSelectionRange(n.value.length,n.value.length); }catch(e){} } };
+/* caixa de busca padrão das listas (mesmo visual em pátio, clientes e despesas) */
+const buscaBox = (id, valor, ph, oninput) =>
+  `<input id="${id}" value="${esc(valor)}" placeholder="${esc(ph)}" autocomplete="off"
+     oninput="${oninput}"
+     style="width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--linha);background:var(--asfalto);color:var(--placa);font-size:var(--t-sup);margin:2px 0 12px">`;
 /* cores dos gráficos lidas do tema ativo */
 const cv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
 
@@ -1470,13 +1478,17 @@ function vDash(){
 /* ==========================================================
    ESTOQUE
    ========================================================== */
-let fEstoque='todos';
+let fEstoque='todos', qEstoque='', qDespesa='', qCrm='';
 function vEstoque(){
   const m=M();
-  let lista=m.est.slice().sort((a,b)=>dias(b.entrada)-dias(a.entrada));
+  // Padrão: ordem do banco (mais recente primeiro). O carro que acabou de entrar
+  // aparece no topo — sem isso, numa demo, ele "some" no fim da lista.
+  let lista=m.est.slice();
   if(fEstoque==='parado') lista=lista.filter(v=>dias(v.entrada)>60);
   if(fEstoque==='novo')   lista=lista.filter(v=>dias(v.entrada)<=20);
   if(fEstoque==='alta')   lista=lista.slice().sort((a,b)=>margemPct(b)-margemPct(a));
+  const q=qEstoque.trim().toLowerCase();
+  if(q) lista=lista.filter(v=>[v.marca,v.modelo,v.placa,v.cor,v.ano].some(x=>String(x||'').toLowerCase().includes(q)));
 
   return `
   <div class="kpis" style="grid-template-columns:repeat(2,1fr)">
@@ -1484,7 +1496,10 @@ function vEstoque(){
     <div class="kpi j"><div class="lab">Preço de vitrine</div><div class="val num">${BRL(m.vitrine)}</div><div class="sub">margem embutida ${PCT(m.margemEmbutida/m.capital*100)}</div></div>
   </div>
 
-  <div class="chips" style="margin:16px 0 11px">
+  <div style="margin-top:16px">
+    ${buscaBox('buscaEstoque', qEstoque, 'Buscar por marca, modelo, placa ou cor…', "qEstoque=this.value;render('estoque');foco('buscaEstoque')")}
+  </div>
+  <div class="chips" style="margin:0 0 11px">
     ${[['todos','Todos'],['parado','Parados +60d'],['novo','Entraram agora'],['alta','Maior margem']].map(([k,n])=>
       `<button class="chip ${fEstoque===k?'on':''}" onclick="fEstoque='${k}';render('estoque')">${n}</button>`).join('')}
   </div>
@@ -1659,9 +1674,12 @@ function vCrm(){
 
   <div class="sec">
     <div class="sec-h"><h2>Funil</h2><div class="rule"></div><span style="font-size:var(--t-sup);color:var(--placa-3)">arraste para o lado →</span></div>
+    ${buscaBox('buscaCrm', qCrm, 'Buscar cliente por nome, interesse ou origem…', "qCrm=this.value;render('crm');foco('buscaCrm')")}
     <div class="kb">
-      ${ETAPAS.map(e=>{
-        const ls=DB.leads.filter(l=>l.etapa===e.k);
+      ${(()=>{ const q=qCrm.trim().toLowerCase();
+        const filtra = l => !q || [l.nome,l.interesse,l.origem,l.tel].some(x=>String(x||'').toLowerCase().includes(q));
+        return ETAPAS.map(e=>{
+        const ls=DB.leads.filter(l=>l.etapa===e.k && filtra(l));
         return `<div class="col">
           <div class="col-h"><span class="dot" style="background:${e.c}"></span><strong>${e.n}</strong><span class="n">${ls.length}</span></div>
           <div class="col-b">
@@ -1679,7 +1697,7 @@ function vCrm(){
               : `<div style="padding:18px 8px;text-align:center;font-size:var(--t-lab);color:var(--placa-3)">vazio</div>`}
           </div>
         </div>`;
-      }).join('')}
+      }).join(''); })()}
     </div>
   </div>
 
@@ -1775,13 +1793,18 @@ function vDespesas(){
 
   <div class="sec">
     <div class="sec-h"><h2>Lançamentos</h2><div class="rule"></div></div>
+    ${buscaBox('buscaDespesa', qDespesa, 'Buscar por descrição ou categoria…', "qDespesa=this.value;render('despesas');foco('buscaDespesa')")}
     <div class="card">
-      ${DB.despesas.slice().sort((a,b)=>b.valor-a.valor).map(d=>`
+      ${(()=>{ const q=qDespesa.trim().toLowerCase();
+        // mais recente primeiro (criado desc); a despesa recém-lançada fica no topo
+        let ld=DB.despesas.slice().sort((a,b)=>String(b.criado||'').localeCompare(String(a.criado||'')));
+        if(q) ld=ld.filter(d=>[d.desc,d.cat].some(x=>String(x||'').toLowerCase().includes(q)));
+        return ld.length? ld.map(d=>`
         <div class="row">
           <div class="grow"><div class="t">${esc(d.desc)}</div><div class="s">${esc(d.cat)}${d.dia?` · todo dia ${d.dia}`:' · conforme o movimento'}</div></div>
           <div class="r"><div class="t num">${BRL(d.valor)}</div>
           <span class="pill ${d.tipo==='fixa'?'mute':'warn'}" style="margin-top:4px">${d.tipo==='fixa'?'fixa':'variável'}</span></div>
-        </div>`).join('')}
+        </div>`).join('') : `<div class="empty" style="padding:20px 8px">Nenhuma despesa neste filtro.</div>`; })()}
     </div>
   </div>
 
@@ -2290,7 +2313,7 @@ async function salvarVeiculo(){
   // Anexa o veículo persistido (com o id e a data do banco) em vez de re-baixar
   // tudo: não derruba estado em memória de outras telas (ex.: venda ainda não
   // persistida) e evita refetch.
-  DB.veiculos.push({ id, marca, modelo, ano:novo.ano, km:novo.km||0, placa:novo.placa,
+  DB.veiculos.unshift({ id, marca, modelo, ano:novo.ano, km:novo.km||0, placa:novo.placa,
     cor:novo.cor, compra, prep:novo.prep||0, alvo, entrada:salvo.entrada||dFwd(0), status:'estoque',
     rn:'fora', foto:window.__foto_nvFoto||'' });
   if(window.__foto_nvFoto){                         // sobe a foto ao Storage (bucket privado)
@@ -2358,7 +2381,7 @@ async function salvarVenda(){
   try{
     id = await Dados.salvarVenda(venda);
   }catch(e){ toast('Erro ao registrar a venda: '+(e.message||e)); return; }
-  DB.vendas.push({ id, ...venda });
+  DB.vendas.unshift({ id, ...venda });
   v.status='vendido';
   fecharModal(); go('vendas'); atualizarTags();
   const l=(valor-custoTotal(v))+numVal('vdBanco')-numVal('vdCom');
@@ -2416,7 +2439,8 @@ async function salvarDespesa(){
   try{
     id = await Dados.salvarDespesa(despesa);
   }catch(e){ toast('Erro ao lançar a despesa: '+(e.message||e)); return; }
-  DB.despesas.push({ id, ...despesa });
+  // unshift + criado=agora: a despesa nova aparece no topo (mais recente primeiro)
+  DB.despesas.unshift({ id, ...despesa, criado:new Date().toISOString() });
   fecharModal(); go('despesas'); toast('Despesa lançada');
 }
 

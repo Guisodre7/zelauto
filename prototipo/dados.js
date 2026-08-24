@@ -312,7 +312,7 @@ async function salvarVenda(s) {
 /* ============================== DESPESAS ================================== */
 
 function despesaParaProto(d) {
-  return { id: d.id, cat: d.categoria, desc: d.descricao, valor: Number(d.valor), tipo: d.tipo, dia: d.dia_vencimento };
+  return { id: d.id, cat: d.categoria, desc: d.descricao, valor: Number(d.valor), tipo: d.tipo, dia: d.dia_vencimento, criado: d.criado_em };
 }
 function despesaParaBanco(d) {
   return { categoria: d.cat, descricao: d.desc, valor: num(d.valor) ?? 0, tipo: d.tipo || 'fixa', dia_vencimento: num(d.dia) };
@@ -321,7 +321,7 @@ function despesaParaBanco(d) {
 async function listarDespesas() {
   const { lojaId } = exigirContexto();
   const { data, error } = await sb.from('despesas')
-    .select('*').eq('loja_id', lojaId).order('categoria');
+    .select('*').eq('loja_id', lojaId).order('criado_em', { ascending: false });
   if (error) throw error;
   return (data || []).map(despesaParaProto);
 }
