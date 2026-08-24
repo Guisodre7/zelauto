@@ -259,6 +259,14 @@ select:focus-visible,textarea:focus-visible,.chip:focus-visible{outline:2.5px so
   transition:.15s;font-size:var(--t-txt)}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--az)}
 .field .hint{font-size:var(--t-sup);color:var(--tx2);margin-top:6px}
+.busca{position:relative;margin:2px 0 12px}
+.busca input{width:100%;min-height:var(--toque);padding:12px 13px 12px 42px;
+  border-radius:11px;background:var(--bg);border:1.5px solid var(--ln2);outline:none;
+  transition:.15s;font-size:var(--t-txt);color:inherit}
+.busca input:focus{border-color:var(--az)}
+.busca input::placeholder{color:var(--tx2)}
+.busca .i20{position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  width:18px;height:18px;color:var(--tx2);pointer-events:none}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:0 11px}
 .rangewrap{display:flex;align-items:center;gap:12px}
 input[type=range]{-webkit-appearance:none;appearance:none;height:6px;background:var(--ln2);
@@ -665,11 +673,11 @@ const vNome = v => `${esc(v.marca)} ${esc(v.modelo)}`;
 /* devolve o foco (e o cursor no fim) a um input após um re-render da tela — sem
    isso, a busca ao vivo perderia o foco a cada tecla digitada. */
 const foco = id => { const n=document.getElementById(id); if(n){ n.focus(); if(n.setSelectionRange) try{ n.setSelectionRange(n.value.length,n.value.length); }catch(e){} } };
-/* caixa de busca padrão das listas (mesmo visual em pátio, clientes e despesas) */
+/* caixa de busca padrão das listas (mesmo visual de campo em pátio, clientes e
+   despesas) — usa a classe .busca (borda e fundo iguais aos campos do sistema)
+   com ícone de lupa para deixar claro que é um campo de busca. */
 const buscaBox = (id, valor, ph, oninput) =>
-  `<input id="${id}" value="${esc(valor)}" placeholder="${esc(ph)}" autocomplete="off"
-     oninput="${oninput}"
-     style="width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--linha);background:var(--asfalto);color:var(--placa);font-size:var(--t-sup);margin:2px 0 12px">`;
+  `<div class="busca">${svgi(ico.lupa)}<input id="${id}" value="${esc(valor)}" placeholder="${esc(ph)}" autocomplete="off" oninput="${oninput}"></div>`;
 /* cores dos gráficos lidas do tema ativo */
 const cv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
 
@@ -1254,7 +1262,8 @@ const ico = {
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
   carro:'<path d="M5 17h14M3 17v-4l2-6h14l2 6v4"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
   dinheiro:'<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
-  gente:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
+  gente:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+  lupa:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'
 };
 const svgi = (d,cls='i20') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 
@@ -3687,58 +3696,61 @@ function trocarUser(id){
 }
 
 function userEditar(id){
-  const u=id?DB.usuarios.find(x=>x.id===id):{nome:'',papel:'Vendedor',tel:'',modulos:['dash','estoque','crm'],verCustos:false,verLucro:false};
-  modal(id?u.nome:'Novo usuário',`
+  // Sem id = cadastrar novo login: isso cria um usuário no Auth, o que é
+  // server-side (service_role/Edge Function). Não dá pelo navegador — seria
+  // um vetor de escalonamento. Explicamos em vez de fingir que salva.
+  if(!id){
+    modal('Adicionar membro',`
+      <div style="font-size:var(--t-txt);line-height:1.6;color:var(--placa-2)">
+        <p>Criar um novo login de equipe cria um usuário de acesso no sistema —
+        isso é feito pelo servidor, com segurança, não pelo navegador.</p>
+        <p style="margin-top:10px">O convite de membros (com e-mail e senha) é a
+        próxima etapa, por Edge Function. Por enquanto, os acessos são criados no
+        cadastro inicial da loja.</p>
+      </div>`,
+      `<button class="btn pri" data-close-modal>Entendi</button>`);
+    return;
+  }
+  const u=DB.usuarios.find(x=>x.id===id); if(!u) return;
+  const modOn = k => (u.modulos||[]).includes(k);
+  modal(u.nome,`
     <div class="field"><label>Nome</label><input id="usNome" value="${esc(u.nome)}" placeholder="Nome completo"></div>
-    <div class="f2">
-      <div class="field"><label>Função</label><select id="usPapel">
-        ${['Proprietário','Gerente','Vendedor','Administrativo'].map(p=>`<option ${u.papel===p?'selected':''}>${p}</option>`).join('')}
-      </select></div>
-      <div class="field"><label>Telefone</label><input id="usTel" value="${esc(u.tel)}" placeholder="(71) 90000-0000"></div>
-    </div>
+    <div class="field"><label>Telefone</label><input id="usTel" value="${esc(u.tel)}" placeholder="(71) 90000-0000"></div>
 
-    <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin:16px 0 8px">
-      Telas que pode acessar</div>
-    <div style="max-height:220px;overflow-y:auto;border:1px solid var(--linha);border-radius:11px;padding:4px 12px;background:var(--asfalto)">
+    <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin:18px 0 8px">
+      Função e permissões</div>
+    <div style="padding:11px 13px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);line-height:1.55;color:var(--placa-2)">
+      <div class="stat-line"><span>Função</span><b>${esc(u.papel)}</b></div>
+      <div class="stat-line"><span>Telas liberadas</span><b>${(u.modulos||[]).length} de ${MODULOS.length}</b></div>
+      <div class="stat-line"><span>Vê custo de compra</span><b>${u.verCustos?'Sim':'Não'}</b></div>
+      <div class="stat-line" style="border-bottom:0"><span>Vê lucro e margem</span><b>${u.verLucro?'Sim':'Não'}</b></div>
+    </div>
+    <div style="max-height:180px;overflow-y:auto;border:1px solid var(--linha);border-radius:11px;padding:4px 12px;background:var(--asfalto);margin-top:8px">
       ${MODULOS.map(m=>`
         <div class="perm">
-          <div class="grow">${m.n}</div>
-          <button class="sw ${u.modulos.includes(m.k)?'on':''}" data-mod="${m.k}"
-            onclick="this.classList.toggle('on')" aria-label="${m.n}"></button>
+          <div class="grow" style="${modOn(m.k)?'':'opacity:.5'}">${m.n}</div>
+          <span class="pill ${modOn(m.k)?'ok':'mute'}">${modOn(m.k)?'liberada':'—'}</span>
         </div>`).join('')}
     </div>
-
-    <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin:16px 0 8px">
-      O que pode enxergar</div>
-    <div class="perm">
-      <div class="grow">Custo de compra dos carros
-        <div class="s">quanto a loja pagou em cada veículo</div></div>
-      <button class="sw ${u.verCustos?'on':''}" id="usCustos" onclick="this.classList.toggle('on')"></button>
-    </div>
-    <div class="perm">
-      <div class="grow">Lucro e margem
-        <div class="s">resultado por venda e do mês</div></div>
-      <button class="sw ${u.verLucro?'on':''}" id="usLucro" onclick="this.classList.toggle('on')"></button>
-    </div>`,
+    <div style="font-size:var(--t-sup);color:var(--ambar);margin-top:10px;line-height:1.5">
+      Função e permissões são definidas pelo servidor por segurança (impede que
+      alguém amplie o próprio acesso). Edição de permissões chega numa etapa
+      própria. Aqui você atualiza nome e telefone.</div>`,
     `<button class="btn" data-close-modal>Cancelar</button>
-     <button class="btn pri" onclick="salvarUser('${id||''}')">Salvar</button>`);
+     <button class="btn pri" onclick="salvarUser('${id}')">Salvar nome e telefone</button>`);
 }
-function salvarUser(id){
+async function salvarUser(id){
+  const u=DB.usuarios.find(x=>x.id===id); if(!u) return;
   const nome=val('usNome');
   if(!nome){ toast('Informe o nome'); return; }
-  const mods=[...document.querySelectorAll('[data-mod].on')].map(e=>e.dataset.mod);
-  const custos=document.getElementById('usCustos').classList.contains('on');
-  const lucro=document.getElementById('usLucro').classList.contains('on');
-  if(id){
-    const u=DB.usuarios.find(x=>x.id===id);
-    Object.assign(u,{nome,papel:val('usPapel'),tel:val('usTel'),modulos:mods,verCustos:custos,verLucro:lucro});
-    if(u.id===USER.id){ USER=u; aplicarPermissoes(); }
-  } else {
-    DB.usuarios.push({id:uid(),nome,papel:val('usPapel'),tel:val('usTel')||'—',
-      iniciais:nome.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase(),
-      modulos:mods,verCustos:custos,verLucro:lucro,ativo:true});
-  }
-  fecharModal(); render('equipe'); atualizarTags(); toast('Usuário salvo');
+  const tel=val('usTel');
+  try{
+    await Dados.salvarPerfilBasico({ id, nome, tel });
+  }catch(e){ toast('Erro ao salvar: '+(e.message||e)); return; }
+  u.nome=nome; u.tel=tel;
+  u.iniciais=nome.trim().split(/\s+/).map(p=>p[0]||'').slice(0,2).join('').toUpperCase();
+  if(u.id===USER.id){ USER.nome=nome; USER.tel=tel; USER.iniciais=u.iniciais; aplicarPermissoes(); }
+  fecharModal(); render('equipe'); atualizarTags(); toast('Dados atualizados');
 }
 
 function aplicarPermissoes(){
@@ -4372,6 +4384,7 @@ atualizarTags();
     const pCli  = Dados.listarClientes();
     const pVend = Dados.listarVendas();
     const pDesp = Dados.listarDespesas();
+    const pEqui = Dados.listarEquipe();
     try{ DB.veiculos = await pVeic; }
     catch(e){
       console.error('[ZelAuto] falha ao carregar veículos do banco:', e);
@@ -4395,6 +4408,12 @@ atualizarTags();
       console.error('[ZelAuto] falha ao carregar despesas do banco:', e);
       DB.despesas = [];
       if(typeof toast==='function') toast('Não consegui carregar as despesas. Verifique a conexão e recarregue.');
+    }
+    try{ DB.usuarios = await pEqui; }
+    catch(e){
+      console.error('[ZelAuto] falha ao carregar a equipe do banco:', e);
+      DB.usuarios = [USER];   // ao menos o próprio usuário logado (perfil real)
+      if(typeof toast==='function') toast('Não consegui carregar a equipe. Verifique a conexão e recarregue.');
     }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;

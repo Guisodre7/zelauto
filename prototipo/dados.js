@@ -343,6 +343,43 @@ async function removerDespesa(id) {
   if (error) throw error;
 }
 
+/* ============================== EQUIPE / PERFIS ========================== */
+/* Lê a equipe da loja (RLS já limita à loja). ATENÇÃO: por privilégio de coluna
+   (§3.4 da spec), o authenticated só pode gravar nome e telefone em perfis —
+   papel, modulos, ver_custos e ver_lucro exigem service_role (Edge Function),
+   para um vendedor não se promover a proprietário pelo navegador. Criar um novo
+   login também é server-side (cria usuário no Auth). Por isso aqui só há leitura
+   e a gravação básica de nome/telefone. */
+
+const PAPEL_LABEL = { proprietario: 'Proprietário', gerente: 'Gerente', vendedor: 'Vendedor', administrativo: 'Administrativo' };
+
+function perfilParaProto(p) {
+  return {
+    id: p.id, nome: p.nome, tel: p.telefone || '',
+    papel: PAPEL_LABEL[p.papel] || p.papel, papelChave: p.papel,
+    iniciais: iniciais(p.nome),
+    modulos: p.modulos || [], verCustos: p.ver_custos, verLucro: p.ver_lucro,
+    ativo: p.ativo,
+  };
+}
+
+async function listarEquipe() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('perfis')
+    .select('*').eq('loja_id', lojaId).order('criado_em', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(perfilParaProto);
+}
+
+/* Só nome e telefone — as demais colunas de perfis são bloqueadas por privilégio
+   de coluna e falhariam aqui de propósito. */
+async function salvarPerfilBasico(p) {
+  const { error } = await sb.from('perfis')
+    .update({ nome: p.nome, telefone: p.tel || null }).eq('id', p.id);
+  if (error) throw error;
+  return p.id;
+}
+
 /* ============================ INTERFACE PÚBLICA =========================== */
 
 window.Dados = {
@@ -356,6 +393,8 @@ window.Dados = {
   listarVendas, salvarVenda,
   // despesas
   listarDespesas, salvarDespesa, removerDespesa,
+  // equipe / perfis
+  listarEquipe, salvarPerfilBasico,
   // acesso cru ao client, se precisar
   _sb: sb,
 };
