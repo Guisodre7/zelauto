@@ -189,6 +189,8 @@ html[data-tema="claro"] .tabs button .b{background:#B02A1F}
 .btn svg{width:18px;height:18px}
 .btn.pri{background:var(--az-sol);border-color:var(--az-sol);color:#fff}
 .btn.pri:hover{filter:brightness(1.12)}
+.btn.danger{background:transparent;border-color:rgba(224,87,75,.5);color:#E0574B}
+.btn.danger:hover{background:rgba(224,87,75,.1)}
 .btn.amb{background:#F5B44D;border-color:#F5B44D;color:#201606}
 .btn.sm{min-height:38px;padding:8px 12px;font-size:var(--t-sup);border-radius:9px}
 .btn.gh{background:transparent}
@@ -394,8 +396,10 @@ svg{max-width:100%}
 .col-h strong{font-size:var(--t-lab);font-weight:700;letter-spacing:.06em;text-transform:uppercase;flex:1}
 .col-h .n{font-size:var(--t-sup);font-weight:700;color:var(--tx2);font-family:'IBM Plex Mono',monospace}
 .col-b{padding:9px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
-.lead{background:var(--sf2);border:1px solid var(--ln);border-radius:11px;padding:12px;transition:.15s;cursor:pointer}
+.lead{background:var(--sf2);border:1px solid var(--ln);border-radius:11px;padding:12px;transition:.15s;cursor:grab}
 .lead:hover{border-color:var(--ln2)}
+.lead.dragging{opacity:.45;cursor:grabbing}
+.col-b.dragover{outline:2px dashed var(--az);outline-offset:-4px;border-radius:11px;background:var(--az-10,rgba(47,107,232,.08))}
 .lead .n{font-size:var(--t-txt);font-weight:600}
 .lead .i{font-size:var(--t-sup);color:var(--tx2);margin-top:2px}
 .lead .m{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap}
@@ -1697,9 +1701,12 @@ function vCrm(){
         const ls=DB.leads.filter(l=>l.etapa===e.k && filtra(l));
         return `<div class="col">
           <div class="col-h"><span class="dot" style="background:${e.c}"></span><strong>${e.n}</strong><span class="n">${ls.length}</span></div>
-          <div class="col-b">
+          <div class="col-b" data-etapa="${e.k}"
+            ondragover="event.preventDefault();this.classList.add('dragover')"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="this.classList.remove('dragover');leadSolta(event,'${e.k}')">
             ${ls.length? ls.map(l=>`
-              <div class="lead" onclick="detLead('${l.id}')">
+              <div class="lead" draggable="true" ondragstart="leadDrag(event,'${l.id}')" ondragend="leadFim(event)" onclick="detLead('${l.id}')">
                 <div class="n">${esc(l.nome)}</div>
                 <div class="i">${esc(l.interesse||'A definir')}</div>
                 <div class="m">
@@ -1759,7 +1766,8 @@ function detLead(id){
     <div class="field"><label>Mover para</label><select id="leadEtapa">${opts}</select></div>
     <div class="field"><label>Próximo contato</label><input type="date" id="leadProx" value="${l.proximo||''}"></div>
     <div class="field"><label>Registrar observação</label><textarea id="leadObs" rows="2" placeholder="O que ficou combinado?"></textarea></div>`,
-    `<a class="btn" href="https://wa.me/55${l.tel.replace(/\D/g,'')}" target="_blank" rel="noopener">WhatsApp</a>
+    `${podeGerir()?`<button class="btn danger" onclick="excluirLead('${l.id}')">Excluir</button>`:''}
+     <a class="btn" href="https://wa.me/55${l.tel.replace(/\D/g,'')}" target="_blank" rel="noopener">WhatsApp</a>
      <button class="btn pri" onclick="salvarLead('${l.id}')">Salvar</button>`);
 }
 async function salvarLead(id){
@@ -1772,6 +1780,41 @@ async function salvarLead(id){
   Object.assign(l, atualizado);
   fecharModal(); render('crm'); atualizarTags();
   toast(atualizado.etapa==='fechado'?'Negócio marcado como fechado':'Cliente atualizado');
+}
+
+/* Arrastar o cartão do lead entre as colunas do funil (estilo Trello). No
+   desktop é o gesto natural; no toque, o fluxo de tocar no lead → "Mover para"
+   segue valendo. */
+let _dragLead=null;
+function leadDrag(ev,id){
+  _dragLead=id;
+  ev.dataTransfer.effectAllowed='move';
+  try{ ev.dataTransfer.setData('text/plain',id); }catch(_){}
+  const c=ev.currentTarget; if(c) setTimeout(()=>c.classList.add('dragging'),0);
+}
+function leadFim(ev){ const c=ev.currentTarget; if(c) c.classList.remove('dragging'); _dragLead=null; }
+async function leadSolta(ev,etapa){
+  ev.preventDefault();
+  const id=_dragLead||(ev.dataTransfer&&ev.dataTransfer.getData('text/plain')); _dragLead=null;
+  const l=DB.leads.find(x=>x.id===id); if(!l||l.etapa===etapa) return;
+  const anterior=l.etapa, ultimoAnt=l.ultimo;
+  l.etapa=etapa; l.ultimo=dFwd(0);                 // otimista: move na hora
+  render('crm');
+  try{ await Dados.salvarCliente({ ...l }); }
+  catch(e){ l.etapa=anterior; l.ultimo=ultimoAnt; render('crm'); toast('Não consegui mover: '+(e.message||e)); return; }
+  atualizarTags();
+  toast(`Movido para ${(ETAPAS.find(x=>x.k===etapa)||{}).n||etapa}`);
+}
+
+/* Excluir lead — para duplicados. Só proprietário/gerente (a política de delete
+   do banco também limita a esses papéis; gate aqui evita erro para o vendedor). */
+async function excluirLead(id){
+  const l=DB.leads.find(x=>x.id===id); if(!l) return;
+  if(!confirm(`Excluir "${l.nome}" do funil? Esta ação não pode ser desfeita.`)) return;
+  try{ await Dados.removerCliente(id); }
+  catch(e){ toast('Não consegui excluir: '+(e.message||e)); return; }
+  DB.leads=DB.leads.filter(x=>x.id!==id);
+  fecharModal(); render('crm'); atualizarTags(); toast('Cliente excluído');
 }
 
 /* ==========================================================
