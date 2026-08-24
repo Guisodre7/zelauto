@@ -480,6 +480,16 @@ async function atualizarMembro(m) {
   return data;   // { ok }
 }
 
+/* ============================ EXPORTAÇÃO ================================= */
+/* Gera o .zip (um CSV por tabela da loja) pela Edge Function e devolve a URL
+   assinada de 24h. Só o proprietário (a função confere). */
+async function exportarDados() {
+  const { data, error } = await sb.functions.invoke('exportar-dados', { body: {} });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;   // { ok, url, arquivo }
+}
+
 /* ============================ INTERFACE PÚBLICA =========================== */
 
 window.Dados = {
@@ -495,6 +505,8 @@ window.Dados = {
   listarDespesas, salvarDespesa, removerDespesa,
   // custos (Edge Function)
   custosDaLoja,
+  // exportação de dados (Edge Function)
+  exportarDados,
   // equipe / perfis
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // acesso cru ao client, se precisar

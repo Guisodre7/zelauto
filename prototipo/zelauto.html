@@ -967,6 +967,14 @@ function abrirConfig(){
         ${svgi('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>')}
         Gerenciar usuários (${DB.usuarios.length})</button>
     </div>`:''}
+    ${USER.papelChave==='proprietario'?`
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Seus dados</label>
+      <button class="btn blk" id="btnExport" onclick="exportarDados()">
+        ${svgi('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}
+        Exportar tudo (.zip)</button>
+      <div class="hint">Um arquivo por tabela da loja. O link vale 24 horas.</div>
+    </div>`:''}
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Conta</label>
       <button class="btn blk" onclick="sairDaConta()">
@@ -974,6 +982,25 @@ function abrirConfig(){
         Sair da conta</button>
     </div>`,
     `<button class="btn pri" data-close-modal>Pronto</button>`);
+}
+async function exportarDados(){
+  const btn=document.getElementById('btnExport');
+  if(btn){ btn.disabled=true; btn.textContent='Preparando o arquivo…'; }
+  try{
+    const r=await Dados.exportarDados();
+    fecharModal();
+    modal('Exportação pronta',`
+      <div style="font-size:var(--t-txt);line-height:1.6;color:var(--placa-2)">
+        Seu arquivo <b>${esc(r.arquivo||'export.zip')}</b> está pronto — um CSV por tabela da loja.
+        O link abaixo vale <b>24 horas</b>.</div>
+      <a class="btn pri blk" style="margin-top:14px" href="${esc(r.url)}" target="_blank" rel="noopener" download>
+        ${svgi('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}
+        Baixar agora</a>`,
+      `<button class="btn pri" data-close-modal>Pronto</button>`);
+  }catch(e){
+    toast('Não consegui exportar: '+(e.message||e));
+    if(btn){ btn.disabled=false; btn.textContent='Exportar tudo (.zip)'; }
+  }
 }
 function setTema(t){
   document.documentElement.dataset.tema=t;

@@ -20,3 +20,7 @@ verify_jwt = false
 # A função `vender` grava a venda (custo congelado no servidor); auth por dentro.
 [functions.vender]
 verify_jwt = false
+
+# A função `exportar-dados` gera o .zip da loja; auth por dentro (só proprietário).
+[functions.exportar-dados]
+verify_jwt = false
