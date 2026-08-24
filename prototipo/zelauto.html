@@ -1663,7 +1663,9 @@ function vVendas(){
   return `
   <div class="kpis" style="grid-template-columns:repeat(2,1fr)">
     <div class="kpi g"><div class="lab">Faturamento do mês</div><div class="val num">${BRL(m.faturaMes)}</div><div class="sub">${m.doMes.length} carros entregues</div></div>
-    <div class="kpi j"><div class="lab">Lucro bruto do mês</div><div class="val num">${BRL(m.lucroBrutoMes)}</div><div class="sub">já com retorno de banco</div></div>
+    ${USER.verLucro
+      ? `<div class="kpi j"><div class="lab">Lucro bruto do mês</div><div class="val num">${BRL(m.lucroBrutoMes)}</div><div class="sub">já com retorno de banco</div></div>`
+      : `<div class="kpi b"><div class="lab">Carros entregues no mês</div><div class="val num">${m.doMes.length}</div><div class="sub">ticket médio ${BRL(m.ticket)}</div></div>`}
   </div>
 
   <div class="sec grid g22">
@@ -1677,7 +1679,7 @@ function vVendas(){
         <div class="stat-line"><span>Retorno de banco acumulado</span><b style="color:#5FD3A6">${BRL(DB.vendas.reduce((s,x)=>s+x.retornoBanco,0))}</b></div>
         <div class="stat-line"><span>Comissões pagas</span><b style="color:#F58177">− ${BRL(DB.vendas.reduce((s,x)=>s+x.comissao,0))}</b></div>
         <div class="stat-line"><span>Ticket médio</span><b>${BRL(m.ticket)}</b></div>
-        <div class="stat-line"><span>Margem média realizada</span><b>${PCT(m.margemMedia)}</b></div>
+        ${USER.verLucro?`<div class="stat-line"><span>Margem média realizada</span><b>${PCT(m.margemMedia)}</b></div>`:''}
       </div>
     </div>
   </div>
@@ -1698,7 +1700,7 @@ function vVendas(){
           </div>
           <div class="pr">
             <div class="a">${BRL(s.valor)}</div>
-            <div class="b" style="color:${pct>=12?'#5FD3A6':'#F5BE6B'}">lucro ${BRL(lucro)}</div>
+            ${USER.verLucro?`<div class="b" style="color:${pct>=12?'#5FD3A6':'#F5BE6B'}">lucro ${BRL(lucro)}</div>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -2465,22 +2467,22 @@ function vdPreview(){
   const valor=numVal('vdValor'), com=numVal('vdCom'), banco=numVal('vdBanco');
   const lucro=(valor-custoTotal(v))+banco-com;
   const pct=custoTotal(v)?lucro/custoTotal(v)*100:0;
+  // Custo/lucro só para quem vê custo — o vendedor não enxerga (custo mascarado).
   document.getElementById('vdPrev').innerHTML=`
     <div style="padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);margin-top:2px">
-      <div class="stat-line"><span>Custo total do carro</span><b>${BRL(custoTotal(v))}</b></div>
-      <div class="stat-line"><span>Dias no pátio</span><b>${dias(v.entrada)}</b></div>
-      <div class="stat-line" style="border-bottom:0"><span>Lucro desta venda</span><b style="color:${lucro>0?'#5FD3A6':'#F58177'}">${BRL(lucro)} · ${PCT(pct)}</b></div>
+      ${USER.verCustos?`<div class="stat-line"><span>Custo total do carro</span><b>${BRL(custoTotal(v))}</b></div>`:''}
+      <div class="stat-line" ${USER.verLucro?'':'style="border-bottom:0"'}><span>Dias no pátio</span><b>${dias(v.entrada)}</b></div>
+      ${USER.verLucro?`<div class="stat-line" style="border-bottom:0"><span>Lucro desta venda</span><b style="color:${lucro>0?'#5FD3A6':'#F58177'}">${BRL(lucro)} · ${PCT(pct)}</b></div>`:''}
     </div>`;
 }
 async function salvarVenda(){
   const v=DB.veiculos.find(x=>x.id===val('vdVeic'));
   const valor=numVal('vdValor');
   if(!v||!valor){ toast('Informe o valor fechado'); return; }
-  // Item 8: grava a venda no Supabase e marca o carro como vendido (o próprio
-  // Dados.salvarVenda faz as duas coisas). Só mexe no estado em memória depois
-  // que o banco confirmou, para não deixar venda fantasma na tela.
+  // Item 8/0010: a venda é gravada pelo servidor (Edge Function `vender`), que
+  // congela o custo real e baixa o carro. Só mexe na memória após confirmar.
   const venda={ desc:`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`, placa:v.placa,
-    custo:custoTotal(v), valor, data:dFwd(0), forma:val('vdForma'),
+    custo:USER.verCustos?custoTotal(v):0, valor, data:dFwd(0), forma:val('vdForma'),
     comissao:numVal('vdCom'), retornoBanco:numVal('vdBanco'),
     diasPatio:dias(v.entrada), cliente:val('vdCliente')||'Não informado',
     veiculoId:v.id };
@@ -2491,8 +2493,13 @@ async function salvarVenda(){
   DB.vendas.unshift({ id, ...venda });
   v.status='vendido';
   fecharModal(); go('vendas'); atualizarTags();
-  const l=(valor-custoTotal(v))+numVal('vdBanco')-numVal('vdCom');
-  toast(`Venda registrada — lucro de ${BRL(l)}`);
+  // Lucro no toast só para quem vê lucro (senão o custo vazaria pelo cálculo).
+  if(USER.verLucro){
+    const l=(valor-custoTotal(v))+numVal('vdBanco')-numVal('vdCom');
+    toast(`Venda registrada — lucro de ${BRL(l)}`);
+  } else {
+    toast('Venda registrada');
+  }
 }
 
 function formLead(){

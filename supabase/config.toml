@@ -16,3 +16,7 @@ verify_jwt = false
 # A função `custos` também verifica a autenticação por dentro (getUser + perfil).
 [functions.custos]
 verify_jwt = false
+
+# A função `vender` grava a venda (custo congelado no servidor); auth por dentro.
+[functions.vender]
+verify_jwt = false

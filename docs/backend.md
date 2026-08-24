@@ -754,6 +754,25 @@ segue com o grant de update por coluna (§3.4).
 
 Deploy: `supabase functions deploy custos`.
 
+### 5.6 Edge Function `vender` — registra a venda congelando o custo real
+
+A migration 0010 tira `vendas.custo_total` do SELECT do `authenticated` (mesmo
+motivo da 0009). Aí surge um efeito: o vendedor, sem ver o custo, não conseguiria
+calcular `custo_total` na hora de vender. Então a **gravação da venda** passa a
+ser feita pela Edge Function `vender` (service_role):
+
+- Autentica o chamador; qualquer perfil ativo da loja pode registrar (o vendedor
+  fecha o negócio). Loja e vendedor saem do JWT, nunca do corpo.
+- Lê `compra + preparação` do veículo (service_role) e **congela** em
+  `custo_total`. O veículo tem de ser da mesma loja.
+- Insere a venda e marca o veículo como `vendido` — os dois passos num lugar só,
+  sem meio-estado.
+
+A leitura de volta do `custo_total` (para quem pode ver) vem pela função `custos`
+(campo `vendas`). Edição de venda existente no cliente não toca `custo_total`.
+
+Deploy: `supabase functions deploy vender`.
+
 ---
 
 ## 6. Ambientes e migrations

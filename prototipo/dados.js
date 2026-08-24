@@ -118,12 +118,13 @@ function veiculoParaBanco(v) {
 // Colunas de veículos legíveis pelo authenticated (compra ficou de fora na 0009).
 const VEIC_COLS = 'id, loja_id, marca, modelo, ano_fab, ano_mod, km, placa, chassi, renavam, cor, alvo, entrada_em, status, renave_fase, foto_url, origem, criado_por, criado_em, atualizado_em';
 
-/* Custo (compra + preparação) vem só pela Edge Function `custos`, que confere a
-   permissão do perfil. Sem permissão, devolve {} e o pátio segue sem custo. */
-async function custosVeiculos() {
+/* Custo (compra/preparação dos veículos e custo_total das vendas) vem só pela
+   Edge Function `custos`, que confere a permissão do perfil. Sem permissão,
+   devolve mapas vazios e o app segue sem custo. */
+async function custosDaLoja() {
   const { data, error } = await sb.functions.invoke('custos', { body: {} });
-  if (error) return {};
-  return (data && data.custos) || {};
+  if (error) return { custos: {}, vendas: {} };
+  return { custos: (data && data.custos) || {}, vendas: (data && data.vendas) || {} };
 }
 
 async function listarVeiculos() {
@@ -136,8 +137,8 @@ async function listarVeiculos() {
 
   // funde compra/prep para quem pode ver custo (Edge Function service_role)
   try {
-    const mapa = await custosVeiculos();
-    for (const v of lista) { const c = mapa[v.id]; if (c) { v.compra = Number(c.compra) || 0; v.prep = Number(c.prep) || 0; } }
+    const { custos } = await custosDaLoja();
+    for (const v of lista) { const c = custos[v.id]; if (c) { v.compra = Number(c.compra) || 0; v.prep = Number(c.prep) || 0; } }
   } catch (_) { /* sem custo visível: segue com 0 */ }
 
   // foto: veiculoParaProto colocou o PATH (foto_url) em v.foto; troca por URL
@@ -303,10 +304,14 @@ async function removerCliente(id) {
    cliente_id é só o vínculo opcional. Na leitura preferimos o nome congelado e
    caímos no join só para vendas antigas sem cliente_nome. */
 
+// Colunas de vendas legíveis pelo authenticated (custo_total ficou de fora na 0010).
+const VENDA_COLS = 'id, loja_id, veiculo_id, cliente_id, cliente_nome, descricao, placa, valor, forma, comissao, retorno_banco, vendedor_id, dias_patio, data, criado_em';
+
 function vendaParaProto(s) {
   return {
     id: s.id, desc: s.descricao, placa: s.placa || '',
-    custo: Number(s.custo_total), valor: Number(s.valor), data: s.data,
+    // custo_total não vem no SELECT (0010); default 0, preenchido no merge do custo
+    custo: s.custo_total == null ? 0 : Number(s.custo_total), valor: Number(s.valor), data: s.data,
     forma: s.forma, comissao: Number(s.comissao), retornoBanco: Number(s.retorno_banco),
     diasPatio: s.dias_patio,
     cliente: s.cliente_nome || (s.clientes ? s.clientes.nome : ''),
@@ -328,29 +333,37 @@ function vendaParaBanco(s) {
 async function listarVendas() {
   const { lojaId } = exigirContexto();
   const { data, error } = await sb.from('vendas')
-    .select('*, clientes(nome)').eq('loja_id', lojaId).order('data', { ascending: false });
+    .select(VENDA_COLS + ', clientes(nome)').eq('loja_id', lojaId).order('data', { ascending: false });
   if (error) throw error;
-  return (data || []).map(vendaParaProto);
+  const lista = (data || []).map(vendaParaProto);
+  // funde custo_total congelado para quem pode ver custo (Edge Function)
+  try {
+    const { vendas } = await custosDaLoja();
+    for (const s of lista) if (vendas[s.id] != null) s.custo = Number(vendas[s.id]) || 0;
+  } catch (_) { /* sem custo visível: segue com 0 */ }
+  return lista;
 }
 
 async function salvarVenda(s) {
-  const { lojaId, userId } = exigirContexto();
-  const row = vendaParaBanco(s);
   if (ehUuid(s.id)) {
-    const { data, error } = await sb.from('vendas').update(row).eq('id', s.id).select().single();
+    // edição de venda existente: NÃO mexe no custo congelado (custo_total sai fora)
+    const row = vendaParaBanco(s); delete row.custo_total;
+    const { data, error } = await sb.from('vendas').update(row).eq('id', s.id).select('id').single();
     if (error) throw error; return data.id;
   }
-  const { data, error } = await sb.from('vendas')
-    .insert({ ...row, loja_id: lojaId, vendedor_id: s.vendedorId || userId }).select().single();
-  if (error) throw error;
-  // A venda tira o carro do pátio: marca o veículo como vendido no mesmo passo,
-  // fechando o meio-estado (venda gravada, carro ainda em estoque). Não há
-  // trigger no banco fazendo isso; a RLS por loja já garante o isolamento.
-  if (s.veiculoId) {
-    const { error: vErr } = await sb.from('veiculos')
-      .update({ status: 'vendido' }).eq('id', s.veiculoId);
-    if (vErr) throw vErr;
-  }
+  // nova venda: gravada pelo servidor (congela o custo real e baixa o carro),
+  // porque o custo foi tirado do acesso do cliente (0009/0010).
+  const { data, error } = await sb.functions.invoke('vender', {
+    body: {
+      veiculoId: s.veiculoId || null, valor: num(s.valor), forma: s.forma,
+      comissao: num(s.comissao), retornoBanco: num(s.retornoBanco),
+      clienteNome: s.cliente || null, clienteId: s.clienteId || null,
+      data: s.data || null, descricao: s.desc, placa: s.placa || null,
+      diasPatio: num(s.diasPatio),
+    },
+  });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
   return data.id;
 }
 
@@ -481,7 +494,7 @@ window.Dados = {
   // despesas
   listarDespesas, salvarDespesa, removerDespesa,
   // custos (Edge Function)
-  custosVeiculos,
+  custosDaLoja,
   // equipe / perfis
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // acesso cru ao client, se precisar

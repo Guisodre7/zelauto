@@ -61,5 +61,12 @@ Deno.serve(async (req) => {
   const mapa: Record<string, { compra: number; prep: number }> = {};
   for (const v of veic || []) mapa[v.id] = { compra: Number(v.compra) || 0, prep: prep[v.id] || 0 };
 
-  return json({ custos: mapa });
+  // custo congelado das vendas (vendas.custo_total também saiu do SELECT — 0010)
+  const { data: vend, error: sErr } = await admin
+    .from('vendas').select('id, custo_total').eq('loja_id', caller.loja_id);
+  if (sErr) return json({ error: 'falha ao ler custo de vendas: ' + sErr.message }, 400);
+  const vendas: Record<string, number> = {};
+  for (const s of vend || []) vendas[s.id] = Number(s.custo_total) || 0;
+
+  return json({ custos: mapa, vendas });
 });

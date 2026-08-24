@@ -169,6 +169,14 @@ select lives_ok(
   $$ select id, alvo, marca from public.veiculos limit 1 $$,
   'veiculos: colunas sem custo seguem legíveis');
 
+-- vendas.custo_total — 0010: custo congelado da venda tirado do authenticated
+select throws_ok(
+  $$ select custo_total from public.vendas limit 1 $$,
+  '42501', 'vendas.custo_total: SELECT negado ao authenticated (0010)');
+select lives_ok(
+  $$ select id, valor, forma from public.vendas limit 1 $$,
+  'vendas: colunas sem custo seguem legíveis');
+
 -- consignacoes
 select isnt((select count(*) from public.consignacoes
               where loja_id='11111111-1111-1111-1111-111111111111'), 0::bigint,

@@ -180,6 +180,10 @@ insert into _res(verifica,ok,detalhe) select 'veiculo_custos: A não grava em ou
 insert into _res(verifica,ok,detalhe) select 'veiculos.compra: SELECT negado ao authenticated (0009)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$select compra from public.veiculos limit 1$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'veiculos: colunas sem custo seguem legíveis', (r='OK_SEM_ERRO'), r from (select pg_temp.tenta($$select id, alvo, marca from public.veiculos limit 1$$) r) t;
 
+-- vendas.custo_total — 0010: custo congelado da venda tirado do authenticated
+insert into _res(verifica,ok,detalhe) select 'vendas.custo_total: SELECT negado ao authenticated (0010)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$select custo_total from public.vendas limit 1$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'vendas: colunas sem custo seguem legíveis', (r='OK_SEM_ERRO'), r from (select pg_temp.tenta($$select id, valor, forma from public.vendas limit 1$$) r) t;
+
 -- consignacoes
 insert into _res(verifica,ok,detalhe) select 'consignacoes: A vê as próprias', (count(*)>0), 'linhas='||count(*) from public.consignacoes where loja_id='11111111-1111-1111-1111-111111111111';
 insert into _res(verifica,ok,detalhe) select 'consignacoes: A não vê as da B', (count(*)=0), 'linhas='||count(*) from public.consignacoes where loja_id='22222222-2222-2222-2222-222222222222';
