@@ -4558,7 +4558,7 @@ atualizarTags();
 (function(){
   const LABELS = {proprietario:'Proprietário',gerente:'Gerente',vendedor:'Vendedor',administrativo:'Administrativo'};
   // configuráveis por dados.config.js (com defaults). SUPORTE_WPP: número só com
-  // dígitos (DDI+DDD+número). SITE: landing institucional da ZéLauto.
+  // dígitos (DDI+DDD+número). SITE: landing institucional da ZelAuto.
   const _cfg = window.ZELAUTO_CONFIG || {};
   const SUPORTE_WPP = String(_cfg.suporteWhatsapp || '5571900000000').replace(/\D/g,'');
   const SITE_INSTITUCIONAL = _cfg.siteInstitucional || 'https://zelauto.com.br';
@@ -4585,7 +4585,7 @@ atualizarTags();
           <button id="loginBtn" type="submit" style="width:100%;padding:12px;border:0;border-radius:10px;background:#3B82F6;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Entrar</button>
           <div style="text-align:center;margin-top:18px;font-size:12px;opacity:.55">
             <a href="${SITE_INSTITUCIONAL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-              feito e produzido por <b style="font-weight:700">ZéLauto</b> ↗</a>
+              feito e produzido por <b style="font-weight:700">ZelAuto</b> ↗</a>
           </div>
         </form>
       </div>`);
@@ -4596,13 +4596,13 @@ atualizarTags();
   // Página "acesse pelo link da loja" — mostrada quando NÃO há slug (sem login,
   // sem busca, sem lista). O botão abre o WhatsApp do suporte.
   function montarSemLink(){
-    const wpp='https://wa.me/'+SUPORTE_WPP+'?text='+encodeURIComponent('Olá! Não tenho o link de acesso da minha loja no ZéLauto.');
+    const wpp='https://wa.me/'+SUPORTE_WPP+'?text='+encodeURIComponent('Olá! Não tenho o link de acesso da minha loja no ZelAuto.');
     const form=overlay.querySelector('#loginForm');
     if(!form) return;
     form.removeAttribute('id');            // não é mais o form de login
     form.innerHTML=`
       <div style="text-align:center">
-        <div style="font-size:22px;font-weight:700;margin-bottom:10px">ZéLauto</div>
+        <div style="font-size:22px;font-weight:700;margin-bottom:10px">ZelAuto</div>
         <div style="font-size:15px;line-height:1.6;opacity:.85">
           O acesso é pelo <b>link da sua loja</b>.<br>
           Use o endereço que você recebeu na entrega — vale salvar nos favoritos.
@@ -4614,7 +4614,7 @@ atualizarTags();
         </a>
         <div style="margin-top:18px;font-size:12px;opacity:.55">
           <a href="${SITE_INSTITUCIONAL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-            conheça o <b style="font-weight:700">ZéLauto</b> ↗</a>
+            conheça o <b style="font-weight:700">ZelAuto</b> ↗</a>
         </div>
       </div>`;
   }

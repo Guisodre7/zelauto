@@ -20,7 +20,7 @@ window.ZELAUTO_CONFIG = {
   anonKey: 'COLE_AQUI_A_PUBLISHABLE_ANON_KEY',
 
   // Opcionais (login): WhatsApp do suporte (só dígitos, DDI+DDD+número) usado no
-  // botão "Não tenho o link"; e a landing institucional, no selo "por ZéLauto".
+  // botão "Não tenho o link"; e a landing institucional, no selo "por ZelAuto".
   suporteWhatsapp:   '5571900000000',
   siteInstitucional: 'https://zelauto.com.br',
 };

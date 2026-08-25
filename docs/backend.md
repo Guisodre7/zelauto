@@ -790,7 +790,7 @@ loja — o slug errado não dá acesso a nada.
   diretório público, para concorrente não enumerar clientes. É a primeira
   superfície anônima do sistema; devolve só campos de marca, nada sensível.
 - A tela de login (protótipo) lê o slug da URL, chama `marca-loja`, pinta a marca
-  e segue com o `entrar(email, senha)` de sempre. Traz um selo **"por ZéLauto"**
+  e segue com o `entrar(email, senha)` de sempre. Traz um selo **"por ZelAuto"**
   ligado à landing institucional.
 - **Sem slug** (ex.: `app.zelauto…` puro): NÃO mostra login — só uma página
   "acesse pelo link da sua loja", com botão **"Não tenho o link"** que abre o
