@@ -4557,6 +4557,11 @@ atualizarTags();
 <script>
 (function(){
   const LABELS = {proprietario:'Proprietário',gerente:'Gerente',vendedor:'Vendedor',administrativo:'Administrativo'};
+  // configuráveis por dados.config.js (com defaults). SUPORTE_WPP: número só com
+  // dígitos (DDI+DDD+número). SITE: landing institucional da ZéLauto.
+  const _cfg = window.ZELAUTO_CONFIG || {};
+  const SUPORTE_WPP = String(_cfg.suporteWhatsapp || '5571900000000').replace(/\D/g,'');
+  const SITE_INSTITUCIONAL = _cfg.siteInstitucional || 'https://zelauto.com.br';
   function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; }
 
   let overlay;
@@ -4578,10 +4583,40 @@ atualizarTags();
             style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #2a323b;background:#0F1318;color:#E8EDF2;font-size:15px;margin-bottom:16px">
           <div id="loginErro" style="display:none;color:#ff6b6b;font-size:13px;margin-bottom:14px"></div>
           <button id="loginBtn" type="submit" style="width:100%;padding:12px;border:0;border-radius:10px;background:#3B82F6;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Entrar</button>
+          <div style="text-align:center;margin-top:18px;font-size:12px;opacity:.55">
+            <a href="${SITE_INSTITUCIONAL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
+              feito e produzido por <b style="font-weight:700">ZéLauto</b> ↗</a>
+          </div>
         </form>
       </div>`);
     document.body.appendChild(overlay);
     overlay.querySelector('#loginForm').addEventListener('submit', onSubmit);
+  }
+
+  // Página "acesse pelo link da loja" — mostrada quando NÃO há slug (sem login,
+  // sem busca, sem lista). O botão abre o WhatsApp do suporte.
+  function montarSemLink(){
+    const wpp='https://wa.me/'+SUPORTE_WPP+'?text='+encodeURIComponent('Olá! Não tenho o link de acesso da minha loja no ZéLauto.');
+    const form=overlay.querySelector('#loginForm');
+    if(!form) return;
+    form.removeAttribute('id');            // não é mais o form de login
+    form.innerHTML=`
+      <div style="text-align:center">
+        <div style="font-size:22px;font-weight:700;margin-bottom:10px">ZéLauto</div>
+        <div style="font-size:15px;line-height:1.6;opacity:.85">
+          O acesso é pelo <b>link da sua loja</b>.<br>
+          Use o endereço que você recebeu na entrega — vale salvar nos favoritos.
+        </div>
+        <a href="${wpp}" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;box-sizing:border-box;margin-top:22px;padding:13px;border-radius:10px;background:#25D366;color:#062;font-size:15px;font-weight:700;text-decoration:none">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5c.1-.2.1-.3 0-.5l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3a3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.3.5 1.9.6 2.6.5.4-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1z"/></svg>
+          Não tenho o link
+        </a>
+        <div style="margin-top:18px;font-size:12px;opacity:.55">
+          <a href="${SITE_INSTITUCIONAL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
+            conheça o <b style="font-weight:700">ZéLauto</b> ↗</a>
+        </div>
+      </div>`;
   }
   // slug da URL: ?loja=vancar, ou o último segmento do caminho (/vancar)
   function slugDaUrl(){
@@ -4611,8 +4646,14 @@ atualizarTags();
       const btn=overlay.querySelector('#loginBtn'); if(btn) btn.style.background=cor;
     }
   }
-  function mostrarErro(msg){ const e=overlay.querySelector('#loginErro'); e.textContent=msg; e.style.display='block'; }
-  function mostrarLogin(){ construirOverlay(); overlay.style.display='flex'; pintarMarca(); }
+  function mostrarErro(msg){ const e=overlay.querySelector('#loginErro'); if(e){ e.textContent=msg; e.style.display='block'; } }
+  function mostrarLogin(){
+    construirOverlay(); overlay.style.display='flex';
+    // Sem slug: nada de login — só a página "acesse pelo link da loja".
+    // Com slug: login com a marca da loja.
+    if(slugDaUrl()) pintarMarca();
+    else montarSemLink();
+  }
   function esconderLogin(){ if(overlay) overlay.style.display='none'; }
 
   async function aplicarSessao(){
@@ -4671,11 +4712,14 @@ atualizarTags();
 
   async function onSubmit(ev){
     ev.preventDefault();
-    if(!window.Dados){ mostrarErro('Camada de dados não carregou (veja dados.config.js).'); return; }
     const btn=overlay.querySelector('#loginBtn');
-    const email=overlay.querySelector('#loginEmail').value.trim();
-    const senha=overlay.querySelector('#loginSenha').value;
-    overlay.querySelector('#loginErro').style.display='none';
+    const emailEl=overlay.querySelector('#loginEmail');
+    const senhaEl=overlay.querySelector('#loginSenha');
+    if(!btn || !emailEl || !senhaEl) return;   // estado "sem link": não há formulário
+    if(!window.Dados){ mostrarErro('Camada de dados não carregou (veja dados.config.js).'); return; }
+    const email=emailEl.value.trim();
+    const senha=senhaEl.value;
+    const erroEl=overlay.querySelector('#loginErro'); if(erroEl) erroEl.style.display='none';
     btn.disabled=true; btn.textContent='Entrando…';
     try{
       await Dados.entrar(email, senha);
@@ -4694,11 +4738,14 @@ atualizarTags();
   };
 
   async function boot(){
-    construirOverlay(); mostrarLogin();             // sem sessão => só o login
+    construirOverlay(); overlay.style.display='flex';
+    const temSlug = !!slugDaUrl();
+    if(!temSlug) montarSemLink();                   // sem slug: página do link (não precisa de Dados)
     let tries=0;
     while(!window.Dados && tries<50){ await new Promise(r=>setTimeout(r,60)); tries++; }
     if(!window.Dados){ mostrarErro('Camada de dados não carregou. Crie prototipo/dados.config.js (copie do .example) com a URL e a chave publishable.'); return; }
-    try{ if(await Dados.sessaoAtual() && await aplicarSessao()) esconderLogin(); }catch(e){}
+    try{ if(await Dados.sessaoAtual() && await aplicarSessao()){ esconderLogin(); return; } }catch(e){}
+    if(temSlug) pintarMarca();                       // sem sessão + com slug: pinta a marca (Dados já pronto)
   }
   document.addEventListener('DOMContentLoaded', boot);
 })();
