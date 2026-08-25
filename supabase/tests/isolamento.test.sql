@@ -2,7 +2,15 @@
 -- ZelAuto — supabase/tests/isolamento.test.sql
 -- Testes de isolamento entre lojas (seção 7 de docs/backend.md).
 --
--- Rodar com:  supabase test db
+-- ⚠️  RODE SÓ COM O RUNNER pgTAP:  supabase test db  (ou pg_prove).
+--     NÃO cole este arquivo cru no SQL Editor — o plan()/finish() e os savepoints
+--     do pgTAP dependem do runner; solto no editor ele dá FALSO-NEGATIVO
+--     (ex.: "failed 18 of 65"), sem que haja nada de errado no banco.
+--
+--     Para checar no painel/SQL Editor, use o arquivo autossuficiente
+--     `isolamento_sql_editor.sql` (mesmas 65 verificações, imprime um placar).
+--     É esse que vale como prova quando não há Postgres/pg_prove local.
+--
 -- Pré-requisito: 0001 e 0002 aplicadas e o hook custom_access_token_hook ligado
 -- não é necessário aqui (o teste injeta as claims direto via set_config).
 --
