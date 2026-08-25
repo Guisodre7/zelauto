@@ -4565,8 +4565,11 @@ atualizarTags();
     overlay = el(`
       <div id="loginOverlay" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#0F1318;color:#E8EDF2;padding:24px;font:inherit">
         <form id="loginForm" style="width:100%;max-width:360px;background:#171C22;border:1px solid #232a32;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.45)">
-          <div style="font-size:22px;font-weight:700">ZelAuto</div>
-          <div style="opacity:.7;font-size:14px;margin:4px 0 20px">Entre para acessar a loja</div>
+          <div id="loginMarca" style="text-align:center;margin-bottom:20px">
+            <img id="loginLogo" alt="" style="display:none;max-height:56px;max-width:200px;margin:0 auto 12px">
+            <div id="loginLoja" style="font-size:22px;font-weight:700">ZelAuto</div>
+            <div id="loginSub" style="opacity:.7;font-size:14px;margin-top:4px">Entre para acessar a loja</div>
+          </div>
           <label style="display:block;font-size:13px;opacity:.8;margin-bottom:6px">E-mail</label>
           <input id="loginEmail" type="email" autocomplete="username" required
             style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #2a323b;background:#0F1318;color:#E8EDF2;font-size:15px;margin-bottom:14px">
@@ -4580,8 +4583,36 @@ atualizarTags();
     document.body.appendChild(overlay);
     overlay.querySelector('#loginForm').addEventListener('submit', onSubmit);
   }
+  // slug da URL: ?loja=vancar, ou o último segmento do caminho (/vancar)
+  function slugDaUrl(){
+    let s='';
+    try{ s=(new URLSearchParams(location.search).get('loja')||'').trim().toLowerCase(); }catch(_){}
+    if(!s){
+      const seg=(location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
+      if(/^[a-z0-9][a-z0-9-]{1,39}$/.test(seg) && !seg.includes('.')) s=seg;
+    }
+    return s;
+  }
+  // pinta a marca da loja na tela de login (nome, logo, cor). O slug é só marca;
+  // a loja da sessão vem sempre do perfil no JWT — o slug nunca dá acesso.
+  async function pintarMarca(){
+    const slug=slugDaUrl();
+    if(!slug || !window.Dados || !Dados.marcaDaLoja) return;
+    let m=null; try{ m=await Dados.marcaDaLoja(slug); }catch(_){}
+    if(!m || !overlay) return;
+    const nomeEl=overlay.querySelector('#loginLoja');
+    const subEl=overlay.querySelector('#loginSub');
+    const logoEl=overlay.querySelector('#loginLogo');
+    if(nomeEl && m.nome) nomeEl.textContent=m.nome;                 // textContent: sem XSS
+    if(subEl) subEl.textContent='Sistema da loja · ZelAuto';
+    if(logoEl && /^https:\/\//i.test(m.logoUrl||'')){ logoEl.src=m.logoUrl; logoEl.alt=m.nome||''; logoEl.style.display='block'; }
+    if(/^#?[0-9a-fA-F]{6}$/.test(m.cor||'')){
+      const cor=(m.cor[0]==='#'?m.cor:('#'+m.cor));
+      const btn=overlay.querySelector('#loginBtn'); if(btn) btn.style.background=cor;
+    }
+  }
   function mostrarErro(msg){ const e=overlay.querySelector('#loginErro'); e.textContent=msg; e.style.display='block'; }
-  function mostrarLogin(){ construirOverlay(); overlay.style.display='flex'; }
+  function mostrarLogin(){ construirOverlay(); overlay.style.display='flex'; pintarMarca(); }
   function esconderLogin(){ if(overlay) overlay.style.display='none'; }
 
   async function aplicarSessao(){

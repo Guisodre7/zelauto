@@ -773,6 +773,27 @@ A leitura de volta do `custo_total` (para quem pode ver) vem pela função `cust
 
 Deploy: `supabase functions deploy vender`.
 
+### 5.7 Marca por loja e login com slug
+
+O lojista entra por uma URL própria — `app.zelauto…/vancar` — e vê a tela de
+login **com a marca da loja dele** (nome, logo, cor). Detalhe que não pode ser
+esquecido: **o `slug` é só marca e rota, nunca acesso.** A loja da sessão vem
+SEMPRE do perfil no JWT (§3.1); o slug digitado/na URL só escolhe qual marca
+mostrar. Se alguém abrir o slug de outra loja e logar, continua vendo a própria
+loja — o slug errado não dá acesso a nada.
+
+- `lojas` ganha `slug` (único, `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`), `logo_url`, `cor`.
+- Bucket público `marcas` (`{loja_id}/logo.png`) — logo aparece antes da sessão,
+  então é público de propósito; escrita só do dono, no prefixo da própria loja.
+- Edge Function `marca-loja` (pública, anon): recebe **um slug exato** e devolve
+  só `{nome, logo_url, cor}` de uma loja ativa, ou 404. **Não lista lojas** — sem
+  diretório público, para concorrente não enumerar clientes. É a primeira
+  superfície anônima do sistema; devolve só campos de marca, nada sensível.
+- A tela de login (protótipo) lê o slug da URL, chama `marca-loja`, pinta a marca
+  e segue com o `entrar(email, senha)` de sempre.
+
+Deploy: `supabase functions deploy marca-loja`.
+
 ---
 
 ## 6. Ambientes e migrations

@@ -498,6 +498,18 @@ async function exportarDados() {
   return data;   // { ok, url, arquivo }
 }
 
+/* ============================ MARCA DA LOJA ============================== */
+/* Busca a marca (nome/logo/cor) por slug ANTES do login, pela Edge Function
+   pública. O slug é só marca/rota — nunca dá acesso. Devolve null se não achar. */
+async function marcaDaLoja(slug) {
+  if (!slug) return null;
+  try {
+    const { data, error } = await sb.functions.invoke('marca-loja', { body: { slug } });
+    if (error || !data || data.error) return null;
+    return { nome: data.nome, logoUrl: data.logo_url || '', cor: data.cor || '' };
+  } catch (_) { return null; }
+}
+
 /* ============================ INTERFACE PÚBLICA =========================== */
 
 window.Dados = {
@@ -515,6 +527,8 @@ window.Dados = {
   custosDaLoja,
   // exportação de dados (Edge Function)
   exportarDados,
+  // marca da loja (login com slug)
+  marcaDaLoja,
   // equipe / perfis
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // acesso cru ao client, se precisar

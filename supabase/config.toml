@@ -24,3 +24,7 @@ verify_jwt = false
 # A função `exportar-dados` gera o .zip da loja; auth por dentro (só proprietário).
 [functions.exportar-dados]
 verify_jwt = false
+
+# A função `marca-loja` é PÚBLICA (anon): devolve só a marca por slug. Sem JWT.
+[functions.marca-loja]
+verify_jwt = false

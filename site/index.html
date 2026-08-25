@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EEF1EE">
+<title>ZelAuto — um sistema só para a sua revenda</title>
+<meta name="description" content="Um sistema só no lugar de quatro. Estoque, clientes, anúncios, financiamento, papelada e RENAVE na mesma tela — para revenda de 8 a 30 carros.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,300..600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PÁTIO — sistema visual
+   Referência: a ficha de vitrine, a faixa da placa Mercosul
+   e o carimbo do despachante. Nada de showroom de tecnologia.
+   ============================================================ */
+:root{
+  --patio:#EEF1EE;      /* branco de parede de garagem, com fundo esverdeado */
+  --cal:#E3E8E4;
+  --breu:#0E1714;       /* preto-petróleo das seções escuras */
+  --breu2:#16211D;
+  --tinta:#131A18;
+  --grafite:#4E5A56;
+  --placa:#14489E;      /* azul institucional da placa Mercosul */
+  --sinal:#B33413;      /* laranja-sinal: só perda e prazo */
+  --verde:#1A6349;
+  --linha:#C9D2CC;
+
+  --d1:clamp(38px,8.6vw,82px);
+  --d2:clamp(27px,4.8vw,44px);
+  --d3:clamp(21px,3vw,28px);
+  --txt:clamp(17px,1.6vw,19px);
+  --peq:15px;
+  --mini:12.5px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{
+  background:var(--patio);color:var(--tinta);
+  font-family:'Newsreader',Georgia,serif;
+  font-size:var(--txt);line-height:1.62;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+h1,h2,h3,h4,.ui,.mono{font-family:'Archivo',system-ui,sans-serif}
+.mono,.num{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+a{color:inherit}
+button{font:inherit;cursor:pointer;border:0;background:none}
+img,svg{max-width:100%}
+
+.wrap{width:100%;max-width:1120px;margin:0 auto;padding:0 22px}
+.estreito{max-width:760px}
+
+/* ---------- etiqueta de seção: faixa da placa ---------- */
+.faixa{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:'Archivo',sans-serif;font-size:var(--mini);font-weight:700;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--placa);
+  font-variation-settings:'wdth' 110;
+}
+.faixa::before{content:'';width:26px;height:3px;background:var(--placa);border-radius:2px}
+.escuro .faixa{color:#7FA7E8}
+.escuro .faixa::before{background:#7FA7E8}
+
+h2{
+  font-size:var(--d2);line-height:1.02;font-weight:800;letter-spacing:-.035em;
+  font-variation-settings:'wdth' 112;margin:16px 0 0;text-wrap:balance;
+}
+h3{font-size:var(--d3);line-height:1.1;font-weight:700;letter-spacing:-.03em;font-variation-settings:'wdth' 108}
+.lead{font-size:clamp(18px,2vw,22px);color:var(--grafite);margin-top:16px;max-width:56ch;line-height:1.5}
+.escuro .lead{color:#A6B3AE}
+p{margin-bottom:15px}
+p:last-child{margin-bottom:0}
+strong{font-weight:600}
+
+section{padding:clamp(58px,9vw,110px) 0}
+.escuro{background:var(--breu);color:var(--patio)}
+.escuro h2,.escuro h3{color:var(--patio)}
+
+/* ---------- botões ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-family:'Archivo',sans-serif;font-size:16.5px;font-weight:700;
+  letter-spacing:-.01em;padding:16px 26px;border-radius:2px;
+  background:var(--tinta);color:var(--patio);transition:.18s;min-height:56px;
+  border:2px solid var(--tinta);
+}
+.btn:hover{background:var(--placa);border-color:var(--placa)}
+.btn svg{width:20px;height:20px;flex:none}
+.btn.claro{background:var(--patio);color:var(--tinta);border-color:var(--patio)}
+.btn.claro:hover{background:#fff;border-color:#fff;color:var(--placa)}
+.btn.vazio{background:transparent;color:var(--tinta);border-color:var(--linha)}
+.btn.vazio:hover{border-color:var(--tinta);background:transparent;color:var(--tinta)}
+.escuro .btn.vazio{color:var(--patio);border-color:#33413C}
+.escuro .btn.vazio:hover{border-color:var(--patio);color:var(--patio)}
+.btns{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+a.btn:focus-visible,button:focus-visible{outline:3px solid var(--placa);outline-offset:3px}
+.escuro a.btn:focus-visible{outline-color:#7FA7E8}
+
+/* ============================================================
+   FICHA DE VITRINE — o elemento assinatura
+   É o papel que fica embaixo do limpador de para-brisa.
+   Aqui ele mostra ao lojista o que está custando, não o preço.
+   ============================================================ */
+.ficha{
+  background:#fff;border:1px solid var(--linha);
+  box-shadow:0 1px 0 rgba(19,26,24,.06), 0 18px 40px -28px rgba(19,26,24,.5);
+  position:relative;
+}
+.ficha .topo{
+  background:var(--placa);color:#fff;padding:7px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.ficha .topo b{
+  font-family:'Archivo',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.22em;text-transform:uppercase;font-variation-settings:'wdth' 108;
+}
+.ficha .topo span{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em}
+.ficha .corpo{padding:20px 18px 18px}
+.ficha .modelo{
+  font-family:'Archivo',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.025em;
+  line-height:1.12;font-variation-settings:'wdth' 108;color:var(--tinta);
+}
+.ficha .specs{
+  display:flex;flex-wrap:wrap;gap:0 18px;margin-top:8px;
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grafite);
+}
+.ficha .itens{margin-top:16px}
+.ficha .itens div{
+  display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+  padding:8px 0;border-bottom:1px dotted var(--linha);font-size:15.5px;
+}
+.ficha .itens div:last-child{border-bottom:0}
+.ficha .itens span{color:var(--grafite)}
+.ficha .itens b{font-weight:500;white-space:nowrap}
+.ficha .regua{height:2px;background:var(--tinta);margin:14px 0}
+.ficha .rot{
+  font-family:'Archivo',sans-serif;font-size:11px;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--sinal);
+}
+.ficha .valor{
+  font-family:'IBM Plex Mono',monospace;font-size:clamp(30px,5.4vw,42px);font-weight:600;
+  letter-spacing:-.045em;line-height:1;color:var(--sinal);margin-top:7px;
+}
+.ficha .obs{font-size:14.5px;color:var(--grafite);margin-top:11px;line-height:1.45}
+.ficha .perfuro{
+  position:absolute;left:0;right:0;bottom:-1px;height:8px;
+  background:radial-gradient(circle at 5px 8px, transparent 4px, #fff 4px);
+  background-size:12px 8px;
+}
+
+/* ---------- HERO ---------- */
+.hero{padding-top:clamp(34px,6vw,64px);padding-bottom:clamp(50px,7vw,86px)}
+.marca{display:flex;align-items:center;gap:11px;margin-bottom:clamp(34px,6vw,62px)}
+.marca .sim{
+  width:42px;height:42px;flex:none;background:var(--tinta);color:var(--patio);
+  display:grid;place-items:center;border-radius:2px;
+}
+.marca .sim svg{width:23px;height:23px}
+.marca b{font-family:'Archivo',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.03em;font-variation-settings:'wdth' 112}
+.marca span{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grafite);letter-spacing:.04em}
+
+.hero-grid{display:grid;gap:clamp(36px,5vw,56px);align-items:center}
+@media(min-width:900px){.hero-grid{grid-template-columns:1.15fr .85fr}}
+h1{
+  font-size:var(--d1);line-height:.96;font-weight:800;letter-spacing:-.045em;
+  font-variation-settings:'wdth' 115;text-wrap:balance;
+}
+h1 em{font-style:normal;color:var(--sinal)}
+.hero .lead{font-size:clamp(18px,2.1vw,23px);margin-top:22px}
+.hero-nota{
+  margin-top:26px;padding-top:18px;border-top:1px solid var(--linha);
+  font-size:15px;color:var(--grafite);max-width:48ch;
+}
+
+/* ---------- as fugas ---------- */
+.virada{
+  margin-top:40px;padding:26px 24px;border-left:4px solid #7FA7E8;background:var(--breu2);
+  font-size:clamp(17px,1.9vw,20px);line-height:1.55;color:#C7D2CD;
+}
+.virada b{color:var(--patio);font-weight:600}
+.fugas{display:grid;gap:16px;margin-top:44px}
+@media(min-width:700px){.fugas{grid-template-columns:1fr 1fr}}
+@media(min-width:1000px){.fugas{grid-template-columns:repeat(4,1fr)}}
+.fuga{background:var(--breu2);border:1px solid #253430;padding:22px 20px 24px;position:relative}
+.fuga .n{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E7E79;letter-spacing:.1em;
+}
+.fuga h4{
+  font-family:'Archivo',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.02em;
+  margin:12px 0 14px;color:var(--patio);line-height:1.2;
+}
+.fuga .v{
+  font-family:'IBM Plex Mono',monospace;font-size:29px;font-weight:600;letter-spacing:-.045em;
+  color:#FF7A4D;line-height:1;
+}
+.fuga .d{font-size:15px;color:#A6B3AE;margin-top:12px;line-height:1.5}
+
+/* ---------- carimbo do despachante ---------- */
+.carimbo{
+  display:inline-block;border:3.5px solid var(--sinal);color:var(--sinal);
+  padding:12px 20px 10px;transform:rotate(-4deg);border-radius:3px;
+  font-family:'Archivo',sans-serif;text-align:center;opacity:.92;
+  box-shadow:inset 0 0 0 1.5px var(--sinal);
+}
+.carimbo b{display:block;font-size:clamp(20px,3.4vw,30px);font-weight:800;letter-spacing:.02em;line-height:1;font-variation-settings:'wdth' 108}
+.carimbo span{display:block;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.16em;margin-top:6px}
+
+.prazo-grid{display:grid;gap:34px;align-items:center}
+@media(min-width:820px){.prazo-grid{grid-template-columns:1fr auto}}
+
+/* ---------- lista dos 5 grupos ---------- */
+.grupos{margin-top:40px;border-top:1.5px solid var(--tinta)}
+.grupo{
+  display:grid;gap:6px 26px;padding:24px 0;border-bottom:1px solid var(--linha);
+  align-items:baseline;
+}
+@media(min-width:760px){.grupo{grid-template-columns:.9fr 1.4fr}}
+.grupo .nome{
+  font-family:'Archivo',sans-serif;font-size:23px;font-weight:800;letter-spacing:-.03em;
+  font-variation-settings:'wdth' 110;display:flex;align-items:baseline;gap:12px;
+}
+.grupo .nome i{
+  font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:13px;
+  color:var(--placa);font-weight:500;
+}
+.grupo .desc{color:var(--grafite);font-size:17px}
+.grupo .desc b{color:var(--tinta);font-weight:600}
+
+/* ---------- comparação ---------- */
+.comp{margin-top:38px;border-top:1.5px solid var(--tinta)}
+.linha{
+  display:grid;gap:4px 20px;padding:20px 0;border-bottom:1px solid var(--linha);
+}
+@media(min-width:760px){.linha{grid-template-columns:.72fr 1fr 1fr;align-items:start}}
+.linha .q{font-family:'Archivo',sans-serif;font-size:16px;font-weight:700;letter-spacing:-.015em}
+.linha .antes,.linha .depois{font-size:16.5px;display:flex;gap:10px;align-items:flex-start}
+.linha .antes{color:var(--grafite)}
+.linha .antes::before{content:'—';color:var(--sinal);font-family:'IBM Plex Mono',monospace;flex:none}
+.linha .depois::before{content:'✓';color:var(--verde);font-family:'Archivo',sans-serif;font-weight:700;flex:none}
+.comp-cab{display:none}
+@media(min-width:760px){
+  .comp-cab{display:grid;grid-template-columns:.72fr 1fr 1fr;gap:20px;padding-bottom:12px}
+  .comp-cab span{font-family:'Archivo',sans-serif;font-size:var(--mini);font-weight:700;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--grafite)}
+}
+
+/* ---------- copiloto ---------- */
+.conversa{
+  background:var(--breu2);border:1px solid #253430;padding:20px 18px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.bolha{max-width:88%;padding:13px 15px;font-size:16px;line-height:1.5}
+.bolha.eu{background:var(--placa);color:#fff;align-self:flex-end;border-radius:12px 12px 3px 12px}
+.bolha.ele{background:#22302B;color:var(--patio);align-self:flex-start;border-radius:12px 12px 12px 3px}
+.bolha.ele b{color:#FFB27A;font-weight:600}
+.bolha .ir{
+  display:inline-block;margin-top:11px;background:var(--patio);color:var(--tinta);
+  font-family:'Archivo',sans-serif;font-size:14px;font-weight:700;padding:9px 14px;border-radius:2px;
+}
+.dupla{display:grid;gap:34px;align-items:center;margin-top:40px}
+@media(min-width:880px){.dupla{grid-template-columns:1fr 1fr}}
+
+/* ---------- permissões ---------- */
+.olhos{display:grid;gap:16px;margin-top:38px}
+@media(min-width:760px){.olhos{grid-template-columns:1fr 1fr}}
+.olho{background:#fff;border:1px solid var(--linha);padding:24px 22px}
+.olho h4{font-family:'Archivo',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.02em;
+  padding-bottom:14px;border-bottom:2px solid var(--tinta);margin-bottom:8px}
+.olho ul{list-style:none}
+.olho li{padding:9px 0 9px 26px;position:relative;font-size:16.5px;border-bottom:1px solid var(--cal)}
+.olho li:last-child{border-bottom:0}
+.olho li::before{position:absolute;left:0;font-family:'Archivo',sans-serif;font-weight:700}
+.olho.ve li::before{content:'✓';color:var(--verde)}
+.olho.nao li::before{content:'×';color:var(--sinal);font-size:19px;line-height:1.3}
+
+/* ---------- objeções ---------- */
+.obj{border-top:1.5px solid var(--tinta);margin-top:38px}
+.obj details{border-bottom:1px solid var(--linha)}
+.obj summary{
+  list-style:none;cursor:pointer;padding:22px 40px 22px 0;position:relative;
+  font-family:'Archivo',sans-serif;font-size:clamp(17px,2vw,20px);font-weight:700;
+  letter-spacing:-.02em;
+}
+.obj summary::-webkit-details-marker{display:none}
+.obj summary::after{
+  content:'+';position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500;color:var(--placa);
+  transition:.2s;line-height:1;
+}
+.obj details[open] summary::after{content:'–'}
+.obj .resp{padding:0 0 24px;color:var(--grafite);font-size:17px;max-width:62ch}
+.obj .resp b{color:var(--tinta);font-weight:600}
+.obj summary:focus-visible{outline:3px solid var(--placa);outline-offset:-3px}
+
+/* ---------- fundador ---------- */
+.termo{border:2.5px solid var(--tinta);background:#fff;margin-top:38px}
+.beat{display:grid;gap:6px 22px;padding:24px;border-bottom:1px solid var(--linha)}
+.beat.ultimo{border-bottom:0}
+@media(min-width:640px){.beat{grid-template-columns:auto 1fr;align-items:start}}
+.beat .dia{
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--placa);white-space:nowrap;padding-top:4px;
+  min-width:78px;
+}
+.beat h4{font-family:'Archivo',sans-serif;font-size:19px;font-weight:800;letter-spacing:-.025em;margin-bottom:6px}
+.beat p{font-size:16.5px;color:var(--grafite);margin-bottom:0}
+.beat p b{color:var(--tinta);font-weight:600}
+.selo-gar{
+  display:inline-flex;align-items:center;gap:9px;margin-top:18px;
+  font-family:'Archivo',sans-serif;font-size:15px;font-weight:600;color:var(--verde);
+}
+.selo-gar svg{width:20px;height:20px;flex:none}
+.escuro .selo-gar{color:#5CCB9E}
+
+/* ---------- CTA final ---------- */
+.final{text-align:center}
+.final h2{max-width:18ch;margin-inline:auto}
+.final .lead{margin-inline:auto;text-align:center}
+.final .btns{justify-content:center}
+
+footer{background:var(--breu);color:#8C9B95;padding:44px 0 60px;font-size:14.5px;line-height:1.6}
+footer .wrap{display:grid;gap:22px}
+@media(min-width:760px){footer .wrap{grid-template-columns:1fr auto;align-items:end}}
+footer b{color:var(--patio);font-family:'Archivo',sans-serif;font-weight:700;font-size:17px;letter-spacing:-.02em}
+footer p{max-width:56ch;margin-bottom:0;margin-top:9px}
+
+/* ---------- movimento, contido ---------- */
+.rev{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
+.rev.on{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .rev{opacity:1;transform:none;transition:none}
+  .carimbo{transform:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero">
+  <div class="wrap">
+    <div class="marca">
+      <span class="sim" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 17h14M3 17v-4l2-6h14l2 6v4"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+      </span>
+      <span><b>ZelAuto</b><span>um sistema só para a sua revenda</span></span>
+    </div>
+
+    <div class="hero-grid">
+      <div>
+        <h1>Quatro sistemas. Quatro mensalidades. <em>Nenhum</em> que te faça vender mais.</h1>
+        <p class="lead">Um para o estoque, um para o anúncio, outro para a nota, e o RENAVE ninguém sabe onde fica. O ZelAuto junta tudo numa tela só — e ainda te mostra onde está o dinheiro que a loja deixa passar.</p>
+        <div class="btns">
+          <a class="btn" href="https://wa.me/5571900000000?text=Vi%20o%20site%20do%20ZelAuto%20e%20quero%20entender%20melhor" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5c.1-.2.1-.3 0-.5l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3a3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.3.5 1.9.6 2.6.5.4-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1z"/></svg>
+            Falar com a gente
+          </a>
+          <a class="btn vazio" href="#dentro">Ver o que tem dentro</a>
+        </div>
+        <div class="selo-gar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2l7.5 3v6c0 4.5-3.1 8.6-7.5 10-4.4-1.4-7.5-5.5-7.5-10V5z"/><path d="M9 12l2 2 4-4"/></svg>
+          Sete dias de garantia. Não gostou, devolvo o dinheiro.
+        </div>
+        <p class="hero-nota">Feito para revenda de 8 a 30 carros. Não é ERP de concessionária, não é planilha melhorada.</p>
+      </div>
+
+      <!-- o comprovante do que ele paga todo mês, somado -->
+      <div class="ficha rev" role="img" aria-label="Soma das mensalidades de quatro ferramentas separadas: R$ 587 por mês">
+        <div class="topo"><b>ZelAuto</b><span>a sua conta, hoje</span></div>
+        <div class="corpo">
+          <div class="modelo">O que sai do caixa todo mês</div>
+          <div class="itens">
+            <div><span>Sistema de estoque e nota</span><b class="num">R$ 289</b></div>
+            <div><span>Plano do portal de anúncio</span><b class="num">R$ 179</b></div>
+            <div><span>Assinatura digital de contrato</span><b class="num">R$ 69</b></div>
+            <div><span>Site e hospedagem</span><b class="num">R$ 50</b></div>
+          </div>
+          <div class="regua"></div>
+          <div class="rot">Soma por mês</div>
+          <div class="valor num" data-conta="587" data-pre="R$ ">R$ 0</div>
+          <p class="obs">Quatro logins, quatro cobranças, quatro suportes diferentes. E nenhuma delas te avisa quando um cliente ficou sem resposta.</p>
+        </div>
+        <div class="perfuro" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== O CUSTO DE TER TUDO SEPARADO ==================== -->
+<section class="escuro">
+  <div class="wrap">
+    <span class="faixa">O problema não é o preço</span>
+    <h2>Você não paga caro por ferramenta. Paga caro pelo que elas deixam passar.</h2>
+    <p class="lead">Quinhentos ou seiscentos por mês é dinheiro, mas não é o pior. O pior é que nenhuma dessas telas conversa com a outra — e o que cai no vão entre elas custa muito mais que a mensalidade.</p>
+
+    <div class="fugas">
+      <div class="fuga rev">
+        <div class="n">01 · o vão entre as telas</div>
+        <h4>Carro vendido que continua anunciado</h4>
+        <div class="v num" data-conta="3" data-sufixo=" portais">0</div>
+        <p class="d">Você tira do estoque num sistema e esquece de tirar do anúncio nos outros. O cliente liga, ouve que já vendeu, e não liga de novo.</p>
+      </div>
+      <div class="fuga rev">
+        <div class="n">02 · o que ninguém cobra</div>
+        <h4>Cliente que ficou sem resposta</h4>
+        <div class="v num" data-conta="3" data-sufixo=" pessoas">0</div>
+        <p class="d">Pediram informação e ficaram esperando. Num auto shopping o cliente não esfria — ele anda vinte metros e compra do vizinho.</p>
+      </div>
+      <div class="fuga rev">
+        <div class="n">03 · o lucro que não é do carro</div>
+        <h4>Venda à vista que dava financiamento</h4>
+        <div class="v num" data-conta="2200" data-pre="R$ ">R$ 0</div>
+        <p class="d">De retorno de banco por contrato, em média. Some quando ninguém consegue mostrar a parcela na hora em que o cliente pergunta.</p>
+      </div>
+      <div class="fuga rev">
+        <div class="n">04 · o que nenhuma tela mostra</div>
+        <h4>Dinheiro dormindo no pátio</h4>
+        <div class="v num" data-conta="318000" data-pre="R$ ">R$ 0</div>
+        <p class="d">Parado há mais de 60 dias numa loja de doze vagas. O dado existe em algum relatório — só que ninguém abre relatório no meio do expediente.</p>
+      </div>
+    </div>
+
+    <div class="virada">
+      <p><b>É por isso que ter tudo num lugar só não é comodidade.</b> Quando o estoque, o anúncio, o cliente e a papelada estão na mesma base, o carro vendido sai do ar sozinho, o cliente sem resposta aparece na tela de manhã e a parcela sai na frente do comprador em dez segundos.</p>
+      <p>Uma ferramenta que custa menos que a soma das quatro — e que, diferente delas, existe para <b>fazer a loja vender mais</b>, não para guardar informação.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== O PRAZO ==================== -->
+<section>
+  <div class="wrap">
+    <div class="prazo-grid">
+      <div>
+        <span class="faixa">E ainda entrou mais uma obrigação</span>
+        <h2>Carro fora do RENAVE é carro que o banco não financia.</h2>
+        <p class="lead">Como se quatro sistemas não bastassem, a Resolução CONTRAN nº 1.026, de junho de 2026, tornou o registro eletrônico obrigatório para toda revenda — inclusive loja de moto. Entrada, saída, transferência e consignação.</p>
+        <p style="margin-top:20px;color:var(--grafite);max-width:56ch">
+          O ZelAuto <b>não registra no RENAVE</b> — quem registra é a integradora credenciada pelo DETRAN. O que ele faz é não deixar você descobrir o problema na hora em que o banco recusa o crédito do seu cliente: mostra veículo por veículo o que está pendente, quanto de vitrine está travada e quando o certificado digital vence.
+        </p>
+      </div>
+      <div style="text-align:center">
+        <div class="carimbo">
+          <b>PRAZO LEGAL</b>
+          <span>SETEMBRO DE 2026</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== O QUE TEM DENTRO ==================== -->
+<section class="escuro" id="dentro">
+  <div class="wrap">
+    <span class="faixa">O que tem dentro</span>
+    <h2>Cinco telas. Não dezesseis.</h2>
+    <p class="lead">A maioria dos sistemas é organizada pelo jeito que foi construída. Este é organizado pelo seu dia: você não pensa “módulo de nota fiscal”, você pensa “vendi, preciso fechar a papelada”.</p>
+
+    <div class="grupos" style="border-color:#33413C">
+      <div class="grupo" style="border-color:#253430">
+        <div class="nome" style="color:var(--patio)">Hoje <i>o que faço agora?</i></div>
+        <div class="desc" style="color:#A6B3AE">Três números e no máximo três coisas para resolver, cada uma com o botão que resolve. <b style="color:var(--patio)">Sem gráfico, sem relatório.</b></div>
+      </div>
+      <div class="grupo" style="border-color:#253430">
+        <div class="nome" style="color:var(--patio)">Pátio <i>como estão meus carros?</i></div>
+        <div class="desc" style="color:#A6B3AE">Estoque com custo real e dias de pátio, situação no RENAVE, publicação nos portais e o <b style="color:var(--patio)">site da loja que se atualiza sozinho</b>.</div>
+      </div>
+      <div class="grupo" style="border-color:#253430">
+        <div class="nome" style="color:var(--patio)">Clientes <i>quem está esperando?</i></div>
+        <div class="desc" style="color:#A6B3AE">Funil com alerta de quem ficou sem retorno, origem de cada contato e a <b style="color:var(--patio)">avaliação do carro da troca</b> com o teto que você pode pagar.</div>
+      </div>
+      <div class="grupo" style="border-color:#253430">
+        <div class="nome" style="color:var(--patio)">Negócios <i>como fecho isso?</i></div>
+        <div class="desc" style="color:#A6B3AE">Venda, simulador de financiamento com o retorno do banco, carnê próprio com risco calculado, contrato assinado pelo celular e <b style="color:var(--patio)">nota fiscal emitida na hora</b>.</div>
+      </div>
+      <div class="grupo" style="border-color:#253430;border-bottom:0">
+        <div class="nome" style="color:var(--patio)">Dinheiro <i>quanto sobrou?</i></div>
+        <div class="desc" style="color:#A6B3AE">Do faturamento ao lucro líquido, custo fixo e variável, e o controle dos consignados. <b style="color:var(--patio)">Em uma tela, não em três abas.</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== COMPARAÇÃO ==================== -->
+<section>
+  <div class="wrap">
+    <span class="faixa">O dia a dia muda assim</span>
+    <h2>A mesma tarefa, antes e depois.</h2>
+
+    <div class="comp">
+      <div class="comp-cab"><span></span><span>Como é hoje</span><span>Com o ZelAuto</span></div>
+      <div class="linha">
+        <div class="q">Saber o que está parado</div>
+        <div class="antes">Abrir relatório — se lembrar de abrir</div>
+        <div class="depois">É o primeiro número da primeira tela</div>
+      </div>
+      <div class="linha">
+        <div class="q">Emitir a nota do cliente</div>
+        <div class="antes">Mandar pro contador e esperar</div>
+        <div class="depois">Sai na hora, com chave de acesso e DANFE</div>
+      </div>
+      <div class="linha">
+        <div class="q">Anunciar um carro novo</div>
+        <div class="antes">Cadastrar em cada portal, um por um</div>
+        <div class="depois">Cadastra uma vez e sobe em todos</div>
+      </div>
+      <div class="linha">
+        <div class="q">Carro vendido ainda anunciado</div>
+        <div class="antes">Cliente liga por carro que já saiu</div>
+        <div class="depois">O anúncio cai sozinho em todos os portais</div>
+      </div>
+      <div class="linha">
+        <div class="q">Fechar o contrato</div>
+        <div class="antes">Imprime, assina, digitaliza, arquiva</div>
+        <div class="depois">Manda o link e ele assina do celular</div>
+      </div>
+      <div class="linha">
+        <div class="q">Avaliar o carro da troca</div>
+        <div class="antes">Cabeça, tabela e um pouco de fé</div>
+        <div class="depois">Teto calculado com km, estado e liquidez</div>
+      </div>
+      <div class="linha" style="border-bottom:0">
+        <div class="q">Descobrir problema no RENAVE</div>
+        <div class="antes">Quando o banco recusa o financiamento</div>
+        <div class="depois">Semanas antes, veículo por veículo</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== COPILOTO ==================== -->
+<section class="escuro">
+  <div class="wrap">
+    <span class="faixa">Copiloto</span>
+    <h2>Um sistema que responde quando você pergunta.</h2>
+    <p class="lead">Ninguém quer aprender onde fica cada coisa. Você pergunta do seu jeito — e ele te leva, ou te responde com os números da sua loja.</p>
+
+    <div class="dupla">
+      <div class="conversa rev">
+        <div class="bolha eu">onde eu emito a nota do cliente</div>
+        <div class="bolha ele">Fica em <b>Negócios › Papelada › Nota fiscal</b>.<br>Lá você emite a NF-e, vê as autorizadas e corrige as rejeitadas.
+          <span class="ir">Abrir Nota fiscal agora</span></div>
+        <div class="bolha eu">o que tá travando meu caixa?</div>
+        <div class="bolha ele">Dois carros passaram de 60 dias e seguram <b>R$ 318.000</b>. Girando com 6% de margem, você libera capital para quatro carros da faixa que sai em menos de 30 dias.</div>
+      </div>
+      <div>
+        <h3>Ele não é um robô de conversa</h3>
+        <p style="margin-top:14px;color:#A6B3AE">Antes de responder, ele lê o seu estoque, o seu caixa e o seu funil. Por isso a resposta vem com o número da sua loja e não com conselho genérico.</p>
+        <p style="color:#A6B3AE">E toda resposta termina com o botão que resolve. Informação que não vira ação é enfeite.</p>
+        <p style="color:#A6B3AE"><b style="color:var(--patio)">Para quem tem 50 anos e não gosta de sistema</b>, essa é a diferença entre usar e desistir na primeira semana.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PERMISSÕES ==================== -->
+<section>
+  <div class="wrap">
+    <span class="faixa">Cada um vê o que precisa</span>
+    <h2>Seu vendedor não precisa saber quanto você pagou no carro.</h2>
+    <p class="lead">Você escolhe, um por um, o que cada pessoa da equipe enxerga. E troca de usuário na própria tela para conferir.</p>
+
+    <div class="olhos">
+      <div class="olho ve">
+        <h4>O que o vendedor vê</h4>
+        <ul>
+          <li>Preço de venda e há quantos dias o carro está no pátio</li>
+          <li>Os clientes dele no funil, com quem precisa de retorno</li>
+          <li>O simulador de parcela para mostrar ao cliente</li>
+          <li>A avaliação do carro da troca</li>
+        </ul>
+      </div>
+      <div class="olho nao">
+        <h4>O que ele não vê</h4>
+        <ul>
+          <li>Quanto a loja pagou em cada veículo</li>
+          <li>A margem e o lucro de cada venda</li>
+          <li>O resultado do mês e as despesas da loja</li>
+          <li>A carteira do carnê e o caixa</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== OBJEÇÕES ==================== -->
+<section style="background:var(--cal)">
+  <div class="wrap estreito">
+    <span class="faixa">Perguntas justas</span>
+    <h2>O que todo lojista pergunta.</h2>
+
+    <div class="obj">
+      <details>
+        <summary>Já pago um sistema. Por que trocar?</summary>
+        <div class="resp">Você não precisa trocar. O ZelAuto soma à nota fiscal e ao anúncio que você já usa. A pergunta que separa os dois é outra: <b>o seu sistema te avisa quanto tem parado há mais de sessenta dias, sem você abrir relatório?</b> Na maioria, o dado existe e ninguém consulta.</div>
+      </details>
+      <details>
+        <summary>Isso faz o RENAVE por mim?</summary>
+        <div class="resp">Não, e não vamos fingir que faz. <b>Quem registra é a integradora credenciada pelo DETRAN.</b> O ZelAuto mostra o que está pendente, quanto de vitrine está sem poder ser financiada e quando seu certificado digital vence — que é justamente o que a integradora não te mostra.</div>
+      </details>
+      <details>
+        <summary>Minha equipe não vai aprender.</summary>
+        <div class="resp">Foi por isso que o menu tem <b>cinco palavras e não dezesseis</b>, que nenhum texto é menor que 14 pixels e que existe controle de tamanho de letra. E quando alguém não achar alguma coisa, pergunta ao Copiloto do jeito que falaria com você. Treinamento de equipe leva minutos, não uma tarde.</div>
+      </details>
+      <details>
+        <summary>E se vocês sumirem no ano que vem?</summary>
+        <div class="resp">Pergunta justa, e a resposta fica no contrato: <b>os dados são seus e saem em planilha quando você quiser</b>, sem pedir autorização a ninguém. Não trabalhamos com fidelidade longa nem com multa de cancelamento.</div>
+      </details>
+      <details>
+        <summary>Meus dados ficam seguros?</summary>
+        <div class="resp">Cada loja tem ambiente próprio, com login individual por pessoa e backup diário. <b>Nenhuma informação circula entre lojas.</b> Se você quiser entrar no detalhe técnico, marcamos uma conversa com quem desenvolve — não com quem vende.</div>
+      </details>
+      <details>
+        <summary>Quanto custa?</summary>
+        <div class="resp">Menos do que você paga hoje somando as ferramentas separadas — e isso a gente calcula junto, com os seus números, em quinze minutos. <b>Preço a gente fala olhando na cara, depois de você ver a coisa funcionando</b>, não numa página de internet. E você ainda tem sete dias para desistir e receber o dinheiro de volta.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== GARANTIA ==================== -->
+<section>
+  <div class="wrap estreito">
+    <span class="faixa">Quem assume o risco</span>
+    <h2>Sete dias. Não serviu, devolvo o dinheiro.</h2>
+    <p class="lead">Você não precisa acreditar em mim. Precisa usar por uma semana com os carros do seu pátio e decidir com o que viu.</p>
+
+    <div class="termo">
+      <div class="beat">
+        <span class="dia">Dia 1</span>
+        <div>
+          <h4>Seu painel montado</h4>
+          <p>Entro com o seu estoque, suas despesas e sua equipe. Você abre no celular e já é a sua loja lá dentro, não um exemplo.</p>
+        </div>
+      </div>
+      <div class="beat">
+        <span class="dia">Dias 2 a 7</span>
+        <div>
+          <h4>Você usa de verdade</h4>
+          <p>Lança as compras, registra as vendas, põe os clientes no funil. É a única forma de saber se serve: com os seus números, na sua rotina.</p>
+        </div>
+      </div>
+      <div class="beat ultimo">
+        <span class="dia">Dia 8</span>
+        <div>
+          <h4>Você decide</h4>
+          <p>Se não se adaptou, se a equipe não pegou o jeito, se simplesmente não fez diferença — <b>me avisa e eu devolvo o valor integral</b>. Sem formulário, sem prazo de análise, sem pergunta.</p>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:24px;color:var(--grafite);max-width:58ch">
+      Assumo esse risco porque o produto foi feito para uma revenda do seu tamanho e porque prefiro perder uma venda a manter alguém pagando por algo que não usa. <b>Quem tem que provar sou eu.</b>
+    </p>
+  </div>
+</section>
+
+<!-- ==================== CTA FINAL ==================== -->
+<section class="escuro final">
+  <div class="wrap estreito">
+    <span class="faixa">Próximo passo</span>
+    <h2>Troque quatro telas por uma.</h2>
+    <p class="lead">Quinze minutos com os carros do seu pátio na tela. Depois, sete dias usando de verdade — e se não servir, devolvo o valor integral.</p>
+    <div class="btns">
+      <a class="btn claro" href="https://wa.me/5571900000000?text=Vi%20o%20site%20do%20ZelAuto%20e%20quero%20marcar%20os%2015%20minutos" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5c.1-.2.1-.3 0-.5l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3a3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.3.5 1.9.6 2.6.5.4-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1z"/></svg>
+        Marcar os quinze minutos
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <b>ZelAuto</b>
+      <p>Sistema de gestão para revenda de veículos. O registro no RENAVE é feito por integradora credenciada pelo DETRAN — o ZelAuto acompanha e cobra, não substitui. Os valores citados são cenários de referência para uma loja de doze vagas, não promessa de resultado.</p>
+    </div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:13px">Salvador · Bahia</div>
+  </div>
+</footer>
+
+<script>
+/* números que se montam ao entrar na tela — como um odômetro subindo */
+(function(){
+  const reduz = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const fmt = n => new Intl.NumberFormat('pt-BR').format(Math.round(n));
+
+  function conta(el){
+    const alvo = +el.dataset.conta;
+    const pre = el.dataset.pre || '';
+    const suf = el.dataset.sufixo || '';
+    if(reduz){ el.textContent = pre + fmt(alvo) + suf; return; }
+    const dur = 1100, ini = performance.now();
+    function passo(t){
+      const p = Math.min(1, (t-ini)/dur);
+      const e = 1 - Math.pow(1-p, 3);
+      el.textContent = pre + fmt(alvo*e) + suf;
+      if(p<1) requestAnimationFrame(passo);
+    }
+    requestAnimationFrame(passo);
+  }
+
+  if(!('IntersectionObserver' in window)){
+    document.querySelectorAll('.rev').forEach(e=>e.classList.add('on'));
+    document.querySelectorAll('[data-conta]').forEach(conta);
+    return;
+  }
+
+  const obs = new IntersectionObserver((ents)=>{
+    ents.forEach(e=>{
+      if(!e.isIntersecting) return;
+      e.target.classList.add('on');
+      e.target.querySelectorAll('[data-conta]').forEach(conta);
+      if(e.target.hasAttribute('data-conta')) conta(e.target);
+      obs.unobserve(e.target);
+    });
+  },{threshold:.28, rootMargin:'0px 0px -40px 0px'});
+
+  document.querySelectorAll('.rev, [data-conta]').forEach(el=>obs.observe(el));
+})();
+</script>
+</body>
+</html>
