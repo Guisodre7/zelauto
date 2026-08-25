@@ -152,29 +152,24 @@ select throws_ok(
      values ('33333333-3333-3333-3333-333333333333','X','Y') $$,
   '42501', 'veiculos: A não grava em outra loja');
 
--- veiculo_custos — 0009: leitura tirada do authenticated (custo só via Edge Function)
-select throws_ok(
-  $$ select valor from public.veiculo_custos limit 1 $$,
-  '42501', 'veiculo_custos: SELECT negado ao authenticated (0009)');
+-- veiculo_custos / compra / custo_total — 0009 e 0010: custo tirado do acesso do
+-- authenticated. Checamos o PRIVILÉGIO no catálogo (do usuário atual), não a
+-- leitura em si — a verificação nunca dispara o erro que testa.
+select ok(has_table_privilege('public.veiculo_custos','SELECT') = false,
+  'veiculo_custos: SELECT negado ao authenticated (0009)');
 select throws_ok(
   $$ insert into public.veiculo_custos (loja_id, veiculo_id, descricao, valor)
      values ('33333333-3333-3333-3333-333333333333','b0000000-0000-0000-0000-0000000000b1','x',1) $$,
   '42501', 'veiculo_custos: A não grava em outra loja');
 
--- veiculos.compra — 0009: coluna de custo tirada do authenticated; o resto legível
-select throws_ok(
-  $$ select compra from public.veiculos limit 1 $$,
-  '42501', 'veiculos.compra: SELECT negado ao authenticated (0009)');
-select lives_ok(
-  $$ select id, alvo, marca from public.veiculos limit 1 $$,
+select ok(has_column_privilege('public.veiculos','compra','SELECT') = false,
+  'veiculos.compra: SELECT negado ao authenticated (0009)');
+select ok(has_column_privilege('public.veiculos','alvo','SELECT') = true,
   'veiculos: colunas sem custo seguem legíveis');
 
--- vendas.custo_total — 0010: custo congelado da venda tirado do authenticated
-select throws_ok(
-  $$ select custo_total from public.vendas limit 1 $$,
-  '42501', 'vendas.custo_total: SELECT negado ao authenticated (0010)');
-select lives_ok(
-  $$ select id, valor, forma from public.vendas limit 1 $$,
+select ok(has_column_privilege('public.vendas','custo_total','SELECT') = false,
+  'vendas.custo_total: SELECT negado ao authenticated (0010)');
+select ok(has_column_privilege('public.vendas','valor','SELECT') = true,
   'vendas: colunas sem custo seguem legíveis');
 
 -- consignacoes
@@ -387,11 +382,12 @@ select lives_ok(
 -- -----------------------------------------------------------------------------
 -- Bônus: delete cruzado não afeta linha alguma da outra loja
 -- -----------------------------------------------------------------------------
-select is(
-  (with d as (delete from public.veiculos
-               where loja_id='22222222-2222-2222-2222-222222222222' returning 1)
-   select count(*) from d),
-  0::bigint,
+-- A CTE que modifica dados precisa estar no TOPO do statement (não pode ficar
+-- aninhada num subselect dentro de is()), senão o Postgres recusa com 0A000.
+with d as (
+  delete from public.veiculos
+    where loja_id='22222222-2222-2222-2222-222222222222' returning 1)
+select is((select count(*) from d), 0::bigint,
   'veiculos: delete de A não apaga nada da B');
 
 select * from finish();
