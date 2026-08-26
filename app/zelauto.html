@@ -967,7 +967,7 @@ function abrirConfig(){
         ${svgi('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>')}
         Gerenciar usuários (${DB.usuarios.length})</button>
     </div>`:''}
-    ${podeGerir()?`
+    ${USER.papelChave==='proprietario'?`
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Site da loja</label>
       <div style="display:flex;gap:16px;align-items:center;margin-bottom:10px">
