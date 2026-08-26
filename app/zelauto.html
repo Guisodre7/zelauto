@@ -2239,32 +2239,36 @@ function vCarne(){
 
   <div id="cartC" style="display:none">
     <div class="card">
-      ${DB.carne.map(k=>{
+      ${DB.carne.length? DB.carne.map(k=>{
         const p=pmt(k.financiado,k.taxa,k.parcelas);
         const rest=k.parcelas-k.pagas;
         const prog=k.pagas/k.parcelas*100;
+        const quitado=rest<=0;
         return `<div class="veic" style="cursor:default">
           <div class="info">
             <div class="nm">${esc(k.cliente)} ${k.atraso?`<span class="pill bad" style="margin-left:5px">${k.atraso} dias em atraso</span>`:''}</div>
-            <div class="dt">${esc(k.veiculo)} · ${esc(k.tel)}</div>
+            <div class="dt">${esc(k.veiculo)}${k.tel?' · '+esc(k.tel):''}</div>
             <div class="bar" style="margin-top:9px"><i class="${k.atraso?'red':'grn'}" style="width:${prog}%"></i></div>
             <div style="font-size:var(--t-lab);color:var(--placa-3);margin-top:5px">${k.pagas} de ${k.parcelas} pagas · faltam ${rest}</div>
           </div>
           <div class="pr">
             <div class="a">${BRLc(p)}</div>
             <div class="b">restam ${BRL(p*rest)}</div>
+            ${quitado?`<span class="pill ok" style="margin-top:6px">quitado</span>`
+              :`<button class="btn" style="margin-top:6px;padding:5px 10px;font-size:var(--t-sup)" onclick="carPagar('${k.id}')">Receber parcela</button>`}
           </div>
         </div>`;
-      }).join('')}
+      }).join('')
+      :`<div style="padding:26px 16px;text-align:center;color:var(--placa-3);font-size:var(--t-sup)">Nenhum contrato de carnê ainda. Simule e feche o primeiro na aba <b>Simular</b>.</div>`}
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-h"><div style="flex:1"><h3>Saúde da carteira</h3></div></div>
       <div class="card-b">
         <div class="stat-line"><span>Total a receber</span><b>${BRL(m.aReceber)}</b></div>
         <div class="stat-line"><span>Entrada mensal previsível</span><b style="color:#5FD3A6">${BRL(DB.carne.reduce((s,k)=>s+pmt(k.financiado,k.taxa,k.parcelas),0))}</b></div>
-        <div class="stat-line"><span>Inadimplência da carteira</span><b style="color:${emAtraso.length?'#F58177':'#5FD3A6'}">${PCT(emAtraso.length/DB.carne.length*100)}</b></div>
+        <div class="stat-line"><span>Inadimplência da carteira</span><b style="color:${emAtraso.length?'#F58177':'#5FD3A6'}">${PCT(DB.carne.length? emAtraso.length/DB.carne.length*100 : 0)}</b></div>
         <div style="margin-top:12px;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);line-height:1.55;color:var(--placa-2)">
-          Essa mensalidade cobre <b style="color:var(--ambar)">${PCT(DB.carne.reduce((s,k)=>s+pmt(k.financiado,k.taxa,k.parcelas),0)/m.fixas*100)}</b> do custo fixo da loja antes de vender qualquer carro no mês.
+          Essa mensalidade cobre <b style="color:var(--ambar)">${PCT(m.fixas? DB.carne.reduce((s,k)=>s+pmt(k.financiado,k.taxa,k.parcelas),0)/m.fixas*100 : 0)}</b> do custo fixo da loja antes de vender qualquer carro no mês.
         </div>
       </div>
     </div>
@@ -2308,6 +2312,11 @@ function carCalc(){
   const perdaEsperada=financiado*risco/100;
   const liqRisco=lucroTotal-perdaEsperada;
 
+  // guarda o estado atual do simulador para "Fechar contrato" persistir
+  const selVeic=document.getElementById('carVeic');
+  CAR_ATUAL={ valor, entrada, financiado, taxa, prazo, score,
+    valorParcela:p, veiculo:(selVeic.value?selVeic.selectedOptions[0].text.replace(/ — R\$.*$/,''):'') };
+
   document.getElementById('carEntLab').textContent=BRL(entrada);
   document.getElementById('carEntV').textContent=entPct+'%';
   document.getElementById('carPrazoV').textContent=prazo+'x';
@@ -2344,7 +2353,63 @@ function carCalc(){
           </div>
         </div>
       </div>
-    </div>`;
+    </div>
+    <button class="btn pri" style="width:100%;margin-top:12px" onclick="carFechar()">Fechar contrato no carnê</button>`;
+}
+
+/* estado do simulador no momento; preenchido por carCalc, usado por carFechar */
+let CAR_ATUAL=null;
+
+/* Fecha o contrato: pede nome/telefone do comprador e persiste contrato +
+   parcelas. Só quem pode ver custo fecha carnê (é decisão comercial/financeira). */
+function carFechar(){
+  if(!CAR_ATUAL || !CAR_ATUAL.valor){ toast('Simule um valor antes de fechar'); return; }
+  const s=CAR_ATUAL;
+  modal('Fechar contrato no carnê',`
+    <div style="padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);margin-bottom:14px;font-size:var(--t-sup);color:var(--placa-2)">
+      ${s.veiculo?esc(s.veiculo)+' · ':''}${BRL(s.valor)} · entrada ${BRL(s.entrada)} ·
+      <b class="num">${s.prazo}x de ${BRLc(s.valorParcela)}</b>
+    </div>
+    <div class="field"><label>Nome do comprador</label><input id="cfNome" placeholder="Quem assina o carnê"></div>
+    <div class="field"><label>Telefone (para cobrança)</label><input id="cfTel" placeholder="(71) 9...."></div>
+    <div class="field" style="margin-bottom:0"><label>Descrição do veículo</label><input id="cfVeic" value="${esc(s.veiculo||'')}" placeholder="Ex.: Fiat Argo 2021"></div>`,
+    `<button class="btn" data-close-modal>Cancelar</button>
+     <button class="btn pri" id="cfSalvar" onclick="carSalvarContrato()">Gerar carnê</button>`);
+}
+let salvandoCarne=false;
+async function carSalvarContrato(){
+  if(salvandoCarne) return;
+  const s=CAR_ATUAL; if(!s){ fecharModal(); return; }
+  const nome=val('cfNome').trim();
+  const veic=val('cfVeic').trim();
+  if(!nome){ toast('Informe o nome do comprador'); return; }
+  const btn=document.getElementById('cfSalvar');
+  salvandoCarne=true; if(btn){ btn.disabled=true; btn.textContent='Gerando…'; }
+  const contrato={ cliente:nome, tel:val('cfTel').trim(), veiculo:veic||'Veículo',
+    valorVeic:s.valor, entrada:s.entrada, financiado:s.financiado, taxa:s.taxa,
+    parcelas:s.prazo, valorParcela:s.valorParcela, inicio:dFwd(0), score:s.score };
+  try{
+    await Dados.salvarCarne(contrato);
+    DB.carne = await Dados.listarCarne();
+  }catch(e){
+    toast('Erro ao gerar carnê: '+(e.message||e));
+    salvandoCarne=false; if(btn){ btn.disabled=false; btn.textContent='Gerar carnê'; }
+    return;
+  }
+  salvandoCarne=false;
+  fecharModal(); render('carne'); atualizarTags();
+  toast(`Carnê de ${nome} gerado — ${s.prazo}x`);
+}
+
+/* Registrar o recebimento da próxima parcela em aberto do contrato. */
+async function carPagar(id){
+  const k=DB.carne.find(x=>x.id===id); if(!k) return;
+  if(k.pagas>=k.parcelas){ toast('Carnê já quitado'); return; }
+  try{
+    const n=await Dados.pagarParcelaCarne(id);
+    if(n==null){ toast('Carnê já quitado'); }
+    else{ DB.carne = await Dados.listarCarne(); render('carne'); atualizarTags(); toast(`Parcela ${n} recebida`); }
+  }catch(e){ toast('Erro ao registrar pagamento: '+(e.message||e)); }
 }
 
 /* ==========================================================
@@ -4750,7 +4815,14 @@ atualizarTags();
     try{ window.LOJA = await Dados.carregarLoja(); }catch(_){ window.LOJA=null; }   // marca própria (site)
     // Telas ainda não persistidas (fases 2+): zera o seed de demonstração para a
     // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
-    DB.consignados=[]; DB.carne=[]; DB.notas=[]; DB.portais=[]; DB.contratos=[];
+    DB.consignados=[]; DB.notas=[]; DB.portais=[];
+    // Carnê já persiste (carne_contratos/carne_parcelas).
+    try{ DB.carne = await Dados.listarCarne(); }
+    catch(e){ console.error('[ZelAuto] falha ao carregar carnê:', e); DB.carne=[];
+      if(typeof toast==='function') toast('Não consegui carregar o carnê. Verifique a conexão e recarregue.'); }
+    // Contratos já persiste (papelada).
+    try{ DB.contratos = Dados.listarContratos ? await Dados.listarContratos() : []; }
+    catch(e){ console.error('[ZelAuto] falha ao carregar contratos:', e); DB.contratos=[]; }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');

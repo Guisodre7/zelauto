@@ -411,6 +411,104 @@ async function removerDespesa(id) {
   if (error) throw error;
 }
 
+/* ============================== CARNÊ =================================== */
+/* Carnê da casa persistido em duas tabelas: carne_contratos (o negócio) e
+   carne_parcelas (uma linha por parcela). O protótipo fala em números derivados
+   — `pagas` (quantas parcelas quitadas) e `atraso` (dias de atraso da parcela
+   vencida mais antiga em aberto) — que aqui são calculados a partir das
+   parcelas. O valor da parcela é fixado na criação (pmt) e gravado em cada
+   linha, para que a carteira não dependa de recálculo. */
+
+function carneParaProto(c) {
+  const ps = c.carne_parcelas || [];
+  const pagas = ps.filter(p => p.pago_em).length;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  let atraso = 0;
+  for (const p of ps) {
+    if (p.pago_em) continue;
+    const venc = new Date(p.vencimento + 'T00:00:00');
+    const d = Math.floor((hoje - venc) / 864e5);
+    if (d > atraso) atraso = d;
+  }
+  return {
+    id: c.id, cliente: c.cliente_nome, tel: c.telefone || '',
+    veiculo: c.veiculo_desc, valorVeic: Number(c.valor_veiculo),
+    entrada: Number(c.entrada), financiado: Number(c.financiado),
+    taxa: Number(c.taxa_mes), parcelas: c.parcelas, pagas,
+    inicio: c.inicio, score: c.score || 'B', atraso,
+    vendaId: c.venda_id || null, clienteId: c.cliente_id || null,
+  };
+}
+
+async function listarCarne() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('carne_contratos')
+    .select('*, carne_parcelas(numero, vencimento, valor, pago_em, valor_pago)')
+    .eq('loja_id', lojaId).order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(carneParaProto);
+}
+
+/* Cria o contrato e gera as parcelas (vencimento mensal a partir de `inicio`).
+   O valor de cada parcela vem pronto do protótipo (c.valorParcela = pmt). */
+async function salvarCarne(c) {
+  const { lojaId } = exigirContexto();
+  const nParc = num(c.parcelas) ?? 0;
+  const contrato = {
+    loja_id: lojaId,
+    venda_id: c.vendaId || null,
+    cliente_id: c.clienteId || null,
+    cliente_nome: c.cliente,
+    telefone: c.tel || null,
+    veiculo_desc: c.veiculo,
+    valor_veiculo: num(c.valorVeic) ?? 0,
+    entrada: num(c.entrada) ?? 0,
+    financiado: num(c.financiado) ?? 0,
+    taxa_mes: num(c.taxa) ?? 0,
+    parcelas: nParc,
+    inicio: c.inicio,
+    score: c.score || 'B',
+  };
+  const { data, error } = await sb.from('carne_contratos').insert(contrato).select('id').single();
+  if (error) throw error;
+  const contratoId = data.id;
+
+  const valorParc = num(c.valorParcela) ?? 0;
+  const base = new Date(c.inicio + 'T12:00:00');
+  const linhas = [];
+  for (let n = 1; n <= nParc; n++) {
+    const venc = new Date(base);
+    venc.setMonth(venc.getMonth() + n);
+    linhas.push({
+      loja_id: lojaId, contrato_id: contratoId, numero: n,
+      vencimento: venc.toISOString().slice(0, 10), valor: valorParc,
+    });
+  }
+  if (linhas.length) {
+    const { error: e2 } = await sb.from('carne_parcelas').insert(linhas);
+    if (e2) throw e2;   // parcelas são o carnê; sem elas o contrato não serve
+  }
+  return contratoId;
+}
+
+/* Registra o recebimento da próxima parcela em aberto (a de menor número sem
+   pago_em). Devolve o número da parcela quitada, ou null se já estava tudo
+   pago. valorPago opcional (default = valor da parcela). */
+async function pagarParcelaCarne(contratoId, valorPago) {
+  const { data: aberto, error } = await sb.from('carne_parcelas')
+    .select('id, numero, valor').eq('contrato_id', contratoId).is('pago_em', null)
+    .order('numero', { ascending: true }).limit(1);
+  if (error) throw error;
+  if (!aberto || !aberto.length) return null;
+  const p = aberto[0];
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { error: e2 } = await sb.from('carne_parcelas')
+    .update({ pago_em: hoje, valor_pago: valorPago != null ? (num(valorPago) ?? p.valor) : p.valor })
+    .eq('id', p.id);
+  if (e2) throw e2;
+  return p.numero;
+}
+
 /* ============================== EQUIPE / PERFIS ========================== */
 /* Lê a equipe da loja (RLS já limita à loja). ATENÇÃO: por privilégio de coluna
    (§3.4 da spec), o authenticated só pode gravar nome e telefone em perfis —
@@ -549,6 +647,8 @@ window.Dados = {
   listarVendas, salvarVenda,
   // despesas
   listarDespesas, salvarDespesa, removerDespesa,
+  // carnê
+  listarCarne, salvarCarne, pagarParcelaCarne,
   // custos (Edge Function)
   custosDaLoja,
   // exportação de dados (Edge Function)
