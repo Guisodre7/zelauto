@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="ZelAuto">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#0e1830"/>
+      <stop offset="100%" stop-color="#04070d"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2f6be8"/>
+      <stop offset="50%" stop-color="#7fb0ff"/>
+      <stop offset="100%" stop-color="#12386f"/>
+    </linearGradient>
+    <linearGradient id="z" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5b9bff"/>
+      <stop offset="100%" stop-color="#1b4fbf"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f2f5f8"/>
+      <stop offset="100%" stop-color="#9aa6b2"/>
+    </linearGradient>
+  </defs>
+  <circle cx="120" cy="120" r="116" fill="url(#bg)" stroke="url(#ring)" stroke-width="7"/>
+  <!-- Z (azul) -->
+  <path d="M64 78 h58 l-40 62 h40 v20 h-72 l40 -62 h-24 z" fill="url(#z)"/>
+  <!-- A (prata) -->
+  <path d="M150 160 l26 -82 h16 l26 82 h-21 l-5 -18 h-16 l-5 18 z m30 -34 h6 l-3 -14 z" fill="url(#a)"/>
+  <text x="120" y="196" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" letter-spacing="3" fill="url(#a)">ZELAUTO</text>
+</svg>
