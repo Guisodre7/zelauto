@@ -852,6 +852,53 @@ Google indexar sem trabalho), pública (GET), por slug.
 Deploy: `supabase functions deploy site-loja`  ·  Feed de portais e upload de
 banner/logo pela UI: passos seguintes.
 
+### 5.10 RENAVE — acompanhamento persistido
+
+O ZelAuto **acompanha** a situação de cada veículo no fluxo RENAVE; **não faz o
+registro** (isso depende de integradora credenciada pelo DETRAN — fase futura).
+
+- A fase mora em `veiculos.renave_fase` (enum `fora/entrada/regular/saida`,
+  já no schema base, com `check`).
+- O update é permitido ao `authenticated` por privilégio de coluna
+  (grant update em `renave_fase`, migration 0002). A UI grava por
+  `Dados.atualizarVeiculo(id, {renave_fase})` com whitelist do enum.
+- Nada de seed: a tela lê a fase real do banco (o mapa de demonstração só serve
+  de fallback para ids fictícios `v1..v9`).
+
+### 5.11 Carnê próprio — persistido
+
+Duas tabelas do schema base: `carne_contratos` (o negócio) e `carne_parcelas`
+(uma linha por parcela). Ambas já têm `loja_id`, índice, RLS `force` e
+`guarda_loja` (isolamento coberto).
+
+- **Migration 0015** adiciona `carne_contratos.telefone` (cobrança quando o
+  comprador não é cliente formal do CRM). Mesma tabela já isolada — não é tabela
+  nova, não exige teste de isolamento próprio.
+- Fechar contrato: insere o contrato e **gera as parcelas** (vencimento mensal a
+  partir de `inicio`), com o valor da parcela (`pmt`) fixado em cada linha.
+- Carteira: `pagas` e `atraso` são **derivados** das parcelas na leitura;
+  "Receber parcela" quita a próxima parcela em aberto (`pago_em`).
+- Data layer: `listarCarne`, `salvarCarne`, `pagarParcelaCarne`.
+
+### 5.12 Contratos (papelada) + PDF por impressão
+
+Tabela `contratos` do schema base (já isolada). O PDF é gerado **no navegador**
+(abre uma janela limpa e usa Imprimir → "Salvar como PDF") — zero dependência,
+sem guardar arquivo no storage nesta fase (`pdf_path` fica para quando houver
+geração server-side).
+
+- Cabeçalho montado pelo ZelAuto a partir da **loja real**: logo (bucket
+  `marcas`) + razão social, CNPJ, endereço, cidade/UF. Esses dados moram em
+  `lojas` (`cnpj/cidade/uf/telefone`) e no jsonb `lojas.config`
+  (`razao_social`, `endereco`) — **sem coluna nova**. Só o proprietário grava
+  (RLS `editar_minha_loja`), pela tela Configurações › Dados da empresa.
+- Status: `rascunho → aguardando → assinado`. "Registrar assinatura" carimba
+  `assinado_em` e trata a assinatura como **física/manual** — a assinatura
+  eletrônica com validade jurídica (ICP-Brasil / MP 2.200-2) é fase posterior,
+  então **não** há hash falso no documento.
+- Data layer: `listarContratos`, `salvarContrato`, `atualizarStatusContrato`,
+  `salvarDadosEmpresa`.
+
 ---
 
 ## 6. Ambientes e migrations

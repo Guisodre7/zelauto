@@ -509,6 +509,57 @@ async function pagarParcelaCarne(contratoId, valorPago) {
   return p.numero;
 }
 
+/* ============================== CONTRATOS =============================== */
+/* Papelada: o contrato em si (partes, veículo, valor, status). O PDF é gerado
+   no navegador (imprimir → salvar) a partir do cabeçalho da loja + este registro,
+   então não guardamos arquivo no storage nesta fase. Assinatura eletrônica com
+   validade jurídica é fase posterior (integração de terceiro): aqui o status
+   'assinado' registra a assinatura física/manual, sem hash falso. */
+
+function contratoParaProto(c) {
+  return {
+    id: c.id, tipo: c.tipo, cliente: c.cliente_nome, doc: c.cliente_doc || '—',
+    veiculo: c.veiculo_desc || '', valor: Number(c.valor) || 0, status: c.status,
+    data: (c.criado_em || '').slice(0, 10),
+    enviadoEm: (c.enviado_em || '').slice(0, 10),
+    assinadoEm: (c.assinado_em || '').slice(0, 10),
+    hash: c.hash || '',
+  };
+}
+
+async function listarContratos() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('contratos')
+    .select('*').eq('loja_id', lojaId).order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(contratoParaProto);
+}
+
+async function salvarContrato(c) {
+  const { lojaId } = exigirContexto();
+  const row = {
+    loja_id: lojaId, tipo: c.tipo, cliente_nome: c.cliente,
+    cliente_doc: c.doc && c.doc !== '—' ? c.doc : null,
+    veiculo_desc: c.veiculo || null, valor: num(c.valor) ?? 0,
+    status: c.status || 'rascunho',
+    enviado_em: c.status === 'aguardando' ? new Date().toISOString() : null,
+  };
+  const { data, error } = await sb.from('contratos').insert(row).select('id, criado_em').single();
+  if (error) throw error;
+  return { id: data.id, data: (data.criado_em || '').slice(0, 10) };
+}
+
+/* Move o status do contrato. Ao enviar carimba enviado_em; ao assinar,
+   assinado_em. Sem service_role: RLS já isola por loja. */
+async function atualizarStatusContrato(id, status) {
+  const row = { status };
+  if (status === 'aguardando') row.enviado_em = new Date().toISOString();
+  if (status === 'assinado') row.assinado_em = new Date().toISOString();
+  const { error } = await sb.from('contratos').update(row).eq('id', id);
+  if (error) throw error;
+  return id;
+}
+
 /* ============================== EQUIPE / PERFIS ========================== */
 /* Lê a equipe da loja (RLS já limita à loja). ATENÇÃO: por privilégio de coluna
    (§3.4 da spec), o authenticated só pode gravar nome e telefone em perfis —
@@ -604,9 +655,35 @@ async function exportarDados() {
 async function carregarLoja() {
   const { lojaId } = exigirContexto();
   const { data, error } = await sb.from('lojas')
-    .select('id, nome, slug, logo_url, banner_url, cor').eq('id', lojaId).single();
+    .select('id, nome, slug, logo_url, banner_url, cor, cnpj, cidade, uf, telefone, config').eq('id', lojaId).single();
   if (error) return null;
-  return { id: data.id, nome: data.nome, slug: data.slug || '', logoUrl: data.logo_url || '', bannerUrl: data.banner_url || '', cor: data.cor || '' };
+  const cfg = data.config || {};
+  return {
+    id: data.id, nome: data.nome, slug: data.slug || '',
+    logoUrl: data.logo_url || '', bannerUrl: data.banner_url || '', cor: data.cor || '',
+    cnpj: data.cnpj || '', cidade: data.cidade || '', uf: data.uf || '', telefone: data.telefone || '',
+    razaoSocial: cfg.razao_social || '', endereco: cfg.endereco || '',
+  };
+}
+
+/* Dados da empresa que entram no cabeçalho de contratos e notas. Só o
+   proprietário grava (RLS editar_minha_loja). razão social e endereço moram no
+   jsonb `config` (não têm coluna própria); os demais são colunas de lojas. */
+async function salvarDadosEmpresa(d) {
+  const { lojaId } = exigirContexto();
+  // lê o config atual para não sobrescrever outras chaves
+  const { data: atual } = await sb.from('lojas').select('config').eq('id', lojaId).single();
+  const config = { ...((atual && atual.config) || {}) };
+  if (d.razaoSocial != null) config.razao_social = d.razaoSocial || null;
+  if (d.endereco != null) config.endereco = d.endereco || null;
+  const row = { config };
+  if (d.cnpj != null) row.cnpj = d.cnpj || null;
+  if (d.cidade != null) row.cidade = d.cidade || null;
+  if (d.uf != null) row.uf = (d.uf || '').toUpperCase().slice(0, 2) || null;
+  if (d.telefone != null) row.telefone = d.telefone || null;
+  const { error } = await sb.from('lojas').update(row).eq('id', lojaId);
+  if (error) throw error;
+  return lojaId;
 }
 async function subirMarca(tipo, dataUrl) {          // tipo: 'logo' | 'banner'
   const { lojaId } = exigirContexto();
@@ -649,6 +726,10 @@ window.Dados = {
   listarDespesas, salvarDespesa, removerDespesa,
   // carnê
   listarCarne, salvarCarne, pagarParcelaCarne,
+  // contratos (papelada)
+  listarContratos, salvarContrato, atualizarStatusContrato,
+  // dados da empresa (cabeçalho de contrato/nota)
+  salvarDadosEmpresa,
   // custos (Edge Function)
   custosDaLoja,
   // exportação de dados (Edge Function)

@@ -982,6 +982,14 @@ function abrirConfig(){
     </div>`:''}
     ${USER.papelChave==='proprietario'?`
     <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Dados da empresa</label>
+      <button class="btn blk" onclick="fecharModal();abrirDadosEmpresa()">
+        ${svgi('<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>')}
+        Razão social, CNPJ e endereço</button>
+      <div class="hint">Entram no cabeçalho dos contratos (e da nota fiscal). A logo já é a de cima.</div>
+    </div>`:''}
+    ${USER.papelChave==='proprietario'?`
+    <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Seus dados</label>
       <button class="btn blk" id="btnExport" onclick="exportarDados()">
         ${svgi('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}
@@ -1026,6 +1034,41 @@ function subirMarcaUI(tipo){
     }catch(e){ toast('Não consegui subir: '+(e.message||e)); }
   });
   inp.click();
+}
+function abrirDadosEmpresa(){
+  const L=window.LOJA||{};
+  modal('Dados da empresa',`
+    <div class="field"><label>Razão social</label>
+      <input id="deRazao" value="${esc(L.razaoSocial||L.nome||'')}" placeholder="Nome jurídico (ex.: Vancar Veículos LTDA)"></div>
+    <div class="f2">
+      <div class="field"><label>CNPJ</label><input id="deCnpj" value="${esc(L.cnpj||'')}" placeholder="00.000.000/0000-00"></div>
+      <div class="field"><label>Telefone</label><input id="deTel" value="${esc(L.telefone||'')}" placeholder="(71) 0000-0000"></div>
+    </div>
+    <div class="field"><label>Endereço</label>
+      <input id="deEnd" value="${esc(L.endereco||'')}" placeholder="Rua, número, bairro"></div>
+    <div class="f2">
+      <div class="field"><label>Cidade</label><input id="deCidade" value="${esc(L.cidade||'')}" placeholder="Lauro de Freitas"></div>
+      <div class="field"><label>UF</label><input id="deUf" value="${esc(L.uf||'')}" maxlength="2" placeholder="BA"></div>
+    </div>
+    <div class="hint" style="margin-top:2px">Preencha uma vez. Vale para todos os contratos daqui pra frente.</div>`,
+    `<button class="btn" data-close-modal>Cancelar</button>
+     <button class="btn pri" id="deSalvar" onclick="salvarDadosEmpresaUI()">Salvar</button>`);
+}
+let salvandoEmpresa=false;
+async function salvarDadosEmpresaUI(){
+  if(salvandoEmpresa) return;
+  const d={ razaoSocial:val('deRazao').trim(), cnpj:val('deCnpj').trim(),
+    telefone:val('deTel').trim(), endereco:val('deEnd').trim(),
+    cidade:val('deCidade').trim(), uf:val('deUf').trim() };
+  const btn=document.getElementById('deSalvar');
+  salvandoEmpresa=true; if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  try{ await Dados.salvarDadosEmpresa(d); }
+  catch(e){ toast('Erro ao salvar: '+(e.message||e));
+    salvandoEmpresa=false; if(btn){ btn.disabled=false; btn.textContent='Salvar'; } return; }
+  if(window.LOJA){ Object.assign(window.LOJA, { razaoSocial:d.razaoSocial, cnpj:d.cnpj,
+    telefone:d.telefone, endereco:d.endereco, cidade:d.cidade, uf:d.uf.toUpperCase().slice(0,2) }); }
+  salvandoEmpresa=false;
+  fecharModal(); toast('Dados da empresa salvos');
 }
 function verMeuSite(){
   if(!window.LOJA||!window.LOJA.slug) return;
@@ -3795,22 +3838,39 @@ function vContratos(){
     ${svgi('<path d="M12 5v14M5 12h14"/>')}Gerar contrato</button>`;
 }
 
+/* Dados da empresa para o cabeçalho do contrato. Vêm da loja real (LOJA);
+   com fallback neutro enquanto o proprietário não preenche em Configurações. */
+function empresaDoc(){
+  const L=window.LOJA||{};
+  const razao=(L.razaoSocial||L.nome||'Sua loja');
+  const iniciais=(razao.trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('')||'ZA').toUpperCase();
+  const linha2=[
+    L.cnpj?`CNPJ ${L.cnpj}`:'',
+    [L.cidade,L.uf].filter(Boolean).join(' — ')
+  ].filter(Boolean).join(' · ');
+  return { razao, iniciais, linha2, endereco:L.endereco||'', logoUrl:L.logoUrl||'',
+           cidade:L.cidade||'', uf:L.uf||'', cnpj:L.cnpj||'' };
+}
 function docHTML(c){
+  const e=empresaDoc();
+  const sede=[e.endereco, [e.cidade,e.uf].filter(Boolean).join(' — ')].filter(Boolean).join(', ') || 'endereço não informado';
+  const foro=e.cidade?`da comarca de ${esc(e.cidade)}`:'da comarca da sede da vendedora';
   return `
   <div class="doc">
     <div class="tb">
-      <div class="mk">VC</div>
-      <div style="flex:1"><b>Vancar Veículos</b>
-        <small>CNPJ ${DB.fiscal.cnpj} · Lauro de Freitas — BA</small></div>
+      ${e.logoUrl?`<img src="${esc(e.logoUrl)}" alt="" style="width:42px;height:42px;border-radius:9px;object-fit:contain;background:#fff">`
+        :`<div class="mk">${esc(e.iniciais)}</div>`}
+      <div style="flex:1"><b>${esc(e.razao)}</b>
+        <small>${esc(e.linha2)||'complete os dados da empresa em Configurações'}</small></div>
     </div>
     <div style="text-align:center;font-size:var(--t-sup);font-weight:800;letter-spacing:.03em;text-transform:uppercase;margin-bottom:4px">
       Contrato de ${esc(c.tipo)}</div>
     <div style="text-align:center;font-size:var(--t-lab);color:#78838F;margin-bottom:14px">
-      Instrumento particular nº ${c.id.toUpperCase()}</div>
+      Instrumento particular nº ${esc(String(c.id||'').slice(0,8).toUpperCase())}</div>
 
     <h4>Partes</h4>
-    <p><b>Vendedora:</b> Vancar Veículos LTDA, inscrita no CNPJ ${DB.fiscal.cnpj}, com sede
-    na 1ª Travessa Luiz Tarquínio Pontes, 223, Lauro de Freitas — BA.</p>
+    <p><b>Vendedora:</b> ${esc(e.razao)}${e.cnpj?`, inscrita no CNPJ ${esc(e.cnpj)}`:''}, com sede
+    ${sede==='endereço não informado'?'no endereço informado ao comprador':`em ${esc(sede)}`}.</p>
     <p><b>Comprador:</b> ${esc(c.cliente)}, portador do documento ${esc(c.doc)}.</p>
 
     <h4>Objeto</h4>
@@ -3823,38 +3883,79 @@ function docHTML(c){
 
     <h4>Disposições</h4>
     <p>A transferência de propriedade será providenciada no prazo legal, correndo por conta
-    do comprador as despesas de transferência. Fica eleito o foro da comarca de
-    Lauro de Freitas para dirimir eventuais controvérsias.</p>
+    do comprador as despesas de transferência. Fica eleito o foro ${foro}
+    para dirimir eventuais controvérsias.</p>
 
     <div class="sig">
-      <div><div class="line"></div><small>Vancar Veículos</small></div>
+      <div><div class="line"></div><small>${esc(e.razao)}</small></div>
       <div><div class="line"></div><small>${esc(c.cliente)}</small></div>
     </div>
 
     ${c.status==='assinado'?`
     <div class="assinado">
-      ASSINADO ELETRONICAMENTE em ${dataBR(c.assinadoEm)}<br>
-      Hash de verificação: ${c.hash}<br>
-      Documento com validade nos termos da MP 2.200-2/2001
+      Contrato registrado como ASSINADO em ${dataBR(c.assinadoEm)}.<br>
+      Assinatura física/manual das partes. A assinatura eletrônica com validade
+      jurídica (ICP-Brasil / MP 2.200-2) entra em fase posterior.
     </div>`:''}
   </div>`;
 }
 
 function ctVer(id){
   const c=DB.contratos.find(x=>x.id===id); if(!c) return;
+  const imprimir=`<button class="btn" onclick="ctImprimir('${c.id}')">Imprimir / PDF</button>`;
   modal(`Contrato — ${c.cliente}`, docHTML(c),
     c.status==='assinado'
-      ? `<button class="btn" data-close-modal>Fechar</button><button class="btn pri" onclick="toast('PDF baixado')">Baixar PDF</button>`
+      ? `<button class="btn" data-close-modal>Fechar</button>${imprimir}`
       : c.status==='aguardando'
-      ? `<button class="btn" data-close-modal>Fechar</button><button class="btn amb" onclick="ctLembrar('${c.id}')">Lembrar cliente</button>`
-      : `<button class="btn" data-close-modal>Fechar</button><button class="btn pri" onclick="ctEnviar('${c.id}')">Enviar para assinar</button>`);
+      ? `<button class="btn" data-close-modal>Fechar</button>${imprimir}<button class="btn pri" onclick="ctAssinar('${c.id}')">Registrar assinatura</button>`
+      : `<button class="btn" data-close-modal>Fechar</button>${imprimir}<button class="btn pri" onclick="ctEnviar('${c.id}')">Enviar para assinar</button>`);
 }
-function ctLembrar(id){ fecharModal(); toast('Lembrete enviado por WhatsApp'); }
-function ctEnviar(id){
-  const c=DB.contratos.find(x=>x.id===id);
+async function ctEnviar(id){
+  const c=DB.contratos.find(x=>x.id===id); if(!c) return;
+  try{ await Dados.atualizarStatusContrato(id,'aguardando'); }
+  catch(e){ toast('Erro ao enviar: '+(e.message||e)); return; }
   c.status='aguardando'; c.enviadoEm=dFwd(0);
   fecharModal(); render('contratos'); atualizarTags();
-  toast('Contrato enviado para assinatura');
+  toast('Contrato marcado como aguardando assinatura');
+}
+async function ctAssinar(id){
+  const c=DB.contratos.find(x=>x.id===id); if(!c) return;
+  try{ await Dados.atualizarStatusContrato(id,'assinado'); }
+  catch(e){ toast('Erro ao registrar: '+(e.message||e)); return; }
+  c.status='assinado'; c.assinadoEm=dFwd(0);
+  fecharModal(); render('contratos'); atualizarTags();
+  toast('Assinatura registrada');
+}
+/* Abre uma janela limpa só com o contrato e dispara a impressão do navegador
+   (o usuário escolhe "Salvar como PDF"). Sem dependência externa. */
+function ctImprimir(id){
+  const c=DB.contratos.find(x=>x.id===id); if(!c) return;
+  const w=window.open('','_blank'); if(!w){ toast('Permita pop-ups para gerar o PDF'); return; }
+  const corpo=docHTML(c);
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Contrato ${esc(c.cliente)}</title>
+    <style>
+      :root{--t-sup:13px;--t-lab:11px}
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font:14px/1.6 Georgia,'Times New Roman',serif;color:#12161c;background:#fff;padding:40px}
+      .doc{max-width:720px;margin:0 auto}
+      .tb{display:flex;gap:12px;align-items:center;border-bottom:2px solid #12161c;padding-bottom:12px;margin-bottom:18px}
+      .tb .mk{width:42px;height:42px;border-radius:9px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:Arial,sans-serif}
+      .tb b{display:block;font-size:16px}
+      .tb small{color:#5b6672;font-size:12px}
+      h4{margin:16px 0 5px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#3a444f}
+      p{margin-bottom:8px;text-align:justify}
+      .ln{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dotted #c9d0d7}
+      .sig{display:flex;gap:40px;margin-top:60px}
+      .sig>div{flex:1;text-align:center}
+      .sig .line{border-top:1px solid #12161c;margin-bottom:5px}
+      .sig small{font-size:12px;color:#5b6672}
+      .assinado{margin-top:24px;padding:12px;border:1px dashed #2f7d5b;border-radius:8px;font-size:12px;color:#2f7d5b;background:#f0faf5}
+      @media print{ body{padding:0} @page{margin:18mm} }
+    </style></head><body>${corpo}
+    <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script>
+    </body></html>`);
+  w.document.close();
 }
 function ctNovo(tipo){
   const est=patio();
@@ -3873,14 +3974,21 @@ function ctNovo(tipo){
     `<button class="btn" data-close-modal>Cancelar</button>
      <button class="btn pri" onclick="ctGerar('${tipo}')">Gerar e enviar</button>`);
 }
-function ctGerar(tipo){
+let salvandoContrato=false;
+async function ctGerar(tipo){
+  if(salvandoContrato) return;
   const cli=val('ctCli'), valor=numVal('ctVal');
   if(!cli||!valor){ toast('Preencha cliente e valor'); return; }
-  const c={id:uid(),tipo,cliente:cli,doc:val('ctDoc')||'—',veiculo:val('ctVeic'),
-    valor,data:dFwd(0),status:'aguardando',enviadoEm:dFwd(0)};
-  DB.contratos.unshift(c);
+  const c={tipo,cliente:cli,doc:val('ctDoc')||'—',veiculo:val('ctVeic'),
+    valor,status:'aguardando'};
+  salvandoContrato=true;
+  let salvo;
+  try{ salvo=await Dados.salvarContrato(c); }
+  catch(e){ toast('Erro ao gerar contrato: '+(e.message||e)); salvandoContrato=false; return; }
+  salvandoContrato=false;
+  DB.contratos.unshift({ ...c, id:salvo.id, data:salvo.data||dFwd(0), enviadoEm:dFwd(0) });
   fecharModal(); render('contratos'); atualizarTags();
-  toast(`Contrato enviado para ${cli}`);
+  toast(`Contrato gerado para ${cli}`);
 }
 
 /* ==========================================================
@@ -4821,7 +4929,7 @@ atualizarTags();
     catch(e){ console.error('[ZelAuto] falha ao carregar carnê:', e); DB.carne=[];
       if(typeof toast==='function') toast('Não consegui carregar o carnê. Verifique a conexão e recarregue.'); }
     // Contratos já persiste (papelada).
-    try{ DB.contratos = Dados.listarContratos ? await Dados.listarContratos() : []; }
+    try{ DB.contratos = await Dados.listarContratos(); }
     catch(e){ console.error('[ZelAuto] falha ao carregar contratos:', e); DB.contratos=[]; }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
