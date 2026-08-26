@@ -4735,6 +4735,9 @@ atualizarTags();
       if(typeof toast==='function') toast('Não consegui carregar a equipe. Verifique a conexão e recarregue.');
     }
     try{ window.LOJA = await Dados.carregarLoja(); }catch(_){ window.LOJA=null; }   // marca própria (site)
+    // Telas ainda não persistidas (fases 2+): zera o seed de demonstração para a
+    // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
+    DB.consignados=[]; DB.carne=[]; DB.notas=[]; DB.portais=[]; DB.contratos=[];
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');

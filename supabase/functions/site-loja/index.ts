@@ -67,6 +67,25 @@ Deno.serve(async (req) => {
   const local = [loja.cidade, loja.uf].filter(Boolean).join(' · ');
   const wpp = (loja.telefone || '').replace(/\D/g, '');
 
+  // -------- feed de portais (XML padrão do estoque) --------
+  // O lojista aponta o portal (que aceita integração por feed) para esta URL.
+  // Formato genérico; adaptamos por portal quando você fechar a homologação.
+  if (url.searchParams.get('feed')) {
+    const it = carros.map((c: any) => `  <veiculo>
+    <id>${esc(c.id)}</id>
+    <marca>${esc(c.marca)}</marca>
+    <modelo>${esc(c.modelo)}</modelo>
+    <ano>${esc(anoStr(c))}</ano>
+    <km>${esc(c.km ?? '')}</km>
+    <cor>${esc(c.cor ?? '')}</cor>
+    <preco>${Number(c.alvo) || 0}</preco>
+    <url>${esc(urlCarro(slug, c.id))}</url>
+    <foto>${esc(foto(c))}</foto>
+  </veiculo>`).join('\n');
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<estoque loja="${esc(loja.nome)}" atualizado="${new Date().toISOString()}">\n${it}\n</estoque>`;
+    return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+  }
+
   // -------- sitemap --------
   if (querSitemap) {
     const u = (s: string) => `<url><loc>${esc(s)}</loc></url>`;
