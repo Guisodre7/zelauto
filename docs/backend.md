@@ -830,6 +830,28 @@ Para promover o primeiro operador (uma vez, no SQL Editor):
 
 Deploy: `supabase functions deploy admin`.
 
+### 5.9 Site da loja — SSR público (indexável no Google)
+
+O "Site no ar": fica pronto sozinho assim que o lojista sobe o primeiro carro.
+Renderizado no SERVIDOR pela Edge Function `site-loja` (SSR — é o que faz o
+Google indexar sem trabalho), pública (GET), por slug.
+
+- Lê com `service_role` **só campos públicos** do estoque (marca, modelo, ano,
+  km, cor, `alvo` = preço de anúncio, foto) — **nunca compra/custo**. Só carros
+  `status='estoque'` de loja `ativa` e `site_ativo`.
+- Rotas: `?slug=` (catálogo), `?slug=&carro=<id>` (página do carro),
+  `?slug=&sitemap=1` (sitemap.xml). Em produção, um rewrite mapeia
+  `zelauto.com.br/vancar` → a função; a env `SITE_BASE` deixa os links bonitos.
+- SEO: `<title>`/description/canonical/OpenGraph + **JSON-LD** (`AutoDealer` no
+  catálogo, `Car`+`Offer` na página do carro). Cada carro tem URL própria.
+- Marca do lojista: logo (bucket `marcas`) e **banner** (bucket `banners`,
+  migration 0014) + cor. Fotos de carro saem por URL assinada (bucket privado),
+  re-renderadas a cada visita.
+- Não expõe endpoint de dados anônimo: a função é o portão; devolve HTML, não JSON.
+
+Deploy: `supabase functions deploy site-loja`  ·  Feed de portais e upload de
+banner/logo pela UI: passos seguintes.
+
 ---
 
 ## 6. Ambientes e migrations

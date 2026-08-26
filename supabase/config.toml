@@ -33,3 +33,8 @@ verify_jwt = false
 # operadores). Só operador ZelAuto age aqui.
 [functions.admin]
 verify_jwt = false
+
+# A função `site-loja` é o site PÚBLICO da loja (SSR, GET). Sem JWT. Devolve HTML
+# só com campos públicos do estoque (nunca custo).
+[functions.site-loja]
+verify_jwt = false
