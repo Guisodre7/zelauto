@@ -498,6 +498,30 @@ async function exportarDados() {
   return data;   // { ok, url, arquivo }
 }
 
+/* ===================== LOJA (marca própria do lojista) =================== */
+/* O dono edita a própria loja: logo (bucket público marcas) e banner (bucket
+   público banners). A RLS (editar_minha_loja) já limita ao dono da loja. */
+async function carregarLoja() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('lojas')
+    .select('id, nome, slug, logo_url, banner_url, cor').eq('id', lojaId).single();
+  if (error) return null;
+  return { id: data.id, nome: data.nome, slug: data.slug || '', logoUrl: data.logo_url || '', bannerUrl: data.banner_url || '', cor: data.cor || '' };
+}
+async function subirMarca(tipo, dataUrl) {          // tipo: 'logo' | 'banner'
+  const { lojaId } = exigirContexto();
+  const bucket = tipo === 'logo' ? 'marcas' : 'banners';
+  const path = `${lojaId}/${tipo}.png`;
+  const blob = dataUrlParaBlob(dataUrl);
+  const { error: up } = await sb.storage.from(bucket).upload(path, blob, { upsert: true, contentType: blob.type || 'image/png' });
+  if (up) throw up;
+  const pub = sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  const col = tipo === 'logo' ? { logo_url: pub } : { banner_url: pub };
+  const { error: upd } = await sb.from('lojas').update(col).eq('id', lojaId);
+  if (upd) throw upd;
+  return pub + '?v=' + Date.now();                  // cache-busting só para exibir na hora
+}
+
 /* ============================ MARCA DA LOJA ============================== */
 /* Busca a marca (nome/logo/cor) por slug ANTES do login, pela Edge Function
    pública. O slug é só marca/rota — nunca dá acesso. Devolve null se não achar. */
@@ -529,6 +553,8 @@ window.Dados = {
   exportarDados,
   // marca da loja (login com slug)
   marcaDaLoja,
+  // loja própria (site: logo/banner)
+  carregarLoja, subirMarca,
   // equipe / perfis
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // acesso cru ao client, se precisar

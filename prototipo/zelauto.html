@@ -967,6 +967,19 @@ function abrirConfig(){
         ${svgi('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>')}
         Gerenciar usuários (${DB.usuarios.length})</button>
     </div>`:''}
+    ${podeGerir()?`
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Site da loja</label>
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:10px">
+        <div style="width:56px;height:56px;border-radius:11px;border:1px solid var(--linha);background:var(--asfalto) center/contain no-repeat${window.LOJA&&window.LOJA.logoUrl?`;background-image:url('${esc(window.LOJA.logoUrl)}')`:''};flex:none" title="logo"></div>
+        <div style="flex:1;height:56px;border-radius:11px;border:1px solid var(--linha);background:var(--asfalto) center/cover no-repeat${window.LOJA&&window.LOJA.bannerUrl?`;background-image:url('${esc(window.LOJA.bannerUrl)}')`:''}" title="banner"></div>
+      </div>
+      <div class="f2">
+        <button class="btn blk" onclick="subirMarcaUI('logo')">Trocar logo</button>
+        <button class="btn blk" onclick="subirMarcaUI('banner')">Trocar banner</button>
+      </div>
+      <div class="hint">Logo: quadrada, mín. 200×200, PNG com fundo transparente. Banner: horizontal, ~1600×500, JPG.${window.LOJA&&window.LOJA.slug?` Seu site: <b>/${esc(window.LOJA.slug)}</b> — <a href="#" onclick="verMeuSite();return false" style="color:var(--placa)">abrir</a>`:''}</div>
+    </div>`:''}
     ${USER.papelChave==='proprietario'?`
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Seus dados</label>
@@ -1001,6 +1014,24 @@ async function exportarDados(){
     toast('Não consegui exportar: '+(e.message||e));
     if(btn){ btn.disabled=false; btn.textContent='Exportar tudo (.zip)'; }
   }
+}
+function subirMarcaUI(tipo){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=()=>lerFoto(inp, async u=>{
+    try{
+      const url=await Dados.subirMarca(tipo, u);
+      if(window.LOJA){ if(tipo==='logo') window.LOJA.logoUrl=url; else window.LOJA.bannerUrl=url; }
+      fecharModal(); abrirConfig();
+      toast(tipo==='logo'?'Logo atualizada':'Banner atualizado');
+    }catch(e){ toast('Não consegui subir: '+(e.message||e)); }
+  });
+  inp.click();
+}
+function verMeuSite(){
+  if(!window.LOJA||!window.LOJA.slug) return;
+  const base=((window.ZELAUTO_CONFIG&&window.ZELAUTO_CONFIG.url)||'').replace('.supabase.co','.functions.supabase.co');
+  if(base) window.open(`${base}/site-loja?slug=${encodeURIComponent(window.LOJA.slug)}`,'_blank','noopener');
+  else toast('Configure a URL do Supabase para abrir o site.');
 }
 function setTema(t){
   document.documentElement.dataset.tema=t;
@@ -4703,6 +4734,7 @@ atualizarTags();
       DB.usuarios = [USER];   // ao menos o próprio usuário logado (perfil real)
       if(typeof toast==='function') toast('Não consegui carregar a equipe. Verifique a conexão e recarregue.');
     }
+    try{ window.LOJA = await Dados.carregarLoja(); }catch(_){ window.LOJA=null; }   // marca própria (site)
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');
