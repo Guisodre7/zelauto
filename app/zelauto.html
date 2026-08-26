@@ -2681,12 +2681,14 @@ const RN_FASES = {
   saida:     {n:'Saída pendente',       c:'#B08CF0', d:'Vendido, falta gerar ATPV-e e TSE'}
 };
 
-/* estado de cada veículo no fluxo (em produção vem da integradora) */
+/* estado de cada veículo no fluxo RENAVE.
+   Em produção vem de v.renave_fase (banco), mapeado por veiculoParaProto.
+   RN_MAP só serve de fallback para os ids de demonstração (v1..v9). */
 const RN_MAP = {
   v1:'regular', v2:'regular', v3:'entrada', v4:'regular', v5:'fora',
   v6:'regular', v7:'entrada', v8:'regular', v9:'fora'
 };
-DB.veiculos.forEach(v=>{ v.rn = RN_MAP[v.id] || 'fora'; });
+DB.veiculos.forEach(v=>{ v.rn = v.rn || RN_MAP[v.id] || 'fora'; });
 DB.consignados.forEach((c,i)=>{ c.rnContrato = i===0; });
 
 const rnDiasPrazo = () => Math.max(0, Math.round((new Date(RENAVE_PRAZO+'T12:00:00') - HOJE)/864e5));
@@ -2969,9 +2971,20 @@ function rnVeiculo(id){
     `<button class="btn" data-close-modal>Fechar</button>
      <button class="btn pri" onclick="rnSalvar('${v.id}')">Salvar</button>`);
 }
-function rnSalvar(id){
-  const v=DB.veiculos.find(x=>x.id===id);
-  v.rn=val('rnStatus'); fecharModal(); render('renave'); atualizarTags();
+let salvandoRn=false;
+async function rnSalvar(id){
+  if(salvandoRn) return;
+  const v=DB.veiculos.find(x=>x.id===id); if(!v) return;
+  const fase=val('rnStatus');
+  salvandoRn=true;
+  try{
+    await Dados.atualizarVeiculo(id, {renave_fase:fase});
+  }catch(e){
+    toast('Erro ao salvar: '+(e.message||e));
+    salvandoRn=false; return;
+  }
+  v.rn=fase; salvandoRn=false;
+  fecharModal(); render('renave'); atualizarTags();
   toast(`${v.placa} — ${RN_FASES[v.rn].n}`);
 }
 

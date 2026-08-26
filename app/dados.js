@@ -232,6 +232,8 @@ async function atualizarVeiculo(id, campos) {
   if (campos.alvo  != null) row.alvo   = num(campos.alvo) ?? 0;
   if (campos.status!= null) row.status = campos.status;
   if (campos.compra!= null) row.compra = num(campos.compra) ?? 0;
+  if (campos.renave_fase != null && ['fora','entrada','regular','saida'].includes(campos.renave_fase))
+    row.renave_fase = campos.renave_fase;
   if (Object.keys(row).length) {
     const { error } = await sb.from('veiculos').update(row).eq('id', id);
     if (error) throw error;
