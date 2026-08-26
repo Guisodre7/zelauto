@@ -4778,7 +4778,7 @@ atualizarTags();
     if(!temSlug) montarSemLink();                   // sem slug: página do link (não precisa de Dados)
     let tries=0;
     while(!window.Dados && tries<50){ await new Promise(r=>setTimeout(r,60)); tries++; }
-    if(!window.Dados){ mostrarErro('Camada de dados não carregou. Crie prototipo/dados.config.js (copie do .example) com a URL e a chave publishable.'); return; }
+    if(!window.Dados){ mostrarErro('Camada de dados não carregou. Crie app/dados.config.js (copie do .example) com a URL e a chave publishable.'); return; }
     try{ if(await Dados.sessaoAtual() && await aplicarSessao()){ esconderLogin(); return; } }catch(e){}
     if(temSlug) pintarMarca();                       // sem sessão + com slug: pinta a marca (Dados já pronto)
   }

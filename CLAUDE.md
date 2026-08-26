@@ -13,7 +13,7 @@ carros. Substitui as três ou quatro ferramentas separadas que a loja usa hoje.
 | Arquivo | O que é |
 |---|---|
 | `docs/backend.md` | **Fonte da verdade.** Schema, RLS, funções, fases, ordem de execução |
-| `prototipo/zelauto.html` | Frontend pronto e testado. 16 telas funcionando com dados em memória |
+| `app/zelauto.html` | Frontend pronto e testado. 16 telas funcionando com dados em memória |
 
 **Antes de responder qualquer coisa sobre schema, política de segurança, nome
 de tabela ou ordem de execução, consulte `docs/backend.md`.**

@@ -82,13 +82,13 @@
 <!-- Overlay de modais -->
 <div id="ov"><div class="card" id="ovCard"></div></div>
 
-<script src="../prototipo/dados.config.js"></script>
+<script src="../app/dados.config.js"></script>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const cfg = window.ZELAUTO_CONFIG;
-const APP_URL = (cfg && cfg.appUrl) || '../prototipo/zelauto.html';   // link do painel do lojista
-if(!cfg || !cfg.url || !cfg.anonKey){ document.getElementById('lErro').style.display='block'; document.getElementById('lErro').textContent='Falta ../prototipo/dados.config.js com url e anonKey.'; }
+const APP_URL = (cfg && cfg.appUrl) || '../app/zelauto.html';   // link do painel do lojista
+if(!cfg || !cfg.url || !cfg.anonKey){ document.getElementById('lErro').style.display='block'; document.getElementById('lErro').textContent='Falta ../app/dados.config.js com url e anonKey.'; }
 const sb = cfg && cfg.url ? createClient(cfg.url, cfg.anonKey) : null;
 
 const $ = s => document.querySelector(s);

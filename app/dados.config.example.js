@@ -26,5 +26,5 @@ window.ZELAUTO_CONFIG = {
 
   // Usado pelo Console do Operador (admin/) para montar o link de acesso da loja
   // recém-criada. Em produção, algo como 'https://app.zelauto.com.br/'.
-  appUrl: '../prototipo/zelauto.html',
+  appUrl: '../app/zelauto.html',
 };
