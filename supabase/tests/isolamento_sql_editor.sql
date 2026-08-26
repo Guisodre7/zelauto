@@ -195,6 +195,14 @@ insert into _res(verifica,ok,detalhe) select 'vendas: colunas sem custo seguem l
   (has_column_privilege('public.vendas','valor','SELECT') = true),
   'valor_select='||has_column_privilege('public.vendas','valor','SELECT')::text;
 
+-- operadores / operador_log — 0013: control plane, invisível pela API (só service_role)
+insert into _res(verifica,ok,detalhe) select 'operadores: SELECT negado ao authenticated (0013)',
+  (has_table_privilege('public.operadores','SELECT') = false),
+  'tem_select='||has_table_privilege('public.operadores','SELECT')::text;
+insert into _res(verifica,ok,detalhe) select 'operador_log: SELECT negado ao authenticated (0013)',
+  (has_table_privilege('public.operador_log','SELECT') = false),
+  'tem_select='||has_table_privilege('public.operador_log','SELECT')::text;
+
 -- consignacoes
 insert into _res(verifica,ok,detalhe) select 'consignacoes: A vê as próprias', (count(*)>0), 'linhas='||count(*) from public.consignacoes where loja_id='11111111-1111-1111-1111-111111111111';
 insert into _res(verifica,ok,detalhe) select 'consignacoes: A não vê as da B', (count(*)=0), 'linhas='||count(*) from public.consignacoes where loja_id='22222222-2222-2222-2222-222222222222';

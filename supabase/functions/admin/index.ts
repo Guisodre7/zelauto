@@ -23,9 +23,22 @@ const cors = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$/;
+// slug: 2 a 40 chars, minúsculas/números/hífen, sem hífen nas pontas (bate com o
+// check da 0012; evita passar aqui e falhar no insert com erro cru).
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 const MODULOS_TODOS = ['dash','estoque','vendas','crm','renave','nfe','anuncios','vitrine','avaliacao','contratos','despesas','fin','carne','consig','dre','equipe'];
-const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+// Número no formato BR ("45.000,00", "45000,00") e US ("45000.00"). CSV do lojista
+// vem em pt-BR: ponto de milhar e vírgula decimal. Number() cru zeraria tudo isso.
+const num = (v: unknown) => {
+  if (v == null) return 0;
+  let s = String(v).trim().replace(/[^\d.,-]/g, '');
+  if (!s) return 0;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');        // BR: . milhar, , decimal
+  else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');   // 1.234.567 -> milhar
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
 
 function senhaProvisoria(): string {
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -111,19 +124,20 @@ Deno.serve(async (req) => {
   if (acao === 'metricas') {
     const { data: lojas } = await admin.from('lojas')
       .select('id, nome, slug, ativa, criado_em').order('criado_em', { ascending: true });
-    // tallies num select só por tabela (3 no total, independente do nº de lojas)
-    const conta = async (t: string) => {
-      const { data } = await admin.from(t).select('loja_id');
-      const m: Record<string, number> = {};
-      for (const r of data || []) m[(r as any).loja_id] = (m[(r as any).loja_id] || 0) + 1;
-      return m;
+    // contagem EXATA por loja (head:true count — não sofre o teto de 1000 linhas
+    // que um select cru sofreria). Poucas lojas -> poucas queries; escala linear.
+    const contar = async (t: string, lojaId: string) => {
+      const { count } = await admin.from(t).select('id', { count: 'exact', head: true }).eq('loja_id', lojaId);
+      return count || 0;
     };
-    const [veic, cli, vend] = await Promise.all([conta('veiculos'), conta('clientes'), conta('vendas')]);
-    const linhas = (lojas || []).map((l: any) => ({
-      id: l.id, nome: l.nome, slug: l.slug, ativa: l.ativa, criado_em: l.criado_em,
-      veiculos: veic[l.id] || 0, clientes: cli[l.id] || 0, vendas: vend[l.id] || 0,
-    }));
-    const soma = (k: 'veiculos' | 'clientes' | 'vendas') => linhas.reduce((s, x) => s + x[k], 0);
+    const linhas = [];
+    for (const l of (lojas || []) as any[]) {
+      const [veiculos, clientes, vendas] = await Promise.all([
+        contar('veiculos', l.id), contar('clientes', l.id), contar('vendas', l.id),
+      ]);
+      linhas.push({ id: l.id, nome: l.nome, slug: l.slug, ativa: l.ativa, criado_em: l.criado_em, veiculos, clientes, vendas });
+    }
+    const soma = (k: 'veiculos' | 'clientes' | 'vendas') => linhas.reduce((s, x) => s + (x as any)[k], 0);
     return json({ lojas: linhas, totais: { lojas: linhas.length, veiculos: soma('veiculos'), clientes: soma('clientes'), vendas: soma('vendas') } });
   }
 
@@ -134,7 +148,7 @@ Deno.serve(async (req) => {
     const { data: loja } = await admin.from('lojas').select('id').eq('id', lojaId).maybeSingle();
     if (!loja) return json({ error: 'loja não encontrada' }, 404);
 
-    let nVeic = 0, nCli = 0;
+    let nVeic = 0, nCli = 0, veicPulados = 0;
     const veiculos = Array.isArray(body.veiculos) ? body.veiculos : [];
     const clientes = Array.isArray(body.clientes) ? body.clientes : [];
 
@@ -145,16 +159,31 @@ Deno.serve(async (req) => {
         modelo: String(v.modelo || '').trim() || 'Sem modelo',
         ano_fab: v.ano ? parseInt(String(v.ano).slice(0, 4), 10) || null : null,
         km: v.km != null ? Math.trunc(num(v.km)) : null,
-        placa: v.placa ? String(v.placa).toUpperCase().slice(0, 8) : null,
+        placa: v.placa ? String(v.placa).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || null : null,
         cor: v.cor ? String(v.cor) : null,
         compra: num(v.compra),
         alvo: num(v.alvo),
         entrada_em: v.entrada || undefined,
         status: 'estoque',
       }));
-      const { error } = await admin.from('veiculos').insert(rows);
-      if (error) return json({ error: 'falha ao importar estoque: ' + error.message }, 400);
-      nVeic = rows.length;
+      // placa é única por loja: dedup dentro do CSV + pula as que já existem, para
+      // uma placa repetida não abortar o lote inteiro. Sem placa entra sempre.
+      const semPlaca = rows.filter((r) => !r.placa);
+      const vistos = new Set<string>();
+      const comPlaca = rows.filter((r) => r.placa && !vistos.has(r.placa!) && vistos.add(r.placa!));
+      const existentes = new Set<string>();
+      if (comPlaca.length) {
+        const { data: ex } = await admin.from('veiculos').select('placa')
+          .eq('loja_id', lojaId).in('placa', comPlaca.map((r) => r.placa));
+        for (const x of ex || []) existentes.add((x as any).placa);
+      }
+      const finais = [...semPlaca, ...comPlaca.filter((r) => !existentes.has(r.placa!))];
+      veicPulados = rows.length - finais.length;
+      if (finais.length) {
+        const { error } = await admin.from('veiculos').insert(finais);
+        if (error) return json({ error: 'falha ao importar estoque: ' + error.message }, 400);
+      }
+      nVeic = finais.length;
     }
     if (clientes.length) {
       const rows = clientes.slice(0, 5000).map((c: any) => ({
@@ -171,8 +200,8 @@ Deno.serve(async (req) => {
       nCli = rows.length;
     }
 
-    await log('importar', lojaId, { veiculos: nVeic, clientes: nCli });
-    return json({ ok: true, veiculos: nVeic, clientes: nCli });
+    await log('importar', lojaId, { veiculos: nVeic, clientes: nCli, veiculos_pulados: veicPulados });
+    return json({ ok: true, veiculos: nVeic, clientes: nCli, veiculos_pulados: veicPulados });
   }
 
   return json({ error: 'ação desconhecida' }, 400);

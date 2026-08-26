@@ -18,9 +18,11 @@ create table if not exists public.operadores (
 );
 alter table public.operadores enable row level security;
 alter table public.operadores force  row level security;
--- sem política para authenticated/anon => ninguém lê via API; e revogamos o grant
--- padrão do Supabase por garantia (defense in depth).
+-- Negação EXPLÍCITA (não deixar "RLS ligada e zero políticas" — checklist do
+-- CLAUDE.md e aviso rls_enabled_no_policy do Supabase). Só o service_role, que
+-- ignora RLS, lê — dentro da Edge Function. Revogamos o grant padrão por garantia.
 revoke all on public.operadores from authenticated, anon;
+create policy nega_tudo on public.operadores as restrictive for all to authenticated, anon using (false) with check (false);
 
 -- Auditoria do control plane: uma linha por ação de operador (criar loja, importar…)
 create table if not exists public.operador_log (
@@ -34,6 +36,7 @@ create table if not exists public.operador_log (
 alter table public.operador_log enable row level security;
 alter table public.operador_log force  row level security;
 revoke all on public.operador_log from authenticated, anon;
+create policy nega_tudo on public.operador_log as restrictive for all to authenticated, anon using (false) with check (false);
 
 -- Para promover alguém a operador (uma vez, no SQL Editor), o id vem de auth.users:
 --   insert into public.operadores (id, nome)

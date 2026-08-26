@@ -180,6 +180,12 @@ select ok(has_column_privilege('public.vendas','custo_total','SELECT') = false,
 select ok(has_column_privilege('public.vendas','valor','SELECT') = true,
   'vendas: colunas sem custo seguem legíveis');
 
+-- operadores / operador_log — 0013: control plane, invisível pela API
+select ok(has_table_privilege('public.operadores','SELECT') = false,
+  'operadores: SELECT negado ao authenticated (0013)');
+select ok(has_table_privilege('public.operador_log','SELECT') = false,
+  'operador_log: SELECT negado ao authenticated (0013)');
+
 -- consignacoes
 select isnt((select count(*) from public.consignacoes
               where loja_id='11111111-1111-1111-1111-111111111111'), 0::bigint,

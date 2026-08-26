@@ -119,8 +119,11 @@ $('#loginForm').addEventListener('submit', async e=>{
 });
 
 async function entrar(){
-  // valida que é operador chamando métricas (a função barra quem não é)
-  const m = await chamar('metricas');
+  // valida que é operador chamando métricas (a função barra quem não é). Se não
+  // for operador, encerra a sessão para não deixar um login válido pendurado.
+  let m;
+  try{ m = await chamar('metricas'); }
+  catch(err){ try{ await sb.auth.signOut(); }catch(_){} throw err; }
   $('#login').style.display='none'; $('#app').style.display='block';
   render(m);
 }
@@ -265,7 +268,8 @@ async function importar(){
     });
     const payload = tipo==='veiculos' ? { loja_id:lojaId, veiculos:dados } : { loja_id:lojaId, clientes:dados };
     const r = await chamar('importar', payload);
-    abrir(`<h2>Importado ✅</h2><p class="sub">Entraram na loja: ${r.veiculos||0} veículo(s), ${r.clientes||0} cliente(s).</p>
+    const pul = r.veiculos_pulados ? ` (${r.veiculos_pulados} pulado(s) por placa repetida)` : '';
+    abrir(`<h2>Importado ✅</h2><p class="sub">Entraram na loja: ${r.veiculos||0} veículo(s)${pul}, ${r.clientes||0} cliente(s).</p>
       <div class="foot"><button class="btn" onclick="fecharOv()">Concluir</button></div>`);
     try{ render(await chamar('metricas')); }catch(_){}
   }catch(err){ erro.textContent=err.message; erro.style.display='block'; btn.disabled=false; btn.textContent='Importar'; }
