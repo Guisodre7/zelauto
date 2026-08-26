@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZelAuto — atalhos (dev)</title>
+<style>
+  :root{--bg:#0F1318;--sf:#171C22;--ln:#2a323b;--tx:#E8EDF2;--tx2:#93a1b0;--az:#3B82F6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh;display:grid;place-items:center;padding:24px}
+  .wrap{width:100%;max-width:520px}
+  h1{font-size:22px;margin-bottom:4px}
+  p.sub{color:var(--tx2);font-size:14px;margin-bottom:22px}
+  a.card{display:block;background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:inherit;transition:.15s}
+  a.card:hover{border-color:var(--az)}
+  a.card b{font-size:17px}
+  a.card .d{color:var(--tx2);font-size:13.5px;margin-top:3px}
+  a.card .u{color:var(--az);font-family:ui-monospace,Menlo,monospace;font-size:12.5px;margin-top:7px}
+  .nota{color:var(--tx2);font-size:13px;margin-top:16px;line-height:1.6}
+  .nota code{background:var(--sf);border:1px solid var(--ln);border-radius:6px;padding:1px 6px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ZelAuto — atalhos (dev)</h1>
+  <p class="sub">Página só para desenvolvimento local. Não vai para produção.</p>
+
+  <a class="card" href="site/index.html">
+    <b>Site institucional</b>
+    <div class="d">A landing da marca (marketing).</div>
+    <div class="u">/site/index.html</div>
+  </a>
+
+  <a class="card" href="prototipo/zelauto.html?loja=vancar">
+    <b>App do lojista</b>
+    <div class="d">O sistema. Com <code>?loja=vancar</code> mostra a marca da loja; sem slug, a página do link.</div>
+    <div class="u">/prototipo/zelauto.html?loja=vancar</div>
+  </a>
+
+  <a class="card" href="admin/index.html">
+    <b>Console do operador</b>
+    <div class="d">Painel ZelAuto: criar loja, KPIs, importar. Acesso só de operador.</div>
+    <div class="u">/admin/index.html</div>
+  </a>
+
+  <p class="nota">
+    Precisa estar servindo a <b>raiz do repositório</b> (esta pasta), não só <code>prototipo/</code>.
+    No terminal, dentro da pasta do projeto: <code>python3 -m http.server 8000</code> e abra
+    <code>http://localhost:8000/</code>.
+    O app e o console precisam do arquivo <code>prototipo/dados.config.js</code> preenchido.
+  </p>
+</div>
+</body>
+</html>
