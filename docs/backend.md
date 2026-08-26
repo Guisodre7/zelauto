@@ -800,6 +800,36 @@ loja — o slug errado não dá acesso a nada.
 
 Deploy: `supabase functions deploy marca-loja`.
 
+### 5.8 Console do Operador — o control plane da ZelAuto
+
+Uma superfície SEPARADA (`admin/index.html`, em produção `admin.zelauto…`), só do
+operador ZelAuto, para provisionar e acompanhar as lojas sem processo manual.
+
+**Padrão de segurança (control plane, como nos grandes SaaS):**
+- Operador é identidade separada do lojista: fica em `public.operadores`
+  (migration 0013), **não tem perfil de loja**. Logo, pela RLS normal, não vê
+  dado de loja nenhuma; só age pelo console.
+- `operadores` e `operador_log` **não são legíveis pela API** (force RLS + sem
+  política + grants revogados). Só o `service_role`, dentro da função.
+- Toda ação passa pela Edge Function `admin` (service_role), que confere
+  **sessão válida + membership em operadores** antes de qualquer coisa (403 se
+  não for operador). Defense in depth: mesmo com a UI vazada, o servidor barra.
+- Cada ação vira uma linha em `operador_log` (auditoria do control plane).
+
+**Ações da função `admin`:**
+- `criar_loja`: cria a loja (nome/slug/cor) + o login do dono (senha provisória)
+  + perfil `proprietario` com todos os módulos. **Banco limpo, sem seed.**
+  Devolve o link de acesso (`app…?loja=slug`), e-mail e senha do dono.
+- `metricas`: KPIs por loja e totais (cross-loja) — lojas, veículos, clientes,
+  vendas.
+- `importar`: recebe estoque/clientes já mapeados (o console faz o parse do CSV
+  do sistema atual do lojista, cabeçalho → colunas) e insere na loja de destino.
+
+Para promover o primeiro operador (uma vez, no SQL Editor):
+`insert into public.operadores (id, nome) select id, 'Nome' from auth.users where email = '…';`
+
+Deploy: `supabase functions deploy admin`.
+
 ---
 
 ## 6. Ambientes e migrations

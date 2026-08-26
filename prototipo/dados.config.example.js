@@ -23,4 +23,8 @@ window.ZELAUTO_CONFIG = {
   // botão "Não tenho o link"; e a landing institucional, no selo "por ZelAuto".
   suporteWhatsapp:   '5571900000000',
   siteInstitucional: 'https://zelauto.com.br',
+
+  // Usado pelo Console do Operador (admin/) para montar o link de acesso da loja
+  // recém-criada. Em produção, algo como 'https://app.zelauto.com.br/'.
+  appUrl: '../prototipo/zelauto.html',
 };

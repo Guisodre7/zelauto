@@ -28,3 +28,8 @@ verify_jwt = false
 # A função `marca-loja` é PÚBLICA (anon): devolve só a marca por slug. Sem JWT.
 [functions.marca-loja]
 verify_jwt = false
+
+# A função `admin` é o control plane: auth por dentro (getUser + membership em
+# operadores). Só operador ZelAuto age aqui.
+[functions.admin]
+verify_jwt = false
