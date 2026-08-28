@@ -314,6 +314,21 @@ with d as (delete from public.veiculos where loja_id='22222222-2222-2222-2222-22
 insert into _res(verifica,ok,detalhe)
 select 'veiculos: delete de A não apaga da B', (count(*)=0), 'apagadas='||count(*) from d;
 
+-- 0019: gerente NÃO apaga lead (só o proprietário). Troca o papel do token para
+-- gerente na MESMA loja A e tenta apagar: a RLS deve barrar (0 linhas apagadas).
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"aaaa1111-1111-1111-1111-111111111111","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"gerente"}}',
+  true);
+with d as (delete from public.clientes where loja_id='11111111-1111-1111-1111-111111111111' returning 1)
+insert into _res(verifica,ok,detalhe)
+select 'clientes: gerente NÃO apaga lead (0019)', (count(*)=0), 'apagadas='||count(*) from d;
+-- volta o papel para proprietário
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"aaaa1111-1111-1111-1111-111111111111","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"proprietario"}}',
+  true);
+
 -- volta a superuser para ler o coletor e imprimir o placar
 reset role;
 

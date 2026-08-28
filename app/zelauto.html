@@ -4766,25 +4766,26 @@ function responder(q){
     const porModelo={};
     vend.forEach(s=>{
       const modelo=((s.desc||'').replace(/\s+\d{4}$/,'').trim())||s.desc||'—';
-      const o=(porModelo[modelo]=porModelo[modelo]||{n:0,dias:0,lucro:0});
-      o.n++; o.dias+=s.diasPatio||0; o.lucro+=(s.valor-s.custo)+s.retornoBanco-s.comissao;
+      const o=(porModelo[modelo]=porModelo[modelo]||{n:0,dias:0});
+      o.n++; o.dias+=s.diasPatio||0;
     });
     const arr=Object.entries(porModelo).map(([k,v])=>({modelo:k,n:v.n,giro:Math.round(v.dias/v.n)}));
     const maisVend=arr.slice().sort((a,b)=>b.n-a.n).slice(0,3);
     const maisRapido=arr.filter(x=>x.giro>0).sort((a,b)=>a.giro-b.giro).slice(0,3);
-    const s6=serieMeses(); const ult=s6[5].fat||0, pen=s6[4].fat||0;
-    const dir= ult>pen?'subindo':ult<pen?'caindo':'estável';
+    // compara os DOIS últimos meses FECHADOS (o mês corrente é parcial e enganaria)
+    const s6=serieMeses(); const fechado=s6[4].fat||0, anterior=s6[3].fat||0;
+    const dir= fechado>anterior?'subiu':fechado<anterior?'caiu':'ficou estável';
     return `Tendências da sua operação (dados reais):\n\n`+
       `<b>Mais vendidos</b>\n`+maisVend.map(x=>`• ${esc(x.modelo)} — ${x.n} venda(s)`).join('\n')+
       `\n\n<b>Giram mais rápido</b>\n`+maisRapido.map(x=>`• ${esc(x.modelo)} — ${x.giro} dias no pátio`).join('\n')+
-      `\n\n<hr>Faturamento <b>${dir}</b> no último mês (${BRL(ult)} contra ${BRL(pen)}). Recomprar o que mais gira e desovar o que passou de 60 dias mantém o caixa rodando.`+botaoIr('dre','Ver o resultado');
+      `\n\n<hr>O faturamento <b>${dir}</b> no último mês fechado (${BRL(fechado)} contra ${BRL(anterior)} do anterior). Recomprar o que mais gira e desovar o que passou de 60 dias mantém o caixa rodando.`+botaoIr('dre','Ver o resultado');
   }
 
   /* Análise de CONCORRENTES / preço de mercado */
-  if(tem('concorrente','concorrência','concorrencia','mercado','competitiv','fipe','tabela de preço','tabela de preco','preço de mercado','preco de mercado','está caro','esta caro')){
+  if(tem('concorrente','concorrência','concorrencia','competitiv','fipe','tabela de preço','tabela de preco','preço de mercado','preco de mercado','está caro','esta caro')){
     const est=patio();
     if(!est.length) return `Sem estoque no pátio agora para eu comparar preço. Cadastre os carros e eu analiso o posicionamento de cada um.`;
-    const giroMed=Math.round(M().giro||0);
+    const giroMed=Math.round(m.giro||0);
     const parados=est.filter(v=>dias(v.entrada)>Math.max(60,giroMed)).sort((a,b)=>dias(b.entrada)-dias(a.entrada));
     const alerta=parados.slice(0,3).map(v=>`• ${esc(vNome(v))} — ${dias(v.entrada)} dias, anúncio ${BRL(v.alvo)}`).join('\n');
     return `Posicionamento de preço do seu estoque:\n\n`+
@@ -5084,7 +5085,7 @@ iaIn.addEventListener('keydown',e=>{
   if(SR && micBtn){
     micBtn.style.display='';
     let recog=null, ouvindo=false;
-    const parar=()=>{ ouvindo=false; micBtn.style.color=''; micBtn.style.background='var(--asfalto)'; };
+    const parar=()=>{ ouvindo=false; micBtn.style.color='var(--placa-2)'; micBtn.style.background='var(--asfalto)'; };
     micBtn.onclick=()=>{
       if(ouvindo){ try{ recog&&recog.stop(); }catch(_){} return; }
       try{
