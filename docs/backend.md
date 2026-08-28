@@ -899,6 +899,50 @@ geração server-side).
 - Data layer: `listarContratos`, `salvarContrato`, `atualizarStatusContrato`,
   `salvarDadosEmpresa`.
 
+### 5.13 Onboarding fiscal e RENAVE — quem faz o quê (NÃO existe ainda)
+
+**Realidade:** ligar a **integradora RENAVE** (credenciada pelo DETRAN) e a
+**emissão de NF-e** (provedor homologado na SEFAZ) só faz sentido quando uma
+loja **real** está no ar, porque depende de coisas que só a loja real tem e que
+**não são código**:
+
+1. **CNPJ + Inscrição Estadual** reais.
+2. **Certificado digital e-CNPJ** (A1 `.pfx`, ou A3 em token) — comprado numa
+   certificadora. Não tem como um painel "gerar" isso.
+3. **Contrato/credencial com o provedor** (integradora RENAVE; provedor de NF-e).
+
+**O lojista consegue sozinho, em poucos passos?** O uso **diário** sim — tem que
+ser um botão só ("Emitir nota", "Dar entrada no RENAVE"). Mas a **configuração
+inicial NÃO pode ser 100% autosserviço**, por dois motivos que valem para
+qualquer SaaS sério: (a) o certificado e o contrato com o provedor vivem **fora**
+de qualquer painel; (b) essas credenciais são **segredo** e têm que ficar
+server-side — o lojista **não** deve colá-las no navegador. Para um lojista
+idoso e com pouca familiaridade, é exatamente aqui que o **operador** entra.
+
+**Desenho correto — onboarding assistido pelo operador** (o que os grandes fazem):
+
+| Passo | Quem faz | Onde |
+|---|---|---|
+| Entregar CNPJ, IE e o **certificado e-CNPJ** (arquivo A1) | Lojista, **uma vez** | Upload guiado ou entrega na implantação |
+| Guardar o certificado com segurança e ligar ao provedor | **Operador** (você) | Console do Operador (server-side, `service_role`) |
+| Escolher provedor/integradora e ambiente (homologação→produção) | **Operador** | Console do Operador |
+| Emitir nota / dar entrada no RENAVE | **Lojista**, um clique | App do lojista |
+
+Ou seja: **você se desdobra uma vez, na entrega dos 7 dias** (é o passo que
+precisa do certificado e do contrato); depois o lojista opera sozinho, sem ligar
+para o suporte.
+
+**O que já existe:** a tabela `config_fiscal` (cnpj, ie, provedor, ambiente,
+`cert_vence_em`) — só o schema. **O que falta construir (entra no plano):**
+
+- Upload seguro do certificado (bucket privado + segredo; nunca no navegador).
+- Tela do operador para ligar o provedor/integradora e alternar
+  homologação→produção por loja.
+- Edge Function que fala com o provedor de NF-e (assina e envia) — fase 4.
+- Edge Function/integradora do RENAVE para o **registro** real (hoje só há o
+  acompanhamento, 5.10) — fase futura, quando fechar com a integradora.
+- No app: o botão de "um clique" e o aviso de vencimento do certificado.
+
 ---
 
 ## 6. Ambientes e migrations
