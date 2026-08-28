@@ -2578,17 +2578,17 @@ function vConsig(){
       <div style="flex:1"><h3>Por que isso interessa</h3><p>a alavanca mais barata para crescer</p></div></div>
     <div class="card-b" style="padding-top:10px;font-size:var(--t-sup);line-height:1.6;color:var(--placa-2)">
       Cada carro consignado ocupa uma vaga e não consome <b style="color:var(--placa)">um real</b> de capital.
-      Hoje eles somam <b style="color:var(--ambar)">${BRL(m.vitrineConsig)}</b> em vitrine — o equivalente a
-      ${PCT(m.vitrineConsig/m.capital*100)} do que a loja tem de dinheiro próprio parado no pátio.
-      No giro atual de ${Math.round(giro)} dias, isso representa cerca de
-      <b style="color:#5FD3A6">${BRL(mensal)}</b> de comissão por mês, sem risco de estoque.
+      Hoje eles somam <b style="color:var(--ambar)">${BRL(m.vitrineConsig)}</b> em vitrine${m.capital? ` — o equivalente a
+      ${PCT(m.vitrineConsig/m.capital*100)} do que a loja tem de dinheiro próprio parado no pátio`:''}.
+      ${giro? `No giro atual de ${Math.round(giro)} dias, isso representa cerca de
+      <b style="color:#5FD3A6">${BRL(mensal||0)}</b> de comissão por mês, sem risco de estoque.`:''}
     </div>
   </div>
 
   <div class="sec">
     <div class="sec-h"><h2>No pátio hoje</h2><div class="rule"></div></div>
     <div class="card">
-      ${DB.consignados.map(c=>{
+      ${DB.consignados.length? DB.consignados.map(c=>{
         const com=c.anuncio*c.comissao/100;
         const d=dias(c.entrada);
         return `<div class="veic" style="cursor:default">
@@ -2604,7 +2604,8 @@ function vConsig(){
           </div>
           <div class="pr"><div class="a">${BRL(c.anuncio)}</div><div class="b" style="color:#5FD3A6">ganho ${BRL(com)}</div></div>
         </div>`;
-      }).join('')}
+      }).join('')
+      :`<div style="padding:26px 16px;text-align:center;color:var(--placa-3);font-size:var(--t-sup)">Nenhum carro em consignação ainda. Use o botão abaixo para receber o primeiro — ele entra na vitrine sem custo de capital.</div>`}
     </div>
   </div>
 
@@ -2852,15 +2853,28 @@ function formConsig(){
     ${campoFoto('cnFoto')}`,
     `<button class="btn" data-close-modal>Cancelar</button><button class="btn pri" onclick="salvarConsig()">Colocar no pátio</button>`);
 }
-function salvarConsig(){
+let salvandoConsig=false;
+async function salvarConsig(){
+  if(salvandoConsig) return;
   const marca=val('cnMarca'), modelo=val('cnModelo'), anuncio=numVal('cnAnun');
   if(!marca||!modelo||!anuncio){ toast('Preencha marca, modelo e preço de anúncio'); return; }
-  DB.consignados.push({id:uid(),marca,modelo,ano:val('cnAno')||'—',km:numVal('cnKm'),
-    placa:(val('cnPlaca')||'ABC0A00').toUpperCase(),dono:val('cnDono')||'—',tel:val('cnTel')||'—',
-    minimo:numVal('cnMin'),anuncio,comissao:numVal('cnCom')||6,entrada:dFwd(0),status:'anunciado',
-    foto:window.__foto_cnFoto||''});
+  const c={marca,modelo,ano:val('cnAno')||'',km:numVal('cnKm'),
+    placa:(val('cnPlaca')||'').toUpperCase(),dono:val('cnDono')||'',tel:val('cnTel')||'',
+    minimo:numVal('cnMin'),anuncio,comissao:numVal('cnCom')||6};
+  salvandoConsig=true;
+  let veicId;
+  try{ veicId=await Dados.salvarConsignado(c); }
+  catch(e){ toast('Erro ao salvar consignado: '+(e.message||e)); salvandoConsig=false; return; }
+  // foto (opcional): sobe pro bucket do veículo criado
+  if(window.__foto_cnFoto){
+    try{ await Dados.subirFotoVeiculo(veicId, window.__foto_cnFoto); }
+    catch(e){ toast('Consignado salvo, mas a foto não subiu: '+(e.message||e)); }
+  }
   window.__foto_cnFoto='';
-  fecharModal(); go('consig'); toast(`${marca} ${modelo} no pátio sem custo de capital`);
+  salvandoConsig=false;
+  try{ DB.consignados = await Dados.listarConsignados(); }catch(_){}
+  fecharModal(); go('consig'); atualizarTags();
+  toast(`${marca} ${modelo} no pátio sem custo de capital`);
 }
 
 /* ==========================================================
@@ -5026,7 +5040,11 @@ atualizarTags();
     try{ window.LOJA = await Dados.carregarLoja(); }catch(_){ window.LOJA=null; }   // marca própria (site)
     // Telas ainda não persistidas (fases 2+): zera o seed de demonstração para a
     // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
-    DB.consignados=[]; DB.notas=[]; DB.portais=[];
+    DB.notas=[]; DB.portais=[];
+    // Consignação já persiste (veiculo origem='consignado' + consignacoes).
+    try{ DB.consignados = await Dados.listarConsignados(); }
+    catch(e){ console.error('[ZelAuto] falha ao carregar consignados:', e); DB.consignados=[];
+      if(typeof toast==='function') toast('Não consegui carregar os consignados. Verifique a conexão e recarregue.'); }
     // Carnê já persiste (carne_contratos/carne_parcelas).
     try{ DB.carne = await Dados.listarCarne(); }
     catch(e){ console.error('[ZelAuto] falha ao carregar carnê:', e); DB.carne=[];

@@ -101,6 +101,7 @@ function veiculoParaProto(v, prepPorVeiculo) {
     entrada: v.entrada_em, status: v.status,
     foto: v.foto_url || '',            // mapeado p/ quando o Storage entrar
     rn: v.renave_fase || 'fora',       // fase RENAVE (fora da fase 1, mas fiel ao banco)
+    origem: v.origem || 'proprio',
   };
 }
 
@@ -137,8 +138,11 @@ async function custosDaLoja() {
 
 async function listarVeiculos() {
   const { lojaId } = exigirContexto();
+  // Estoque próprio só: consignados (origem='consignado') saem daqui e entram
+  // por listarConsignados — não são capital da loja e têm tela própria.
   const { data: veic, error } = await sb.from('veiculos')
-    .select(VEIC_COLS).eq('loja_id', lojaId).order('entrada_em', { ascending: false });
+    .select(VEIC_COLS).eq('loja_id', lojaId).neq('origem', 'consignado')
+    .order('entrada_em', { ascending: false });
   if (error) throw error;
 
   const lista = (veic || []).map(v => veiculoParaProto(v, {}));  // custo entra no merge
@@ -258,6 +262,75 @@ async function removerVeiculo(id) {
   await sb.storage.from('veiculos').remove([`${lojaId}/${id}/foto.jpg`]);
   const { error } = await sb.from('veiculos').delete().eq('id', id);
   if (error) throw error;
+}
+
+/* ============================== CONSIGNAÇÃO ============================== */
+/* Consignado = um veículo (origem='consignado') + uma linha em consignacoes com
+   o dono e a comissão. O carro fica na vitrine/site como qualquer outro, mas NÃO
+   conta como capital da loja (listarVeiculos exclui origem='consignado'). O
+   formato do protótipo junta os dados do carro (veiculos) e do dono
+   (consignacoes) num objeto só. */
+
+function consignadoParaProto(row) {
+  const v = row.veiculos || {};
+  return {
+    id: v.id,                                   // id = veiculo_id (thumb/foto usam isso)
+    consignacaoId: row.id,
+    marca: v.marca, modelo: v.modelo,
+    ano: (v.ano_fab && v.ano_mod) ? `${v.ano_fab}/${v.ano_mod}` : (v.ano_fab ? String(v.ano_fab) : ''),
+    km: v.km, placa: v.placa || '',
+    dono: row.dono_nome, tel: row.dono_telefone || '', doc: row.dono_doc || '',
+    minimo: Number(row.minimo) || 0, anuncio: Number(v.alvo) || 0,
+    comissao: Number(row.comissao_pct) || 0,
+    entrada: v.entrada_em, status: 'anunciado', foto: v.foto_url || '',
+  };
+}
+
+async function listarConsignados() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('consignacoes')
+    .select('id, dono_nome, dono_doc, dono_telefone, minimo, comissao_pct, veiculos!inner(id, marca, modelo, ano_fab, ano_mod, km, placa, alvo, entrada_em, foto_url)')
+    .eq('loja_id', lojaId).order('criado_em', { ascending: false });
+  if (error) throw error;
+  const lista = (data || []).map(consignadoParaProto);
+  // troca o path da foto por URL assinada (bucket privado), em lote
+  const comFoto = lista.filter(c => c.foto);
+  if (comFoto.length) {
+    const { data: assinadas } = await sb.storage.from('veiculos')
+      .createSignedUrls(comFoto.map(c => c.foto), FOTO_TTL);
+    const mapa = {};
+    for (const a of assinadas || []) if (a && a.path && a.signedUrl) mapa[a.path] = a.signedUrl;
+    for (const c of lista) c.foto = c.foto ? (mapa[c.foto] || '') : '';
+  }
+  return lista;
+}
+
+/* Cria o veículo (origem='consignado') e a linha de consignação. Se a segunda
+   falhar, apaga o veículo (evita carro de terceiro solto no estoque sem dono). */
+async function salvarConsignado(c) {
+  const { lojaId, userId } = exigirContexto();
+  const [af, am] = String(c.ano || '').split('/').map(s => parseInt(s, 10) || null);
+  const veic = {
+    loja_id: lojaId, marca: c.marca, modelo: c.modelo,
+    ano_fab: af, ano_mod: am, km: num(c.km), placa: c.placa || null, cor: c.cor || null,
+    compra: 0, alvo: num(c.anuncio) ?? 0, status: 'estoque', origem: 'consignado',
+    criado_por: userId || null,
+  };
+  const { data: vSalvo, error: eV } = await sb.from('veiculos').insert(veic).select('id, entrada_em').single();
+  if (eV) throw eV;
+  const veiculoId = vSalvo.id;
+
+  const cons = {
+    loja_id: lojaId, veiculo_id: veiculoId,
+    dono_nome: c.dono || 'Não informado', dono_doc: c.doc || null, dono_telefone: c.tel || null,
+    minimo: num(c.minimo) ?? 0, comissao_pct: num(c.comissao) ?? 6,
+  };
+  const { error: eC } = await sb.from('consignacoes').insert(cons);
+  if (eC) {
+    await sb.from('veiculos').delete().eq('id', veiculoId);   // rollback manual
+    throw eC;
+  }
+  return veiculoId;
 }
 
 /* ============================== CLIENTES =================================== */
@@ -783,6 +856,8 @@ window.Dados = {
   entrar, sair, sessaoAtual, carregarPerfil, contexto,
   // veículos
   listarVeiculos, salvarVeiculo, atualizarVeiculo, removerVeiculo, subirFotoVeiculo,
+  // consignação
+  listarConsignados, salvarConsignado,
   // clientes
   listarClientes, salvarCliente, removerCliente,
   // vendas
