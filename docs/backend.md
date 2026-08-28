@@ -1054,6 +1054,22 @@ setor). A chave da API é segredo → server-side, nunca no navegador. Roda na n
 3. **Revisão de preço** do plano — o preço passa a comportar um **custo variável**
    (tokens por uso), diferente de hoje (custo por loja ~zero).
 
+**Cobrança recorrente + suspensão (assinatura da loja).** Plano pago por loja,
+com **suspensão após 3 dias** de carência do vencimento. Componentes:
+- Tabela `assinaturas` (loja_id, plano, status, `vence_em`, provedor, id_externo).
+- **Edge Function de webhook** que recebe os eventos do provedor (pago/vencido/
+  estornado) e atualiza `status`/`vence_em`. É a fonte da verdade do pagamento.
+- **Gate de acesso server-side**: a sessão confere a assinatura; vencida + 3 dias
+  → bloqueia o app (tela "pagamento pendente"). Não confiar só no navegador — o
+  bloqueio real precisa ser server-side (Edge Function/flag `loja_ativa`), com
+  override do operador.
+- **UI só de leitura** em Configurações do proprietário (plano atual, próximo
+  vencimento, link para pagar) — a lógica de cobrança fica no servidor.
+- **Provedor recomendado: Asaas** (assinaturas nativas, PIX/boleto/cartão, régua
+  de cobrança/dunning e webhooks — feito para SaaS recorrente no Brasil); o lojista
+  já tem conta. Pagar.me também serve (forte em cartão). AbacatePay só se quiser
+  PIX barato e construir a régua de cobrança por conta.
+
 **Áudio premium (voz→texto de verdade).** O áudio atual usa a Web Speech API do
 navegador — funciona e é grátis, mas é básico: depende do navegador, trata **um
 idioma por vez** (definido, ex. pt-BR), **não identifica quem fala** e erra mais
