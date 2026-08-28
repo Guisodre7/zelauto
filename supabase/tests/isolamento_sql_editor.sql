@@ -292,6 +292,13 @@ insert into _res(verifica,ok,detalhe) select 'storage: A não grava foto em outr
 -- Controles positivos de escrita (A grava na própria loja)
 insert into _res(verifica,ok,detalhe) select 'veiculos: A grava na própria loja', (r='OK_SEM_ERRO'), r from (select pg_temp.tenta($$insert into public.veiculos (loja_id,marca,modelo) values ('11111111-1111-1111-1111-111111111111','Ok','Ok')$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'clientes: A grava na própria loja', (r='OK_SEM_ERRO'), r from (select pg_temp.tenta($$insert into public.clientes (loja_id,nome) values ('11111111-1111-1111-1111-111111111111','Ok')$$) r) t;
+-- ponta a ponta: o INSERT de veículo acima deve ter gerado uma linha de auditoria
+-- (prova que o trigger 0016 grava de verdade, não só que a escrita direta é negada).
+-- Filtra por depois->>'marca'='Ok' para mirar exatamente aquele insert.
+insert into _res(verifica,ok,detalhe) select 'auditoria: trigger registrou o INSERT de veículo (0016 log funciona)',
+  (count(*)>0), 'linhas='||count(*)
+  from public.auditoria
+  where loja_id='11111111-1111-1111-1111-111111111111' and tabela='veiculos' and acao='INSERT' and depois->>'marca'='Ok';
 
 -- Delete cruzado não apaga nada da B
 with d as (delete from public.veiculos where loja_id='22222222-2222-2222-2222-222222222222' returning 1)

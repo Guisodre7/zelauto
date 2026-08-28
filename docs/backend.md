@@ -961,8 +961,9 @@ para o suporte.
 despesas). Ganhou **seletor de mês** (últimos 12): faturamento, custo e comissão
 saem das vendas reais do mês escolhido; ranking por lucro do mês; estado vazio.
 As despesas usam a estrutura de custo atual da loja (fixas + variáveis) como
-run-rate. A **meta de lucro** mora em `lojas.config.meta_mes` e é editável por
-proprietário/gerente (`salvarConfigLoja`).
+run-rate. A **meta de lucro** mora em `lojas.config.meta_mes` e é editável **só
+pelo proprietário** (`salvarConfigLoja` grava em `lojas`, cuja RLS
+`editar_minha_loja` é restrita ao proprietário).
 
 **Auditoria (migration 0016).** Registra quem mudou o quê, por **trigger** —
 não depende de o app lembrar de gravar:

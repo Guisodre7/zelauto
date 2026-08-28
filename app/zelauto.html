@@ -2210,14 +2210,17 @@ function vDespesas(){
 /* ==========================================================
    RESULTADO DO MÊS (DRE)
    ========================================================== */
+/* YYYY-MM em horário LOCAL (não usar toISOString: converteria para UTC e, perto
+   da virada do mês em BRT, cairia no mês errado). Bate com v.data ('YYYY-MM-DD'). */
+const mesYM = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 /* mês selecionado no relatório (YYYY-MM); default = mês corrente */
-let DRE_MES = HOJE.toISOString().slice(0,7);
+let DRE_MES = mesYM(HOJE);
 /* últimos 12 meses como opções do seletor */
 function dreMeses(){
   const out=[];
   for(let k=0;k<12;k++){
     const d=new Date(HOJE.getFullYear(), HOJE.getMonth()-k, 1);
-    out.push({ v:d.toISOString().slice(0,7), n:d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) });
+    out.push({ v:mesYM(d), n:d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) });
   }
   return out;
 }
@@ -5173,8 +5176,11 @@ atualizarTags();
       if(typeof toast==='function') toast('Não consegui carregar a equipe. Verifique a conexão e recarregue.');
     }
     try{ window.LOJA = await Dados.carregarLoja(); }catch(_){ window.LOJA=null; }   // marca própria (site)
-    // DB.loja deixa de ser demo: nome e meta vêm da loja real (meta em config).
-    if(window.LOJA){ DB.loja = { ...DB.loja, nome: window.LOJA.nome || DB.loja.nome, metaMes: window.LOJA.metaMes || 0 }; }
+    // DB.loja deixa de ser demo SEMPRE: se a loja real não carregou (erro/rede),
+    // não mantém o seed 'Vancar/45000' — mostrar dado falso é pior que vazio.
+    DB.loja = { ...DB.loja,
+      nome: (window.LOJA && window.LOJA.nome) || USER.nome || 'Sua loja',
+      metaMes: (window.LOJA && window.LOJA.metaMes) || 0, caixa: 0 };
     // Telas ainda não persistidas (fases 2+): zera o seed de demonstração para a
     // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
     DB.notas=[]; DB.portais=[];

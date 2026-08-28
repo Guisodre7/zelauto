@@ -721,14 +721,9 @@ async function salvarConfigFiscal(d) {
 /* Status e escolhas das integrações moram no jsonb lojas.config.integracoes
    (sem coluna/tabela nova). Merge preservando as demais chaves de config. */
 async function salvarIntegracoes(parcial) {
-  const { lojaId } = exigirContexto();
-  const { data: atual, error: eSel } = await sb.from('lojas').select('config').eq('id', lojaId).single();
-  if (eSel) throw eSel;
-  const config = { ...((atual && atual.config) || {}) };
-  config.integracoes = { ...(config.integracoes || {}), ...parcial };
-  const { error } = await sb.from('lojas').update({ config }).eq('id', lojaId);
-  if (error) throw error;
-  return lojaId;
+  return mergeConfig(config => {
+    config.integracoes = { ...(config.integracoes || {}), ...parcial };
+  });
 }
 
 /* ============================== AUDITORIA =============================== */
@@ -855,16 +850,23 @@ async function carregarLoja() {
   };
 }
 
-/* Merge genérico de chaves no jsonb lojas.config (preserva o resto). Usado para
-   preferências da loja que não têm coluna própria — ex.: meta_mes do DRE. */
-async function salvarConfigLoja(parcial) {
+/* Único ponto de leitura-modificação-escrita do jsonb lojas.config: lê, aplica
+   `mutar(config)` e grava, preservando o resto. Assume um escritor por vez (um
+   lojista, um modal) — não é atômico contra escritas concorrentes de config. */
+async function mergeConfig(mutar) {
   const { lojaId } = exigirContexto();
   const { data: atual, error: eSel } = await sb.from('lojas').select('config').eq('id', lojaId).single();
   if (eSel) throw eSel;
-  const config = { ...((atual && atual.config) || {}), ...parcial };
+  const config = { ...((atual && atual.config) || {}) };
+  mutar(config);
   const { error } = await sb.from('lojas').update({ config }).eq('id', lojaId);
   if (error) throw error;
   return lojaId;
+}
+
+/* Merge genérico de chaves na raiz de lojas.config. Ex.: meta_mes do DRE. */
+async function salvarConfigLoja(parcial) {
+  return mergeConfig(config => Object.assign(config, parcial));
 }
 
 /* Dados da empresa que entram no cabeçalho de contratos e notas. Só o
