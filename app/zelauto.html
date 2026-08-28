@@ -626,6 +626,9 @@ svg{max-width:100%}
         <strong id="iaNome">Copiloto</strong>
         <small><span id="iaPapel">analista de risco e oportunidade</span></small>
       </div>
+      <button class="x" id="iaVoz" aria-label="Ler as respostas em voz alta" title="Ler em voz alta" style="display:none;margin-right:2px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path id="iaVozOnda" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14" style="display:none"/></svg>
+      </button>
       <button class="x" data-close-ia aria-label="Fechar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -634,7 +637,10 @@ svg{max-width:100%}
     <div class="ia-f">
       <div class="chips" style="margin-bottom:9px" id="iaChips"></div>
       <div class="ia-input">
-        <textarea id="iaInput" rows="1" placeholder="Pergunte sobre o negócio…"></textarea>
+        <button class="ia-send" id="iaMic" aria-label="Falar" title="Falar" style="display:none;background:var(--asfalto);color:var(--placa-2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+        </button>
+        <textarea id="iaInput" rows="1" placeholder="Pergunte ou fale sobre o negócio…"></textarea>
         <button class="ia-send" id="iaSend" aria-label="Enviar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
         </button>
@@ -2098,7 +2104,7 @@ async function detLead(id){
     <div class="field" style="margin-top:14px"><label>Mover para</label><select id="leadEtapa">${opts}</select></div>
     <div class="field"><label>Próximo contato</label><input type="date" id="leadProx" value="${l.proximo||''}"></div>
     <div class="field"><label>Registrar contato</label><textarea id="leadObs" rows="2" placeholder="O que ficou combinado? (entra no histórico)"></textarea></div>`,
-    `${podeGerir()?`<button class="btn danger" onclick="excluirLead('${l.id}')">Excluir</button>`:''}
+    `${USER.papelChave==='proprietario'?`<button class="btn danger" onclick="excluirLead('${l.id}')">Excluir</button>`:''}
      <a class="btn" href="https://wa.me/55${l.tel.replace(/\D/g,'')}" target="_blank" rel="noopener">WhatsApp</a>
      <button class="btn pri" onclick="salvarLead('${l.id}')">Salvar</button>`);
 }
@@ -4753,6 +4759,41 @@ function responder(q){
   const destino=detectarNavegacao(t);
   if(destino) return respostaNavegacao(destino);
 
+  /* Análise de TENDÊNCIAS — do que a loja já vendeu (dados reais) */
+  if(tem('tendência','tendencia','tendências','tendencias','vende mais','mais vendido','mais vendidos','o que gira','o que vende','qual carro comprar','o que comprar','sazonal','padrão de venda')){
+    const vend=DB.vendas;
+    if(!vend.length) return `Ainda não tenho vendas registradas para achar tendência. Assim que você lançar as primeiras, eu mostro o que mais gira e o que trava o caixa.`;
+    const porModelo={};
+    vend.forEach(s=>{
+      const modelo=((s.desc||'').replace(/\s+\d{4}$/,'').trim())||s.desc||'—';
+      const o=(porModelo[modelo]=porModelo[modelo]||{n:0,dias:0,lucro:0});
+      o.n++; o.dias+=s.diasPatio||0; o.lucro+=(s.valor-s.custo)+s.retornoBanco-s.comissao;
+    });
+    const arr=Object.entries(porModelo).map(([k,v])=>({modelo:k,n:v.n,giro:Math.round(v.dias/v.n)}));
+    const maisVend=arr.slice().sort((a,b)=>b.n-a.n).slice(0,3);
+    const maisRapido=arr.filter(x=>x.giro>0).sort((a,b)=>a.giro-b.giro).slice(0,3);
+    const s6=serieMeses(); const ult=s6[5].fat||0, pen=s6[4].fat||0;
+    const dir= ult>pen?'subindo':ult<pen?'caindo':'estável';
+    return `Tendências da sua operação (dados reais):\n\n`+
+      `<b>Mais vendidos</b>\n`+maisVend.map(x=>`• ${esc(x.modelo)} — ${x.n} venda(s)`).join('\n')+
+      `\n\n<b>Giram mais rápido</b>\n`+maisRapido.map(x=>`• ${esc(x.modelo)} — ${x.giro} dias no pátio`).join('\n')+
+      `\n\n<hr>Faturamento <b>${dir}</b> no último mês (${BRL(ult)} contra ${BRL(pen)}). Recomprar o que mais gira e desovar o que passou de 60 dias mantém o caixa rodando.`+botaoIr('dre','Ver o resultado');
+  }
+
+  /* Análise de CONCORRENTES / preço de mercado */
+  if(tem('concorrente','concorrência','concorrencia','mercado','competitiv','fipe','tabela de preço','tabela de preco','preço de mercado','preco de mercado','está caro','esta caro')){
+    const est=patio();
+    if(!est.length) return `Sem estoque no pátio agora para eu comparar preço. Cadastre os carros e eu analiso o posicionamento de cada um.`;
+    const giroMed=Math.round(M().giro||0);
+    const parados=est.filter(v=>dias(v.entrada)>Math.max(60,giroMed)).sort((a,b)=>dias(b.entrada)-dias(a.entrada));
+    const alerta=parados.slice(0,3).map(v=>`• ${esc(vNome(v))} — ${dias(v.entrada)} dias, anúncio ${BRL(v.alvo)}`).join('\n');
+    return `Posicionamento de preço do seu estoque:\n\n`+
+      `• Giro médio da loja: <b>${giroMed} dias</b>\n`+
+      `• Carros parados além do giro: <b>${parados.length}</b>${parados.length?' (capital travado)':''}\n`+
+      (alerta?`\n${alerta}\n`:'')+
+      `\n<hr>Carro parado muito além do seu giro quase sempre está <b>caro para o mercado</b>. Para comparar com o <b>preço de mercado real</b> — Tabela FIPE e anúncios dos concorrentes —, a gente liga a integração de mercado na implantação; aí eu digo, carro a carro, se está acima ou abaixo. Por enquanto uso o seu giro como termômetro.`+botaoIr('estoque','Ver o estoque');
+  }
+
   if(tem('nota fiscal','nfe','nf-e','sefaz','fiscal','danfe')){
     const aut=DB.notas.filter(n=>n.status==='autorizada');
     const rj=DB.notas.filter(n=>n.status==='rejeitada');
@@ -4929,7 +4970,7 @@ function responder(q){
 const IA_NOME  = 'Copiloto';
 const IA_PAPEL = 'analista de risco e oportunidade';
 
-const CHIPS=['Diagnóstico completo','Onde emito a nota?','Como está meu RENAVE?','Meus anúncios estão rendendo?','Tem nota fiscal pendente?','O que está travando meu caixa?','Que carro devo comprar?','Riscos de hoje','Para quem ligar hoje?','Onde posso dar desconto?'];
+const CHIPS=['Diagnóstico completo','Tendências de venda','Meu preço está competitivo?','Onde emito a nota?','Como está meu RENAVE?','Meus anúncios estão rendendo?','Tem nota fiscal pendente?','O que está travando meu caixa?','Que carro devo comprar?','Riscos de hoje','Para quem ligar hoje?','Onde posso dar desconto?'];
 
 function abrirIa(){
   document.getElementById('iaSheet').classList.add('on');
@@ -4958,6 +4999,14 @@ function msgMe(txt){
   const d=document.createElement('div'); d.className='msg me'; d.textContent=txt;
   b.appendChild(d); b.scrollTop=b.scrollHeight;
 }
+/* lê a resposta em voz alta (quando a voz está ligada). Tira o HTML e fala. */
+function falar(html){
+  if(!window.__vozOn || !('speechSynthesis' in window)) return;
+  const d=document.createElement('div'); d.innerHTML=String(html).replace(/<hr>/g,'. ');
+  const txt=(d.textContent||'').replace(/\s+/g,' ').trim();
+  if(!txt) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; u.rate=1.03; speechSynthesis.speak(u); }catch(_){}
+}
 function perguntar(q){
   if(!q.trim()) return;
   msgMe(q);
@@ -4966,7 +5015,7 @@ function perguntar(q){
   t.className='msg bot typing'; t.innerHTML='<i></i><i></i><i></i>';
   b.appendChild(t); b.scrollTop=b.scrollHeight;
   const resp=responder(q);
-  setTimeout(()=>{ t.remove(); msgBot(resp); }, 620+Math.random()*420);
+  setTimeout(()=>{ t.remove(); msgBot(resp); falar(resp); }, 620+Math.random()*420);
 }
 
 /* ==========================================================
@@ -5013,6 +5062,42 @@ document.getElementById('iaSend').onclick=()=>{perguntar(iaIn.value); iaIn.value
 iaIn.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();perguntar(iaIn.value);iaIn.value='';iaIn.style.height='auto';}
 });
+
+/* ---- Áudio no Copiloto: falar (voz→texto) e ouvir (texto→voz) ---- */
+(function(){
+  // Ouvir as respostas em voz alta (Text-to-Speech)
+  const vozBtn=document.getElementById('iaVoz');
+  window.__vozOn=false;
+  if('speechSynthesis' in window && vozBtn){
+    vozBtn.style.display='';
+    vozBtn.onclick=()=>{
+      window.__vozOn=!window.__vozOn;
+      vozBtn.style.color=window.__vozOn?'#5FD3A6':'';
+      const onda=document.getElementById('iaVozOnda'); if(onda) onda.style.display=window.__vozOn?'':'none';
+      if(!window.__vozOn) try{ speechSynthesis.cancel(); }catch(_){}
+      if(typeof toast==='function') toast(window.__vozOn?'Voz ligada — vou ler as respostas':'Voz desligada');
+    };
+  }
+  // Falar em vez de digitar (Speech-to-Text)
+  const micBtn=document.getElementById('iaMic');
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(SR && micBtn){
+    micBtn.style.display='';
+    let recog=null, ouvindo=false;
+    const parar=()=>{ ouvindo=false; micBtn.style.color=''; micBtn.style.background='var(--asfalto)'; };
+    micBtn.onclick=()=>{
+      if(ouvindo){ try{ recog&&recog.stop(); }catch(_){} return; }
+      try{
+        recog=new SR(); recog.lang='pt-BR'; recog.interimResults=true; recog.continuous=false;
+        recog.onresult=e=>{ let txt=''; for(let i=0;i<e.results.length;i++) txt+=e.results[i][0].transcript; iaIn.value=txt; };
+        recog.onerror=()=>{ parar(); };
+        recog.onend=()=>{ parar(); const q=iaIn.value.trim(); if(q){ perguntar(q); iaIn.value=''; iaIn.style.height='auto'; } };
+        iaIn.value=''; recog.start(); ouvindo=true; micBtn.style.color='#F58177'; micBtn.style.background='rgba(245,129,119,.14)';
+        if(typeof toast==='function') toast('Pode falar…');
+      }catch(_){ parar(); }
+    };
+  }
+})();
 iaIn.addEventListener('input',()=>{iaIn.style.height='auto';iaIn.style.height=Math.min(110,iaIn.scrollHeight)+'px';});
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){fecharModal();fecharIa();fecharMenu();} });
 

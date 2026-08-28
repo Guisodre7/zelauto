@@ -982,6 +982,24 @@ não depende de o app lembrar de gravar:
 - Testes de isolamento novos: escrita/edição direta na auditoria negada ao
   `authenticated` (log imutável).
 
+### 5.16 Ajustes de permissão e Copiloto
+
+**Excluir lead — só o proprietário (migration 0019).** O delete padrão (0002) é de
+proprietário OU gerente; para `clientes` (leads) o dono restringiu ao
+**proprietário** (apagar lead = perder histórico). Vendedor/gerente seguem vendo e
+editando. Enforce no servidor (RLS `apagar` de clientes) + na tela. Trocar a
+própria senha continua disponível a **todos** os papéis (Configurações › Conta).
+
+**Copiloto com áudio e análises.** Frontend, sem back novo:
+- **Falar** (voz→texto, Web Speech API `SpeechRecognition`, pt-BR) e **ouvir** as
+  respostas (texto→voz, `speechSynthesis`) — botões aparecem só onde o navegador
+  suporta. Ajuda o lojista que não gosta de digitar.
+- **Tendências** — o Copiloto analisa as vendas reais (modelos que mais vendem,
+  que giram mais rápido, direção do faturamento).
+- **Concorrentes/preço de mercado** — posicionamento pelo giro (carro parado além
+  do giro médio ≈ caro para o mercado). A comparação com **preço de mercado real**
+  (FIPE + anúncios) é a integração de mercado, ligada no onboarding.
+
 ### 5.15 NF-e e Portais — parcial (falta só o onboarding real)
 
 **NF-e (fase 4) — migration 0018.** O que dá para entregar sem o provedor:
