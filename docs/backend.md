@@ -1020,6 +1020,33 @@ própria senha continua disponível a **todos** os papéis (Configurações › 
 real** (empurrar o estoque para cada portal), que precisa da credencial de
 anunciante e roda server-side — parte do onboarding.
 
+### 5.17 Fases futuras (registradas, NÃO construídas)
+
+**Copiloto com IA + pesquisa na internet.** Hoje o Copiloto é regra
+determinística sobre os dados da loja (grátis, instantâneo, privado) — não usa
+LLM nem pesquisa a web. Evolução: uma Edge Function `copiloto` que chama o Claude
+com a ferramenta nativa de **web search**, levando junto um resumo dos dados da
+loja. Dá raciocínio real + pesquisa de mercado (FIPE, concorrentes, tendências do
+setor). A chave da API é segredo → server-side, nunca no navegador. Roda na nuvem
+(o modelo não roda no aparelho do lojista). **Três dependências antes de ligar:**
+
+1. **Sistema de cota por loja** — limite de uso (perguntas/tokens) por loja, para
+   o custo variável não estourar.
+2. **Painel de acompanhamento de consumo** — o operador (e talvez o lojista) vê
+   quanto cada loja consumiu no período.
+3. **Revisão de preço** do plano — o preço passa a comportar um **custo variável**
+   (tokens por uso), diferente de hoje (custo por loja ~zero).
+
+**Áudio premium (voz→texto de verdade).** O áudio atual usa a Web Speech API do
+navegador — funciona e é grátis, mas é básico: depende do navegador, trata **um
+idioma por vez** (definido, ex. pt-BR), **não identifica quem fala** e erra mais
+em ambiente barulhento. Um áudio no nível de ChatGPT/Google exige um motor de STT
+dedicado na nuvem (ex.: Whisper, Google Speech-to-Text, Deepgram) chamado por
+Edge Function — aí sim: **multilíngue** (3+ idiomas com detecção automática),
+robusto a ruído e, com diarização (Deepgram/Azure), **identificação de locutor**.
+É integração de terceiro com **custo por minuto** → mesma lógica das dependências
+acima (cota + acompanhamento + preço). Fica registrado como fase futura.
+
 ---
 
 ## 6. Ambientes e migrations
