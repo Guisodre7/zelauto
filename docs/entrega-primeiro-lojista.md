@@ -30,7 +30,16 @@ Feito uma vez para todo o produto, não por loja.
   supabase functions deploy marca-loja
   supabase functions deploy admin
   supabase functions deploy site-loja
+  supabase functions deploy cobranca
+  supabase functions deploy abacate-webhook
   ```
+- [ ] **Segredos da cobrança** (AbacatePay):
+  ```
+  supabase secrets set ABACATE_API_KEY=...        ABACATE_WEBHOOK_SECRET=...
+  supabase secrets set ZELAUTO_PLANO_VALOR=9900   APP_URL=https://app.zelauto.com.br
+  ```
+  E cadastrar no painel da AbacatePay a URL do webhook terminando em
+  `/functions/v1/abacate-webhook?webhookSecret=<o mesmo segredo>`.
 - [ ] **Rodar o teste de isolamento** (`supabase/tests/isolamento_sql_editor.sql`)
   no SQL Editor de produção → tem que dar **tudo verde**. Sem isso, não entrega.
 - [ ] **`app/dados.config.js`** preenchido com a URL e a anon key **de produção**

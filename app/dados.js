@@ -984,6 +984,49 @@ async function marcaDaLoja(slug) {
   } catch (_) { return null; }
 }
 
+/* ============================ ASSINATURA / PLANO ========================= */
+/* O proprietário lê o próprio plano e gera a cobrança (PIX copia-e-cola/QR ou
+   checkout de cartão) pela Edge Function `cobranca`. Quem CONFIRMA o pagamento é
+   o webhook — o cliente nunca marca "pago". A chave da AbacatePay é segredo de
+   função (server-side). */
+
+async function carregarAssinatura() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('assinaturas')
+    .select('plano, valor_centavos, status, vence_em').eq('loja_id', lojaId).maybeSingle();
+  if (error) return null;                 // sem acesso (não é proprietário) ou sem linha
+  if (!data) return { status: 'trial', valorCentavos: 0, venceEm: null };
+  return { plano: data.plano, status: data.status, valorCentavos: data.valor_centavos, venceEm: data.vence_em };
+}
+
+async function gerarPixAssinatura() {
+  const { data, error } = await sb.functions.invoke('cobranca', { body: { acao: 'pix' } });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;                            // { brCode, brCodeBase64, id, expiresAt }
+}
+
+async function statusAssinatura() {
+  const { data, error } = await sb.functions.invoke('cobranca', { body: { acao: 'status' } });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;                            // { status, vence_em, pago }
+}
+
+/* Gate de acesso: a loja está ativa (paga/em carência)? Server-side via RPC. */
+async function lojaAtiva() {
+  const { data, error } = await sb.rpc('minha_loja_ativa');
+  if (error) return true;                 // fail-safe: erro não tranca a loja
+  return data !== false;
+}
+
+async function checkoutCartaoAssinatura() {
+  const { data, error } = await sb.functions.invoke('cobranca', { body: { acao: 'cartao' } });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;                            // { url }
+}
+
 /* ============================ INTERFACE PÚBLICA =========================== */
 
 window.Dados = {
@@ -1013,6 +1056,8 @@ window.Dados = {
   salvarDadosEmpresa,
   // onboarding / integrações (reúne info; segredos ficam com o operador)
   carregarConfigFiscal, salvarConfigFiscal, salvarIntegracoes, salvarConfigLoja,
+  // assinatura / plano (AbacatePay — cobrança via Edge Function)
+  carregarAssinatura, gerarPixAssinatura, statusAssinatura, checkoutCartaoAssinatura, lojaAtiva,
   // custos (Edge Function)
   custosDaLoja,
   // exportação de dados (Edge Function)

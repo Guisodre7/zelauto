@@ -1002,6 +1002,13 @@ function abrirConfig(){
         ${svgi('<path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/>')}
         Central de integrações</button>
       <div class="hint">Reúne o que a gente precisa para ligar NF-e, RENAVE e os portais. Você preenche; o ZelAuto finaliza a parte técnica com você.</div>
+    </div>
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Plano e pagamento</label>
+      <button class="btn blk" onclick="fecharModal();abrirPlano()">
+        ${svgi('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>')}
+        Assinatura da loja</button>
+      <div class="hint">Veja o vencimento e pague por PIX (na hora) ou cartão.</div>
     </div>`:''}
     ${(USER.papelChave==='proprietario'||USER.papelChave==='gerente')?`
     <div class="field" style="margin-top:14px;margin-bottom:0">
@@ -1243,6 +1250,88 @@ async function salvarSenha(){
     salvandoSenha=false; if(btn){ btn.disabled=false; btn.textContent='Salvar nova senha'; } return; }
   salvandoSenha=false;
   fecharModal(); toast('Senha trocada. Use a nova no próximo acesso.');
+}
+/* Loja suspensa (assinatura vencida além da carência): tranca a tela. Só o
+   proprietário vê o botão de regularizar. */
+function bloquearSuspensa(){
+  if(document.getElementById('suspOv')) return;
+  const dono=USER.papelChave==='proprietario';
+  const ov=document.createElement('div'); ov.id='suspOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:var(--bg,#0F1318);color:var(--placa,#E8EDF2);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center';
+  ov.innerHTML=`<div style="max-width:420px">
+    <div style="font-size:44px;margin-bottom:10px">🔒</div>
+    <h2 style="font-size:22px;margin-bottom:8px">Assinatura suspensa</h2>
+    <p style="color:var(--placa-2,#93a1b0);line-height:1.6;font-size:14px">O pagamento do plano venceu e o período de carência acabou. ${dono?'Regularize para voltar a usar — o acesso volta na hora que o pagamento cair.':'Fale com o dono da loja para regularizar o plano.'}</p>
+    ${dono?`<button class="btn pri" style="margin-top:16px" onclick="abrirPlano()">Regularizar agora</button>`:''}
+    <div style="margin-top:14px"><button class="btn" onclick="sairDaConta&&sairDaConta()">Sair</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function liberarSuspensa(){ const o=document.getElementById('suspOv'); if(o) o.remove(); }
+
+/* ---- Assinatura da loja (AbacatePay): PIX copia-e-cola/QR ou cartão ---- */
+const PLANO_ROTULO={ trial:['ok','em avaliação'], ativa:['ok','ativa'], vencida:['warn','vencida'], suspensa:['bad','suspensa'], cancelada:['mute','cancelada'] };
+function fmtVenc(iso){ return iso? new Date(iso+'T12:00:00').toLocaleDateString('pt-BR') : '—'; }
+async function abrirPlano(){
+  let a=null; try{ a=await Dados.carregarAssinatura(); }catch(_){ a=null; }
+  const st=(a&&a.status)||'trial';
+  const [cls,txt]=PLANO_ROTULO[st]||PLANO_ROTULO.trial;
+  const valor=a&&a.valorCentavos? BRL(a.valorCentavos/100):'';
+  modal('Assinatura da loja',`
+    <div class="stat-line"><span>Situação</span><b><span class="pill ${cls}">${txt}</span></b></div>
+    <div class="stat-line"><span>Vence em</span><b>${fmtVenc(a&&a.venceEm)}</b></div>
+    ${valor?`<div class="stat-line"><span>Mensalidade</span><b>${valor}</b></div>`:''}
+    <div class="hint" style="margin:8px 0 14px">O pagamento libera automaticamente — não precisa avisar ninguém. Depois de vencido, o acesso segue por 3 dias antes de suspender.</div>
+    <div id="plnArea"></div>
+    <div class="f2" style="margin-top:12px">
+      <button class="btn pri" id="plnPix" onclick="planoPix()">Pagar com PIX</button>
+      <button class="btn blk" id="plnCard" onclick="planoCartao()">Pagar com cartão</button>
+    </div>`,
+    `<button class="btn" data-close-modal>Fechar</button>
+     <button class="btn" onclick="planoAtualizar()">Já paguei / atualizar</button>`);
+}
+let gerandoPix=false;
+async function planoPix(){
+  if(gerandoPix) return;
+  const area=document.getElementById('plnArea'); const btn=document.getElementById('plnPix');
+  gerandoPix=true; if(btn){ btn.disabled=true; btn.textContent='Gerando…'; }
+  let r;
+  try{ r=await Dados.gerarPixAssinatura(); }
+  catch(e){ toast('Não consegui gerar o PIX: '+(e.message||e)); gerandoPix=false; if(btn){ btn.disabled=false; btn.textContent='Pagar com PIX'; } return; }
+  gerandoPix=false; if(btn){ btn.disabled=false; btn.textContent='Gerar outro PIX'; }
+  if(!area) return;
+  area.innerHTML=`
+    <div style="text-align:center;padding:8px 0">
+      ${r.brCodeBase64?`<img src="${r.brCodeBase64.startsWith('data:')?esc(r.brCodeBase64):'data:image/png;base64,'+esc(r.brCodeBase64)}" alt="QR Code PIX" style="width:190px;height:190px;border-radius:12px;background:#fff;padding:8px">`:''}
+      <div style="font-size:var(--t-lab);color:var(--placa-3);margin-top:8px">Escaneie no app do banco ou copie o código:</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="plnBr" readonly value="${esc(r.brCode||'')}" style="flex:1;font-family:ui-monospace,monospace;font-size:11px">
+        <button class="btn" onclick="planoCopiar()">Copiar</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Assim que o PIX cair, a assinatura é liberada sozinha. Toque em “Já paguei / atualizar” para conferir.</div>
+    </div>`;
+}
+function planoCopiar(){
+  const i=document.getElementById('plnBr'); if(!i) return;
+  i.select(); try{ navigator.clipboard.writeText(i.value); }catch(_){ document.execCommand('copy'); }
+  toast('Código PIX copiado');
+}
+async function planoCartao(){
+  const btn=document.getElementById('plnCard'); if(btn){ btn.disabled=true; btn.textContent='Abrindo…'; }
+  try{ const r=await Dados.checkoutCartaoAssinatura(); if(r&&r.url) window.open(r.url,'_blank','noopener'); else toast('Não consegui abrir o checkout'); }
+  catch(e){ toast('Não consegui abrir o cartão: '+(e.message||e)); }
+  if(btn){ btn.disabled=false; btn.textContent='Pagar com cartão'; }
+}
+async function planoAtualizar(){
+  try{
+    const s=await Dados.statusAssinatura();
+    if(s&&s.pago){ toast('Pagamento confirmado — assinatura ativa'); liberarSuspensa(); }
+    else toast('Ainda não caiu. Se acabou de pagar, aguarde alguns segundos.');
+    fecharModal();
+    // se ainda está suspensa (não pago), reabre o plano; se liberou, volta ao app
+    if(!(await Dados.lojaAtiva())) abrirPlano();
+  }
+  catch(e){ toast('Não consegui atualizar: '+(e.message||e)); }
 }
 function verMeuSite(){
   if(!window.LOJA||!window.LOJA.slug) return;
@@ -5304,6 +5393,8 @@ atualizarTags();
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');
     atualizarTags();
+    // Gate de assinatura: loja suspensa (vencida além dos 3 dias) → bloqueia.
+    try{ if(!(await Dados.lojaAtiva())) bloquearSuspensa(); }catch(_){}
     return true;
   }
 

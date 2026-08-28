@@ -38,3 +38,13 @@ verify_jwt = false
 # só com campos públicos do estoque (nunca custo).
 [functions.site-loja]
 verify_jwt = false
+
+# A função `cobranca` gera a cobrança do plano (AbacatePay). Auth por dentro
+# (getUser + perfil proprietário). A chave da API é segredo de função.
+[functions.cobranca]
+verify_jwt = false
+
+# A função `abacate-webhook` é PÚBLICA (a AbacatePay chama). A defesa é o segredo
+# na URL (?webhookSecret=...), conferido por dentro. Sem JWT.
+[functions.abacate-webhook]
+verify_jwt = false

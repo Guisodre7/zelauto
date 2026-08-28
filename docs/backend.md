@@ -1054,22 +1054,6 @@ setor). A chave da API é segredo → server-side, nunca no navegador. Roda na n
 3. **Revisão de preço** do plano — o preço passa a comportar um **custo variável**
    (tokens por uso), diferente de hoje (custo por loja ~zero).
 
-**Cobrança recorrente + suspensão (assinatura da loja).** Plano pago por loja,
-com **suspensão após 3 dias** de carência do vencimento. Componentes:
-- Tabela `assinaturas` (loja_id, plano, status, `vence_em`, provedor, id_externo).
-- **Edge Function de webhook** que recebe os eventos do provedor (pago/vencido/
-  estornado) e atualiza `status`/`vence_em`. É a fonte da verdade do pagamento.
-- **Gate de acesso server-side**: a sessão confere a assinatura; vencida + 3 dias
-  → bloqueia o app (tela "pagamento pendente"). Não confiar só no navegador — o
-  bloqueio real precisa ser server-side (Edge Function/flag `loja_ativa`), com
-  override do operador.
-- **UI só de leitura** em Configurações do proprietário (plano atual, próximo
-  vencimento, link para pagar) — a lógica de cobrança fica no servidor.
-- **Provedor recomendado: Asaas** (assinaturas nativas, PIX/boleto/cartão, régua
-  de cobrança/dunning e webhooks — feito para SaaS recorrente no Brasil); o lojista
-  já tem conta. Pagar.me também serve (forte em cartão). AbacatePay só se quiser
-  PIX barato e construir a régua de cobrança por conta.
-
 **Áudio premium (voz→texto de verdade).** O áudio atual usa a Web Speech API do
 navegador — funciona e é grátis, mas é básico: depende do navegador, trata **um
 idioma por vez** (definido, ex. pt-BR), **não identifica quem fala** e erra mais
@@ -1079,6 +1063,38 @@ Edge Function — aí sim: **multilíngue** (3+ idiomas com detecção automáti
 robusto a ruído e, com diarização (Deepgram/Azure), **identificação de locutor**.
 É integração de terceiro com **custo por minuto** → mesma lógica das dependências
 acima (cota + acompanhamento + preço). Fica registrado como fase futura.
+
+### 5.19 Assinatura da loja — AbacatePay (construído; falta só a chave)
+
+Plano pago por loja, PIX (copia-e-cola + QR, na hora) e cartão (checkout
+hospedado), com **suspensão após 3 dias** de carência do vencimento.
+
+- **Migration 0020**: `assinaturas` (uma por loja: status, `vence_em`, valor,
+  `cobranca_id`) e `pagamentos` (log + idempotência por `cobranca_id`). Leitura
+  **só do proprietário**; **escrita direta revogada** — só o servidor grava.
+  `app.loja_ativa()` + wrapper `public.minha_loja_ativa()`: ativa se
+  trial/ativa, ou vencida dentro dos 3 dias. **Fail-safe**: sem linha ⇒ ativa
+  (um problema de cobrança nunca tranca uma loja por engano).
+- **Edge Function `cobranca`** (proprietário): `pix` (POST
+  `…/v2/transparents/create` → `brCode`/`brCodeBase64`), `status`, `cartao`
+  (POST `…/v2/checkouts/create` → `url`). A chave da API é segredo de função.
+- **Edge Function `abacate-webhook`** (pública): valida `?webhookSecret=` contra
+  `ABACATE_WEBHOOK_SECRET`, e no evento de pago renova a assinatura
+  (`vence_em += 30d`, idempotente por `cobranca_id`). **É quem confirma o
+  pagamento** — o cliente nunca marca "pago".
+- **UI** (Configurações › Plano e pagamento, proprietário): status/vencimento,
+  gerar PIX (copia-e-cola + QR), pagar com cartão, "já paguei/atualizar". Loja
+  suspensa cai numa tela de bloqueio com "Regularizar".
+- **Secrets a configurar** (`supabase secrets set …`): `ABACATE_API_KEY`,
+  `ABACATE_WEBHOOK_SECRET`; opcionais `ZELAUTO_PLANO_VALOR` (centavos),
+  `ZELAUTO_PLANO_NOME`, `APP_URL`. Cadastrar a URL do webhook no painel da
+  AbacatePay com `?webhookSecret=<segredo>`.
+- **A confirmar contra a doc da AbacatePay** (docs estava fora do ar aqui): os
+  nomes exatos dos campos do `transparents/create` e a chave do webhook (query
+  `webhookSecret`) — o código isola a chamada HTTP para ajuste rápido se preciso.
+- **Endurecimento futuro**: hoje o gate de suspensão é na sessão (app) + override
+  do operador; a versão "dura" (RLS/Function checando `loja_ativa` em cada
+  escrita) é o passo seguinte.
 
 ---
 

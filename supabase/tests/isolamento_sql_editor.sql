@@ -309,6 +309,19 @@ insert into _res(verifica,ok,detalhe) select 'emitir_nota: a nota ficou na loja 
   from public.notas_fiscais
   where loja_id='11111111-1111-1111-1111-111111111111' and destinatario='Cliente Teste NF';
 
+-- Assinatura (0020): leitura só do proprietário; escrita direta negada; o gate
+-- loja_ativa é fail-safe (sem linha de assinatura => ativa, não tranca por engano).
+insert into _res(verifica,ok,detalhe) select 'assinaturas: escrita direta negada ao authenticated (0020)',
+  (has_table_privilege('public.assinaturas','INSERT') = false),
+  'tem_insert='||has_table_privilege('public.assinaturas','INSERT')::text;
+insert into _res(verifica,ok,detalhe) select 'pagamentos: escrita direta negada ao authenticated (0020)',
+  (has_table_privilege('public.pagamentos','INSERT') = false),
+  'tem_insert='||has_table_privilege('public.pagamentos','INSERT')::text;
+insert into _res(verifica,ok,detalhe) select 'assinaturas: A não vê a da B',
+  (count(*)=0), 'linhas='||count(*) from public.assinaturas where loja_id='22222222-2222-2222-2222-222222222222';
+insert into _res(verifica,ok,detalhe) select 'loja_ativa: fail-safe (sem assinatura => ativa)',
+  (public.minha_loja_ativa() = true), 'ativa='||public.minha_loja_ativa()::text;
+
 -- Delete cruzado não apaga nada da B
 with d as (delete from public.veiculos where loja_id='22222222-2222-2222-2222-222222222222' returning 1)
 insert into _res(verifica,ok,detalhe)
