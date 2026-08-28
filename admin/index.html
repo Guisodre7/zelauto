@@ -193,6 +193,7 @@ async function criarLoja(){
       <div class="okbox"><div class="l">Link de acesso da loja</div><div class="v">${esc(link)}</div></div>
       <div class="okbox"><div class="l">E-mail</div><div class="v">${esc(r.email)}</div></div>
       <div class="okbox"><div class="l">Senha provisória</div><div class="v">${esc(r.senha)}</div></div>
+      <p class="sub" style="margin-top:12px;line-height:1.55">Diga ao dono para <b>trocar a senha no primeiro acesso</b> (Configurações › Conta). Depois disso, esta senha provisória para de valer e você não fica com o acesso dele. Cada loja é isolada no banco — você não entra na conta do lojista nem vê os números de negócio dele por aqui.</p>
       <div class="foot"><button class="btn" onclick="fecharOv()">Concluir</button></div>`);
     try{ render(await chamar('metricas')); }catch(_){}
   }catch(err){ erro.textContent=err.message; erro.style.display='block'; btn.disabled=false; btn.textContent='Criar loja'; }

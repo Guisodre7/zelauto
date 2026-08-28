@@ -1007,9 +1007,13 @@ function abrirConfig(){
     </div>`:''}
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Conta</label>
-      <button class="btn blk" onclick="sairDaConta()">
+      <button class="btn blk" onclick="fecharModal();trocarSenhaUI()">
+        ${svgi('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
+        Trocar minha senha</button>
+      <button class="btn blk" style="margin-top:8px" onclick="sairDaConta()">
         ${svgi('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>')}
         Sair da conta</button>
+      <div class="hint">A senha é só sua. Troque a provisória no primeiro acesso — depois disso ninguém do suporte tem seu login.</div>
     </div>`,
     `<button class="btn pri" data-close-modal>Pronto</button>`);
 }
@@ -1171,6 +1175,28 @@ async function salvarIntegracoesUI(){
     window.LOJA.cnpj=cnpj; }
   salvandoIntegra=false;
   fecharModal(); toast('Integrações salvas — o ZelAuto finaliza o resto com você');
+}
+function trocarSenhaUI(){
+  modal('Trocar minha senha',`
+    <div class="field"><label>Nova senha</label><input type="password" id="psNova" placeholder="mínimo 6 caracteres" autocomplete="new-password"></div>
+    <div class="field" style="margin-bottom:0"><label>Repita a nova senha</label><input type="password" id="psConf" placeholder="a mesma de cima" autocomplete="new-password"></div>
+    <div class="hint" style="margin-top:8px">Depois que você troca, a senha provisória da entrega para de funcionar. O ZelAuto não guarda nem vê sua senha.</div>`,
+    `<button class="btn" data-close-modal>Cancelar</button>
+     <button class="btn pri" id="psSalvar" onclick="salvarSenha()">Salvar nova senha</button>`);
+}
+let salvandoSenha=false;
+async function salvarSenha(){
+  if(salvandoSenha) return;
+  const nova=val('psNova'), conf=val('psConf');
+  if(!nova||nova.length<6){ toast('A senha precisa ter ao menos 6 caracteres'); return; }
+  if(nova!==conf){ toast('As duas senhas não são iguais'); return; }
+  const btn=document.getElementById('psSalvar');
+  salvandoSenha=true; if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  try{ await Dados.trocarSenha(nova); }
+  catch(e){ toast('Erro ao trocar a senha: '+(e.message||e));
+    salvandoSenha=false; if(btn){ btn.disabled=false; btn.textContent='Salvar nova senha'; } return; }
+  salvandoSenha=false;
+  fecharModal(); toast('Senha trocada. Use a nova no próximo acesso.');
 }
 function verMeuSite(){
   if(!window.LOJA||!window.LOJA.slug) return;

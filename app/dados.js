@@ -53,6 +53,14 @@ async function sair() {
   if (error) throw error;
 }
 
+/* O lojista troca a própria senha. Depois disso, a senha provisória que o
+   operador gerou na implantação deixa de valer — o operador não fica com o
+   acesso. */
+async function trocarSenha(nova) {
+  const { error } = await sb.auth.updateUser({ password: nova });
+  if (error) throw error;
+}
+
 async function sessaoAtual() {
   const { data } = await sb.auth.getSession();
   return data.session || null;
@@ -881,7 +889,7 @@ async function marcaDaLoja(slug) {
 
 window.Dados = {
   // conexão / sessão
-  entrar, sair, sessaoAtual, carregarPerfil, contexto,
+  entrar, sair, trocarSenha, sessaoAtual, carregarPerfil, contexto,
   // veículos
   listarVeiculos, salvarVeiculo, atualizarVeiculo, removerVeiculo, subirFotoVeiculo,
   // consignação
