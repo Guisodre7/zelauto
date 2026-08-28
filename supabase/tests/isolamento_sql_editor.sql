@@ -300,6 +300,15 @@ insert into _res(verifica,ok,detalhe) select 'auditoria: trigger registrou o INS
   from public.auditoria
   where loja_id='11111111-1111-1111-1111-111111111111' and tabela='veiculos' and acao='INSERT' and depois->>'marca'='Ok';
 
+-- NF-e (0018): emitir_nota é SECURITY DEFINER e usa app.loja_id() — grava só na
+-- loja do token e carimba o loja_id correto.
+insert into _res(verifica,ok,detalhe) select 'emitir_nota: emite na própria loja (fase 4)',
+  (r='OK_SEM_ERRO'), r from (select pg_temp.tenta($$select public.emitir_nota('saida','Cliente Teste NF',null,'Carro teste',1000,null)$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'emitir_nota: a nota ficou na loja A',
+  (count(*)>0), 'linhas='||count(*)
+  from public.notas_fiscais
+  where loja_id='11111111-1111-1111-1111-111111111111' and destinatario='Cliente Teste NF';
+
 -- Delete cruzado não apaga nada da B
 with d as (delete from public.veiculos where loja_id='22222222-2222-2222-2222-222222222222' returning 1)
 insert into _res(verifica,ok,detalhe)

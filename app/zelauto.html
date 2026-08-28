@@ -3755,7 +3755,7 @@ function vAnuncios(){
           <div class="grow">
             <div class="t">${esc(p.nome)}</div>
             <div class="s">${p.ativo
-              ? `${p.publicados} de ${p.limite} vagas · ${p.leads} leads · sincronizado ${p.ultimo===dFwd(0)?'hoje':dataBR(p.ultimo)}`
+              ? `${p.publicados} de ${p.limite} vagas · no feed padrão${p.ultimo?` · sincronizado ${dataBR(p.ultimo)}`:''}`
               : 'não conectado'}</div>
             ${p.ativo?`<div class="bar" style="margin-top:6px"><i class="${p.publicados>=p.limite?'amb':'grn'}" style="width:${p.publicados/p.limite*100}%"></i></div>`:''}
           </div>

@@ -46,8 +46,13 @@ grant  execute on function app.proximo_numero_nf(int) to authenticated;
 -- (se a gravação falhar, o número não é queimado — sem buraco). Exposta em
 -- `public` para o PostgREST/supabase-js chamar via rpc. A nota nasce
 -- 'processando'; o provedor de NF-e (fase 4) a leva para 'autorizada'.
+--
+-- A SÉRIE vem da config fiscal da loja (não do cliente): série é configuração,
+-- não escolha por nota. E como a função é SECURITY DEFINER (ignora a RLS),
+-- validamos aqui que a venda referida, se houver, é DA MESMA LOJA — senão zera,
+-- para não criar referência cruzada entre lojas.
 create or replace function public.emitir_nota(
-  p_serie int, p_tipo text, p_dest text, p_doc text, p_desc text,
+  p_tipo text, p_dest text, p_doc text, p_desc text,
   p_valor numeric, p_venda_id uuid
 )
 returns public.notas_fiscais
@@ -56,24 +61,36 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_loja uuid := app.loja_id();
-  v_num  int;
-  v_nota public.notas_fiscais;
+  v_loja  uuid := app.loja_id();
+  v_serie int;
+  v_num   int;
+  v_venda uuid := p_venda_id;
+  v_nota  public.notas_fiscais;
 begin
   if v_loja is null then raise exception 'sem loja no token'; end if;
   if coalesce(p_dest,'') = '' then raise exception 'destinatário obrigatório'; end if;
 
-  v_num := app.proximo_numero_nf(p_serie);
+  select coalesce(serie, 1) into v_serie from public.config_fiscal where loja_id = v_loja;
+  if v_serie is null then v_serie := 1; end if;
+
+  -- não referencia venda de outra loja (definer ignora RLS, então checamos)
+  if v_venda is not null and not exists (
+    select 1 from public.vendas where id = v_venda and loja_id = v_loja
+  ) then
+    v_venda := null;
+  end if;
+
+  v_num := app.proximo_numero_nf(v_serie);
 
   insert into public.notas_fiscais
     (loja_id, numero, serie, tipo, venda_id, destinatario, doc, descricao, valor, status)
   values
-    (v_loja, v_num, p_serie, coalesce(p_tipo,'saida'), p_venda_id, p_dest, p_doc,
+    (v_loja, v_num, v_serie, coalesce(p_tipo,'saida'), v_venda, p_dest, p_doc,
      p_desc, coalesce(p_valor,0), 'processando')
   returning * into v_nota;
 
   return v_nota;
 end $$;
 
-revoke execute on function public.emitir_nota(int,text,text,text,text,numeric,uuid) from public, anon;
-grant  execute on function public.emitir_nota(int,text,text,text,text,numeric,uuid) to authenticated;
+revoke execute on function public.emitir_nota(text,text,text,text,numeric,uuid) from public, anon;
+grant  execute on function public.emitir_nota(text,text,text,text,numeric,uuid) to authenticated;

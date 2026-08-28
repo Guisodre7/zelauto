@@ -736,7 +736,7 @@ function notaParaProto(n) {
   return {
     id: n.id, numero: n.numero, serie: n.serie, tipo: n.tipo,
     dest: n.destinatario, doc: n.doc || '—', desc: n.descricao || '',
-    valor: Number(n.valor) || 0, data: (n.criado_em || '').slice(0, 10),
+    valor: Number(n.valor) || 0, data: (n.emitida_em || '').slice(0, 10),
     status: n.status, chave: n.chave || '',
   };
 }
@@ -749,10 +749,11 @@ async function listarNotas() {
   return (data || []).map(notaParaProto);
 }
 
-/* Reserva o número e grava a nota numa transação só (RPC public.emitir_nota). */
+/* Reserva o número e grava a nota numa transação só (RPC public.emitir_nota).
+   A série vem da config fiscal da loja, no servidor — não do cliente. */
 async function emitirNota(d) {
   const { data, error } = await sb.rpc('emitir_nota', {
-    p_serie: d.serie || 1, p_tipo: d.tipo || 'saida', p_dest: d.dest,
+    p_tipo: d.tipo || 'saida', p_dest: d.dest,
     p_doc: d.doc || null, p_desc: d.desc || null,
     p_valor: num(d.valor) ?? 0, p_venda_id: d.vendaId || null,
   });
