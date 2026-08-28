@@ -675,6 +675,8 @@ const BRLc = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'
 const NUM = v => new Intl.NumberFormat('pt-BR').format(Math.round(v||0));
 const PCT = v => (v||0).toFixed(1).replace('.',',')+'%';
 const dataBR = iso => new Date(iso+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+/* data com ano — para documentos (contrato, carnê): dd/mm/aaaa */
+const dataBRano = iso => iso ? new Date(iso+'T12:00:00').toLocaleDateString('pt-BR') : '';
 const mesNome = m => ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][m];
 const uid = () => Math.random().toString(36).slice(2,9);
 const esc = s => String(s??'').replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
@@ -2440,6 +2442,7 @@ async function carSalvarContrato(){
     return;
   }
   salvandoCarne=false;
+  CAR_ATUAL=null;   // evita fechar um segundo carnê idêntico sem re-simular
   fecharModal(); render('carne'); atualizarTags();
   toast(`Carnê de ${nome} gerado — ${s.prazo}x`);
 }
@@ -3879,7 +3882,7 @@ function docHTML(c){
 
     <h4>Valor e pagamento</h4>
     <div class="ln"><span>Valor total</span><b>${BRL(c.valor)}</b></div>
-    <div class="ln"><span>Data</span><b>${dataBR(c.data)}</b></div>
+    <div class="ln"><span>Data</span><b>${dataBRano(c.data)}</b></div>
 
     <h4>Disposições</h4>
     <p>A transferência de propriedade será providenciada no prazo legal, correndo por conta
@@ -3893,7 +3896,7 @@ function docHTML(c){
 
     ${c.status==='assinado'?`
     <div class="assinado">
-      Contrato registrado como ASSINADO em ${dataBR(c.assinadoEm)}.<br>
+      Contrato registrado como ASSINADO em ${dataBRano(c.assinadoEm)}.<br>
       Assinatura física/manual das partes. A assinatura eletrônica com validade
       jurídica (ICP-Brasil / MP 2.200-2) entra em fase posterior.
     </div>`:''}

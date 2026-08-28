@@ -475,18 +475,28 @@ async function salvarCarne(c) {
 
   const valorParc = num(c.valorParcela) ?? 0;
   const base = new Date(c.inicio + 'T12:00:00');
+  const diaBase = base.getDate();
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const linhas = [];
   for (let n = 1; n <= nParc; n++) {
-    const venc = new Date(base);
-    venc.setMonth(venc.getMonth() + n);
+    // avança n meses preservando o dia; se o mês não tem esse dia (31→fev),
+    // usa o último dia do mês em vez de rolar para o mês seguinte.
+    const venc = new Date(base.getFullYear(), base.getMonth() + n, 1, 12, 0, 0);
+    const ultimoDia = new Date(venc.getFullYear(), venc.getMonth() + 1, 0).getDate();
+    venc.setDate(Math.min(diaBase, ultimoDia));
     linhas.push({
       loja_id: lojaId, contrato_id: contratoId, numero: n,
-      vencimento: venc.toISOString().slice(0, 10), valor: valorParc,
+      vencimento: ymd(venc), valor: valorParc,
     });
   }
   if (linhas.length) {
     const { error: e2 } = await sb.from('carne_parcelas').insert(linhas);
-    if (e2) throw e2;   // parcelas são o carnê; sem elas o contrato não serve
+    if (e2) {
+      // rollback manual: parcelas são o carnê; sem elas o contrato não serve.
+      // Evita contrato órfão (parcelas=N, zero linhas) que quebraria a carteira.
+      await sb.from('carne_contratos').delete().eq('id', contratoId);
+      throw e2;
+    }
   }
   return contratoId;
 }
@@ -671,8 +681,10 @@ async function carregarLoja() {
    jsonb `config` (não têm coluna própria); os demais são colunas de lojas. */
 async function salvarDadosEmpresa(d) {
   const { lojaId } = exigirContexto();
-  // lê o config atual para não sobrescrever outras chaves
-  const { data: atual } = await sb.from('lojas').select('config').eq('id', lojaId).single();
+  // lê o config atual para não sobrescrever outras chaves; se a leitura falhar,
+  // aborta — mesclar sobre {} apagaria chaves existentes do jsonb.
+  const { data: atual, error: eSel } = await sb.from('lojas').select('config').eq('id', lojaId).single();
+  if (eSel) throw eSel;
   const config = { ...((atual && atual.config) || {}) };
   if (d.razaoSocial != null) config.razao_social = d.razaoSocial || null;
   if (d.endereco != null) config.endereco = d.endereco || null;
