@@ -272,6 +272,12 @@ insert into _res(verifica,ok,detalhe) select 'anuncios: A não grava em outra lo
 insert into _res(verifica,ok,detalhe) select 'auditoria: A vê a própria', (count(*)>0), 'linhas='||count(*) from public.auditoria where loja_id='11111111-1111-1111-1111-111111111111';
 insert into _res(verifica,ok,detalhe) select 'auditoria: A não vê a da B', (count(*)=0), 'linhas='||count(*) from public.auditoria where loja_id='22222222-2222-2222-2222-222222222222';
 insert into _res(verifica,ok,detalhe) select 'auditoria: A não grava em outra loja', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.auditoria (loja_id,tabela,acao) values ('33333333-3333-3333-3333-333333333333','veiculos','insert')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'auditoria: escrita direta negada ao authenticated (0016 log imutável)',
+  (has_table_privilege('public.auditoria','INSERT') = false),
+  'tem_insert='||has_table_privilege('public.auditoria','INSERT')::text;
+insert into _res(verifica,ok,detalhe) select 'auditoria: edição direta negada ao authenticated (0016 log imutável)',
+  (has_table_privilege('public.auditoria','UPDATE') = false),
+  'tem_update='||has_table_privilege('public.auditoria','UPDATE')::text;
 
 -- perfis (uC ainda não tem perfil -> sem colisão de PK)
 insert into _res(verifica,ok,detalhe) select 'perfis: A vê o próprio', (count(*)>0), 'linhas='||count(*) from public.perfis where loja_id='11111111-1111-1111-1111-111111111111';

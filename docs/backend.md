@@ -955,6 +955,32 @@ para o suporte.
   acompanhamento, 5.10) — fase futura, quando fechar com a integradora.
 - No app: o botão de "um clique" e o aviso de vencimento do certificado.
 
+### 5.14 Relatórios / DRE e Auditoria (fase 3)
+
+**DRE por período.** A tela Resultado calcula do que já está no banco (vendas +
+despesas). Ganhou **seletor de mês** (últimos 12): faturamento, custo e comissão
+saem das vendas reais do mês escolhido; ranking por lucro do mês; estado vazio.
+As despesas usam a estrutura de custo atual da loja (fixas + variáveis) como
+run-rate. A **meta de lucro** mora em `lojas.config.meta_mes` e é editável por
+proprietário/gerente (`salvarConfigLoja`).
+
+**Auditoria (migration 0016).** Registra quem mudou o quê, por **trigger** —
+não depende de o app lembrar de gravar:
+
+- `app.audita()` (SECURITY DEFINER, **fail-open**: se o log falhar, a operação
+  de negócio segue) grava em `auditoria` a cada INSERT/UPDATE/DELETE, extraindo
+  `id`/`loja_id` do jsonb (serve até para `config_fiscal`, que não tem coluna
+  `id`). Gatilhos em: veiculos, vendas, despesas, clientes, contratos,
+  consignacoes, carne_contratos, perfis, config_fiscal.
+- **Log imutável:** revoga insert/update/delete do `authenticated` e remove as
+  políticas de escrita — só o trigger grava.
+- **Leitura restrita a proprietário/gerente:** o `depois` guarda o registro
+  inteiro (inclui `compra`/`custo_total`), então um vendedor **não** pode ler a
+  auditoria, senão o custo vazaria por aqui. Tela em Configurações › Segurança
+  (`listarAuditoria`).
+- Testes de isolamento novos: escrita/edição direta na auditoria negada ao
+  `authenticated` (log imutável).
+
 ---
 
 ## 6. Ambientes e migrations

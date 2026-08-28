@@ -731,6 +731,22 @@ async function salvarIntegracoes(parcial) {
   return lojaId;
 }
 
+/* ============================== AUDITORIA =============================== */
+/* Lê o log (só proprietário/gerente, por RLS — a política nega para vendedor).
+   O nome de quem fez a ação é resolvido na tela pelo DB.usuarios (equipe), pois
+   auditoria.usuario_id não tem FK declarada para perfis. */
+async function listarAuditoria(limite = 120) {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('auditoria')
+    .select('id, tabela, registro_id, acao, antes, depois, usuario_id, criado_em')
+    .eq('loja_id', lojaId).order('criado_em', { ascending: false }).limit(limite);
+  if (error) throw error;
+  return (data || []).map(r => ({
+    id: r.id, tabela: r.tabela, acao: r.acao, criado: r.criado_em,
+    usuarioId: r.usuario_id || '', antes: r.antes, depois: r.depois, registroId: r.registro_id,
+  }));
+}
+
 /* ============================== EQUIPE / PERFIS ========================== */
 /* Lê a equipe da loja (RLS já limita à loja). ATENÇÃO: por privilégio de coluna
    (§3.4 da spec), o authenticated só pode gravar nome e telefone em perfis —
@@ -933,6 +949,8 @@ window.Dados = {
   carregarLoja, subirMarca,
   // equipe / perfis
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
+  // auditoria (só proprietário/gerente)
+  listarAuditoria,
   // acesso cru ao client, se precisar
   _sb: sb,
 };

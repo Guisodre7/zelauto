@@ -997,6 +997,14 @@ function abrirConfig(){
         Central de integrações</button>
       <div class="hint">Reúne o que a gente precisa para ligar NF-e, RENAVE e os portais. Você preenche; o ZelAuto finaliza a parte técnica com você.</div>
     </div>`:''}
+    ${(USER.papelChave==='proprietario'||USER.papelChave==='gerente')?`
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Segurança</label>
+      <button class="btn blk" onclick="fecharModal();abrirAuditoria()">
+        ${svgi('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>')}
+        Registro de atividades</button>
+      <div class="hint">Quem mexeu em quê e quando — carros, vendas, permissões, papelada. Só você e gerentes veem.</div>
+    </div>`:''}
     ${USER.papelChave==='proprietario'?`
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Seus dados</label>
@@ -1175,6 +1183,38 @@ async function salvarIntegracoesUI(){
     window.LOJA.cnpj=cnpj; }
   salvandoIntegra=false;
   fecharModal(); toast('Integrações salvas — o ZelAuto finaliza o resto com você');
+}
+/* Registro de atividades (auditoria) — só proprietário/gerente (a RLS também
+   nega para vendedor, então mesmo forçando não vem nada). */
+const AUD_TABELA={ veiculos:'Veículo', vendas:'Venda', despesas:'Despesa', clientes:'Cliente',
+  contratos:'Contrato', consignacoes:'Consignação', carne_contratos:'Carnê',
+  perfis:'Usuário/permissão', config_fiscal:'Config. fiscal' };
+const AUD_ACAO={ INSERT:['criou','#5FD3A6'], UPDATE:['alterou','#F2A93B'], DELETE:['apagou','#F58177'] };
+function audRotulo(r){
+  const d=r.depois||r.antes||{};
+  return esc(d.modelo? (d.marca?d.marca+' ':'')+d.modelo+(d.placa?' · '+d.placa:'')
+    : d.cliente_nome || d.nome || d.descricao || d.dono_nome || '');
+}
+async function abrirAuditoria(){
+  modal('Registro de atividades',`<div id="audLista" style="color:var(--placa-3);font-size:var(--t-sup);padding:10px 0">Carregando…</div>`,
+    `<button class="btn pri" data-close-modal>Fechar</button>`);
+  let log=[];
+  try{ log=await Dados.listarAuditoria(); }
+  catch(e){ const el=document.getElementById('audLista'); if(el) el.textContent='Não consegui carregar: '+(e.message||e); return; }
+  const nome=id=>{ const u=(DB.usuarios||[]).find(x=>x.id===id); return u? u.nome : (id?'usuário':'sistema'); };
+  const el=document.getElementById('audLista'); if(!el) return;
+  if(!log.length){ el.innerHTML='<div style="text-align:center;padding:16px 0">Sem atividades registradas ainda. A partir de agora, cada mudança fica registrada aqui.</div>'; return; }
+  el.style.color='var(--placa)'; el.style.padding='0';
+  el.innerHTML=log.map(r=>{
+    const [txt,cor]=AUD_ACAO[r.acao]||[r.acao,'var(--placa-3)'];
+    const rot=audRotulo(r);
+    return `<div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--linha)">
+      <span style="color:var(--placa-3);font-size:var(--t-lab);white-space:nowrap;padding-top:2px">${dataBRano((r.criado||'').slice(0,10))}</span>
+      <div style="flex:1;font-size:var(--t-sup);line-height:1.5">
+        <b style="color:${cor}">${txt}</b> ${esc(AUD_TABELA[r.tabela]||r.tabela)}${rot?` <span style="color:var(--placa-2)">— ${rot}</span>`:''}
+        <div style="color:var(--placa-3);font-size:var(--t-lab)">${esc(nome(r.usuarioId))}</div>
+      </div></div>`;
+  }).join('');
 }
 function trocarSenhaUI(){
   modal('Trocar minha senha',`
