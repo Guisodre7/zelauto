@@ -68,18 +68,10 @@ create policy ler on public.auditoria
   for select to authenticated
   using (loja_id = app.loja_id() and app.papel() in ('proprietario','gerente'));
 
--- escrita: uma permissiva de INSERT SEM restrição de papel (public), para que o
--- trigger (SECURITY DEFINER) escreva mesmo sob `force row level security` e mesmo
--- que o dono da função não tenha BYPASSRLS. Isto sozinho NÃO abre a porta: o
--- authenticated perde o PRIVILÉGIO de INSERT logo abaixo, então só o trigger
--- (que roda com o privilégio do dono) consegue gravar. Sem esta política, a
--- auditoria poderia ficar silenciosamente vazia.
-drop policy if exists trigger_grava on public.auditoria;
-create policy trigger_grava on public.auditoria
-  for insert with check (true);
-
 -- defesa em profundidade: tira o privilégio de escrita direta do authenticated.
 -- Só o trigger (SECURITY DEFINER, dono postgres) grava.
+-- (A política permissiva de INSERT que o trigger precisa está na 0017 — foi
+--  separada para não reescrever esta migration caso já tivesse sido aplicada.)
 revoke insert, update, delete on public.auditoria from authenticated;
 
 -- 3) Liga os gatilhos nas tabelas de negócio sensíveis.
