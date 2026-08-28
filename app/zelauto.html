@@ -1634,7 +1634,7 @@ function vDash(){
     <div class="kpi ${m.lucroLiqMes>=0?'g':'r'}">
       <div class="lab">Lucro líquido do mês</div>
       <div class="val num">${BRL(m.lucroLiqMes)}</div>
-      <div class="sub">${m.doMes.length} vendas · meta ${BRL(DB.loja.metaMes)}</div>
+      <div class="sub">${m.doMes.length} vendas${DB.loja.metaMes?` · meta ${BRL(DB.loja.metaMes)}`:''}</div>
     </div>
     <div class="kpi ${m.capitalParado>0?'r':'g'}">
       <div class="lab">Capital parado &gt; 60 dias</div>
@@ -2170,23 +2170,50 @@ function vDespesas(){
 /* ==========================================================
    RESULTADO DO MÊS (DRE)
    ========================================================== */
+/* mês selecionado no relatório (YYYY-MM); default = mês corrente */
+let DRE_MES = HOJE.toISOString().slice(0,7);
+/* últimos 12 meses como opções do seletor */
+function dreMeses(){
+  const out=[];
+  for(let k=0;k<12;k++){
+    const d=new Date(HOJE.getFullYear(), HOJE.getMonth()-k, 1);
+    out.push({ v:d.toISOString().slice(0,7), n:d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) });
+  }
+  return out;
+}
+function dreTrocaMes(v){ DRE_MES=v; render('dre'); }
+
 function vDre(){
   const m=M();
-  const cmv=m.doMes.reduce((s,x)=>s+x.custo,0);
-  const bruto=m.faturaMes-cmv;
-  const banco=m.doMes.reduce((s,x)=>s+x.retornoBanco,0);
-  const com=m.doMes.reduce((s,x)=>s+x.comissao,0);
+  // vendas do mês escolhido (dados reais persistidos)
+  const doMes=DB.vendas.filter(v=>String(v.data||'').slice(0,7)===DRE_MES);
+  const fatura=doMes.reduce((s,x)=>s+x.valor,0);
+  const cmv=doMes.reduce((s,x)=>s+x.custo,0);
+  const bruto=fatura-cmv;
+  const banco=doMes.reduce((s,x)=>s+x.retornoBanco,0);
+  const com=doMes.reduce((s,x)=>s+x.comissao,0);
+  // despesas = estrutura de custo atual da loja (fixas+variáveis) aplicada ao mês
   const liq=bruto+banco-com-m.despesaMes;
+  const meta=DB.loja.metaMes||0;
+  const ehMesCorrente=DRE_MES===HOJE.toISOString().slice(0,7);
   const s=serieMeses();
+  const podeEditarMeta=USER.papelChave==='proprietario'||USER.papelChave==='gerente';
 
   return `
+  <div class="field" style="margin-bottom:14px">
+    <label>Mês de referência</label>
+    <select onchange="dreTrocaMes(this.value)">
+      ${dreMeses().map(x=>`<option value="${x.v}" ${x.v===DRE_MES?'selected':''}>${x.n}${x.v===HOJE.toISOString().slice(0,7)?' (atual)':''}</option>`).join('')}
+    </select>
+  </div>
+
   <div class="card">
-    <div class="card-h"><div style="flex:1"><h3>${HOJE.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</h3><p>do que entrou ao que sobrou</p></div>
+    <div class="card-h"><div style="flex:1"><h3>${esc(dreMeses().find(x=>x.v===DRE_MES)?.n||DRE_MES)}</h3><p>do que entrou ao que sobrou</p></div>
       <span class="pill ${liq>=0?'ok':'bad'}">${liq>=0?'lucro':'prejuízo'}</span></div>
     <div class="card-b">
       <table class="dre">
-        <tr><td>Faturamento com veículos</td><td>${BRL(m.faturaMes)}</td></tr>
-        <tr class="sub"><td>${m.doMes.length} carros entregues no mês</td><td></td></tr>
+        <tr><td>Faturamento com veículos</td><td>${BRL(fatura)}</td></tr>
+        <tr class="sub"><td>${doMes.length} carro(s) entregue(s) no mês</td><td></td></tr>
         <tr><td>Custo dos veículos vendidos</td><td style="color:#F58177">− ${BRL(cmv)}</td></tr>
         <tr class="tot"><td>Lucro bruto</td><td style="color:#5FD3A6">${BRL(bruto)}</td></tr>
         <tr><td>Retorno de banco (financiamentos)</td><td style="color:#5FD3A6">+ ${BRL(banco)}</td></tr>
@@ -2195,14 +2222,16 @@ function vDre(){
         <tr><td>Despesas variáveis</td><td style="color:#F58177">− ${BRL(m.variaveis)}</td></tr>
         <tr class="tot"><td>Lucro líquido</td><td style="color:${liq>=0?'#5FD3A6':'#F58177'}">${BRL(liq)}</td></tr>
       </table>
+      ${ehMesCorrente?'':`<div class="hint" style="margin-top:8px">As despesas usam a estrutura de custo atual da loja (fixas + variáveis). O faturamento e o custo dos carros são os do mês escolhido.</div>`}
       <div style="display:flex;gap:10px;margin-top:16px">
         <div style="flex:1;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha)">
           <div style="font-size:var(--t-lab);letter-spacing:.09em;text-transform:uppercase;color:var(--placa-3);font-weight:700">Margem líquida</div>
-          <div class="num" style="font-size:var(--t-num);font-weight:600;margin-top:5px">${PCT(m.faturaMes? liq/m.faturaMes*100:0)}</div>
+          <div class="num" style="font-size:var(--t-num);font-weight:600;margin-top:5px">${PCT(fatura? liq/fatura*100:0)}</div>
         </div>
-        <div style="flex:1;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha)">
-          <div style="font-size:var(--t-lab);letter-spacing:.09em;text-transform:uppercase;color:var(--placa-3);font-weight:700">Meta do mês</div>
-          <div class="num" style="font-size:var(--t-num);font-weight:600;margin-top:5px">${PCT(liq/DB.loja.metaMes*100)}</div>
+        <div style="flex:1;padding:11px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha)${podeEditarMeta?';cursor:pointer':''}" ${podeEditarMeta?'onclick="editarMeta()"':''}>
+          <div style="font-size:var(--t-lab);letter-spacing:.09em;text-transform:uppercase;color:var(--placa-3);font-weight:700">Meta do mês ${podeEditarMeta?'✎':''}</div>
+          <div class="num" style="font-size:var(--t-num);font-weight:600;margin-top:5px">${meta? PCT(liq/meta*100) : (podeEditarMeta?'definir':'—')}</div>
+          ${meta?`<div style="font-size:var(--t-lab);color:var(--placa-3);margin-top:2px">de ${BRL(meta)}</div>`:''}
         </div>
       </div>
     </div>
@@ -2216,19 +2245,40 @@ function vDre(){
   </div>
 
   <div class="sec">
-    <div class="sec-h"><h2>Ranking por lucro</h2><div class="rule"></div></div>
+    <div class="sec-h"><h2>Ranking por lucro — ${esc(dreMeses().find(x=>x.v===DRE_MES)?.n||DRE_MES)}</h2><div class="rule"></div></div>
     <div class="card">
-      ${DB.vendas.slice().sort((a,b)=>((b.valor-b.custo)+b.retornoBanco-b.comissao)-((a.valor-a.custo)+a.retornoBanco-a.comissao)).slice(0,6).map((v,i)=>{
+      ${doMes.length? doMes.slice().sort((a,b)=>((b.valor-b.custo)+b.retornoBanco-b.comissao)-((a.valor-a.custo)+a.retornoBanco-a.comissao)).slice(0,10).map((v,i)=>{
         const l=(v.valor-v.custo)+v.retornoBanco-v.comissao;
         return `<div class="row">
           <span class="num" style="width:22px;color:var(--placa-3);font-size:var(--t-sup)">${i+1}</span>
           <div class="grow"><div class="t">${esc(v.desc)}</div><div class="s">${v.diasPatio} dias no pátio · ${dataBR(v.data)}</div></div>
           <div class="r"><div class="t num" style="color:#5FD3A6">${BRL(l)}</div>
-            <div class="s num">${PCT(l/v.custo*100)} sobre o custo</div></div>
+            <div class="s num">${v.custo? PCT(l/v.custo*100)+' sobre o custo':''}</div></div>
         </div>`;
-      }).join('')}
+      }).join('')
+      :`<div style="padding:26px 16px;text-align:center;color:var(--placa-3);font-size:var(--t-sup)">Nenhuma venda neste mês.</div>`}
     </div>
   </div>`;
+}
+function editarMeta(){
+  modal('Meta de lucro do mês',`
+    <div class="field" style="margin-bottom:0"><label>Meta de lucro líquido (R$)</label>
+      <input type="number" id="metaVal" value="${esc(DB.loja.metaMes||'')}" placeholder="ex.: 45000">
+      <div class="hint">Serve de referência no resultado do mês. Você pode mudar quando quiser.</div></div>`,
+    `<button class="btn" data-close-modal>Cancelar</button>
+     <button class="btn pri" id="metaSalvar" onclick="salvarMeta()">Salvar</button>`);
+}
+let salvandoMeta=false;
+async function salvarMeta(){
+  if(salvandoMeta) return;
+  const v=numVal('metaVal');
+  const btn=document.getElementById('metaSalvar');
+  salvandoMeta=true; if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  try{ await Dados.salvarConfigLoja({ meta_mes:v }); }
+  catch(e){ toast('Erro ao salvar meta: '+(e.message||e));
+    salvandoMeta=false; if(btn){ btn.disabled=false; btn.textContent='Salvar'; } return; }
+  DB.loja.metaMes=v; if(window.LOJA) window.LOJA.metaMes=v;
+  salvandoMeta=false; fecharModal(); render('dre'); toast('Meta atualizada');
 }
 
 /* ==========================================================
@@ -5082,6 +5132,8 @@ atualizarTags();
       if(typeof toast==='function') toast('Não consegui carregar a equipe. Verifique a conexão e recarregue.');
     }
     try{ window.LOJA = await Dados.carregarLoja(); }catch(_){ window.LOJA=null; }   // marca própria (site)
+    // DB.loja deixa de ser demo: nome e meta vêm da loja real (meta em config).
+    if(window.LOJA){ DB.loja = { ...DB.loja, nome: window.LOJA.nome || DB.loja.nome, metaMes: window.LOJA.metaMes || 0 }; }
     // Telas ainda não persistidas (fases 2+): zera o seed de demonstração para a
     // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
     DB.notas=[]; DB.portais=[];

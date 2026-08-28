@@ -835,7 +835,20 @@ async function carregarLoja() {
     cnpj: data.cnpj || '', cidade: data.cidade || '', uf: data.uf || '', telefone: data.telefone || '',
     razaoSocial: cfg.razao_social || '', endereco: cfg.endereco || '',
     integracoes: cfg.integracoes || {},
+    metaMes: Number(cfg.meta_mes) || 0,
   };
+}
+
+/* Merge genérico de chaves no jsonb lojas.config (preserva o resto). Usado para
+   preferências da loja que não têm coluna própria — ex.: meta_mes do DRE. */
+async function salvarConfigLoja(parcial) {
+  const { lojaId } = exigirContexto();
+  const { data: atual, error: eSel } = await sb.from('lojas').select('config').eq('id', lojaId).single();
+  if (eSel) throw eSel;
+  const config = { ...((atual && atual.config) || {}), ...parcial };
+  const { error } = await sb.from('lojas').update({ config }).eq('id', lojaId);
+  if (error) throw error;
+  return lojaId;
 }
 
 /* Dados da empresa que entram no cabeçalho de contratos e notas. Só o
@@ -909,7 +922,7 @@ window.Dados = {
   // dados da empresa (cabeçalho de contrato/nota)
   salvarDadosEmpresa,
   // onboarding / integrações (reúne info; segredos ficam com o operador)
-  carregarConfigFiscal, salvarConfigFiscal, salvarIntegracoes,
+  carregarConfigFiscal, salvarConfigFiscal, salvarIntegracoes, salvarConfigLoja,
   // custos (Edge Function)
   custosDaLoja,
   // exportação de dados (Edge Function)
