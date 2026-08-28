@@ -1020,6 +1020,23 @@ própria senha continua disponível a **todos** os papéis (Configurações › 
 real** (empurrar o estoque para cada portal), que precisa da credencial de
 anunciante e roda server-side — parte do onboarding.
 
+### 5.18 XSS — escaping central (defesa em duas camadas)
+
+Como agora há **dado real e multiusuário** (equipe, importação de CSV), texto que
+o usuário digita não pode virar HTML executável na tela de outro.
+
+- **Camada primária — no render.** Todo dado de usuário injetado em `innerHTML`
+  passa por `esc()` (escapa `& < > " ' \``) — direto ou via `vNome()`/`thumb()`.
+  Os dois sinks universais são seguros por construção: **título de modal e toast
+  usam `textContent`**, não `innerHTML`. Regra para código novo: no `innerHTML`,
+  dado de usuário sempre `esc()`; título/toast podem receber texto cru.
+- **Camada de profundidade — na gravação (`dados.js`, `semTags()`).** Campos
+  curtos de identificação que **nunca** contêm HTML legítimo (marca, modelo,
+  placa, cor, chassi/renavam) têm os delimitadores `< >` removidos antes de
+  gravar. Assim nenhum payload de `<script>` chega a existir no banco, mesmo que
+  um render futuro esqueça o `esc()`. Texto livre (observação, descrição) **não**
+  é cortado — é escapado só na exibição, para não perder o conteúdo.
+
 ### 5.17 Fases futuras (registradas, NÃO construídas)
 
 **Copiloto com IA + pesquisa na internet.** Hoje o Copiloto é regra

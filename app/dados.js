@@ -33,6 +33,15 @@ const ehUuid  = v => typeof v === 'string' && RE_UUID.test(v);
 const num     = v => (v == null || v === '' ? null : Number(v));
 const iniciais = nome => (nome || '').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase();
 
+/* Choke point central de segurança na GRAVAÇÃO (defesa em profundidade).
+   Tira os delimitadores de tag (< >) de campos curtos de identificação que
+   NUNCA contêm HTML legítimo (marca, modelo, placa, cor, ano, chassi, renavam).
+   Assim, mesmo que um dia um render esqueça o esc(), não há payload de <script>
+   gravado no banco para explorar. A defesa PRIMÁRIA continua sendo o esc() no
+   render; campos de texto livre (observação, descrição) NÃO são cortados aqui —
+   eles são escapados na exibição para não perder o conteúdo do usuário. */
+const semTags = v => (v == null ? v : String(v).replace(/[<>]/g, ''));
+
 function exigirContexto() {
   if (!_ctx.lojaId) throw new Error('Sem sessão/loja. Chame Dados.entrar() e Dados.carregarPerfil() antes.');
   return _ctx;
@@ -116,9 +125,9 @@ function veiculoParaProto(v, prepPorVeiculo) {
 function veiculoParaBanco(v) {
   const [af, am] = String(v.ano || '').split('/').map(s => parseInt(s, 10) || null);
   return {
-    marca: v.marca, modelo: v.modelo,
+    marca: semTags(v.marca), modelo: semTags(v.modelo),
     ano_fab: af, ano_mod: am,
-    km: num(v.km), placa: v.placa || null, cor: v.cor || null,
+    km: num(v.km), placa: semTags(v.placa) || null, cor: semTags(v.cor) || null,
     compra: num(v.compra) ?? 0, alvo: num(v.alvo) ?? 0,
     entrada_em: v.entrada || undefined, status: v.status || 'estoque',
   };
@@ -240,7 +249,7 @@ async function salvarVeiculo(v) {
 async function atualizarVeiculo(id, campos) {
   const row = {};
   if (campos.km    != null) row.km     = num(campos.km);
-  if (campos.cor   != null) row.cor    = campos.cor || null;
+  if (campos.cor   != null) row.cor    = semTags(campos.cor) || null;
   if (campos.alvo  != null) row.alvo   = num(campos.alvo) ?? 0;
   if (campos.status!= null) row.status = campos.status;
   if (campos.compra!= null) row.compra = num(campos.compra) ?? 0;
@@ -319,8 +328,8 @@ async function salvarConsignado(c) {
   const { lojaId, userId } = exigirContexto();
   const [af, am] = String(c.ano || '').split('/').map(s => parseInt(s, 10) || null);
   const veic = {
-    loja_id: lojaId, marca: c.marca, modelo: c.modelo,
-    ano_fab: af, ano_mod: am, km: num(c.km), placa: c.placa || null, cor: c.cor || null,
+    loja_id: lojaId, marca: semTags(c.marca), modelo: semTags(c.modelo),
+    ano_fab: af, ano_mod: am, km: num(c.km), placa: semTags(c.placa) || null, cor: semTags(c.cor) || null,
     compra: 0, alvo: num(c.anuncio) ?? 0, status: 'estoque', origem: 'consignado',
     criado_por: userId || null,
   };
