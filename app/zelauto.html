@@ -2237,7 +2237,8 @@ function vDre(){
   const meta=DB.loja.metaMes||0;
   const ehMesCorrente=DRE_MES===HOJE.toISOString().slice(0,7);
   const s=serieMeses();
-  const podeEditarMeta=USER.papelChave==='proprietario'||USER.papelChave==='gerente';
+  // gravar a meta mexe em lojas.config → RLS editar_minha_loja é só do proprietário
+  const podeEditarMeta=USER.papelChave==='proprietario';
 
   return `
   <div class="field" style="margin-bottom:14px">
