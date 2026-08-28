@@ -570,6 +570,58 @@ async function atualizarStatusContrato(id, status) {
   return id;
 }
 
+/* ===================== ONBOARDING / INTEGRAÇÕES ========================= */
+/* Reúne, num lugar só, tudo que o operador precisa para ligar as integrações
+   (NF-e, RENAVE, portais) na entrega. REGRA DE OURO: nada de SEGREDO passa pelo
+   navegador — senha de certificado, token de portal e afins ficam com o operador
+   (server-side/Vault, fase 4/5). Aqui gravamos só o NÃO-secreto: identidade
+   fiscal, provedor/ambiente escolhidos, integradora, ids de anunciante e o
+   STATUS de cada integração (pendente / com o operador / no ar). O certificado
+   em si é entregue ao operador fora do navegador. */
+
+async function carregarConfigFiscal() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('config_fiscal').select('*').eq('loja_id', lojaId).maybeSingle();
+  if (error) throw error;
+  const c = data || {};
+  return {
+    cnpj: c.cnpj || '', ie: c.ie || '', regime: c.regime || 'simples',
+    serie: c.serie ?? 1, provedor: c.provedor || '', ambiente: c.ambiente || 'homologacao',
+    certVenceEm: c.cert_vence_em || '', cfopVenda: c.cfop_venda || '5102', ncm: c.ncm || '8703.23.10',
+  };
+}
+
+/* Grava a identidade fiscal (config_fiscal tem loja_id como PK → upsert). Campos
+   secretos NÃO entram aqui. */
+async function salvarConfigFiscal(d) {
+  const { lojaId } = exigirContexto();
+  const row = { loja_id: lojaId };
+  if (d.cnpj != null) row.cnpj = d.cnpj || null;
+  if (d.ie != null) row.ie = d.ie || null;
+  if (d.regime != null) row.regime = d.regime || 'simples';
+  if (d.provedor != null) row.provedor = d.provedor || null;
+  if (d.ambiente != null) row.ambiente = d.ambiente || 'homologacao';
+  if (d.certVenceEm != null) row.cert_vence_em = d.certVenceEm || null;
+  if (d.cfopVenda != null) row.cfop_venda = d.cfopVenda || null;
+  if (d.ncm != null) row.ncm = d.ncm || null;
+  const { error } = await sb.from('config_fiscal').upsert(row, { onConflict: 'loja_id' });
+  if (error) throw error;
+  return lojaId;
+}
+
+/* Status e escolhas das integrações moram no jsonb lojas.config.integracoes
+   (sem coluna/tabela nova). Merge preservando as demais chaves de config. */
+async function salvarIntegracoes(parcial) {
+  const { lojaId } = exigirContexto();
+  const { data: atual, error: eSel } = await sb.from('lojas').select('config').eq('id', lojaId).single();
+  if (eSel) throw eSel;
+  const config = { ...((atual && atual.config) || {}) };
+  config.integracoes = { ...(config.integracoes || {}), ...parcial };
+  const { error } = await sb.from('lojas').update({ config }).eq('id', lojaId);
+  if (error) throw error;
+  return lojaId;
+}
+
 /* ============================== EQUIPE / PERFIS ========================== */
 /* Lê a equipe da loja (RLS já limita à loja). ATENÇÃO: por privilégio de coluna
    (§3.4 da spec), o authenticated só pode gravar nome e telefone em perfis —
@@ -673,6 +725,7 @@ async function carregarLoja() {
     logoUrl: data.logo_url || '', bannerUrl: data.banner_url || '', cor: data.cor || '',
     cnpj: data.cnpj || '', cidade: data.cidade || '', uf: data.uf || '', telefone: data.telefone || '',
     razaoSocial: cfg.razao_social || '', endereco: cfg.endereco || '',
+    integracoes: cfg.integracoes || {},
   };
 }
 
@@ -742,6 +795,8 @@ window.Dados = {
   listarContratos, salvarContrato, atualizarStatusContrato,
   // dados da empresa (cabeçalho de contrato/nota)
   salvarDadosEmpresa,
+  // onboarding / integrações (reúne info; segredos ficam com o operador)
+  carregarConfigFiscal, salvarConfigFiscal, salvarIntegracoes,
   // custos (Edge Function)
   custosDaLoja,
   // exportação de dados (Edge Function)

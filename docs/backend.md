@@ -932,12 +932,24 @@ Ou seja: **você se desdobra uma vez, na entrega dos 7 dias** (é o passo que
 precisa do certificado e do contrato); depois o lojista opera sozinho, sem ligar
 para o suporte.
 
-**O que já existe:** a tabela `config_fiscal` (cnpj, ie, provedor, ambiente,
-`cert_vence_em`) — só o schema. **O que falta construir (entra no plano):**
+**O que já existe:**
 
-- Upload seguro do certificado (bucket privado + segredo; nunca no navegador).
-- Tela do operador para ligar o provedor/integradora e alternar
-  homologação→produção por loja.
+- A tabela `config_fiscal` (cnpj, ie, provedor, ambiente, `cert_vence_em`).
+- **Central de integrações (app, proprietário)** — *feita*. Em Configurações, um
+  formulário único reúne o **não-secreto** de NF-e, RENAVE e portais e grava:
+  identidade fiscal em `config_fiscal` (`salvarConfigFiscal`, upsert por
+  `loja_id`); integradora, ids de anunciante e o **status** de cada integração
+  em `lojas.config.integracoes` (`salvarIntegracoes`, merge no jsonb — sem
+  coluna/tabela nova). **Nenhum segredo passa pelo navegador** (senha de
+  certificado, token de portal): esses o lojista entrega ao operador na
+  implantação. Status por bloco: `pendente / com o operador / no ar`.
+
+**O que falta construir (entra no plano):**
+
+- Tela do **operador** que lê esse `integracoes`/`config_fiscal` por loja e
+  mostra o que foi coletado e o que falta (a outra ponta do "assistido").
+- Recebimento seguro do certificado (Vault/segredo server-side; nunca em coluna
+  em texto puro).
 - Edge Function que fala com o provedor de NF-e (assina e envia) — fase 4.
 - Edge Function/integradora do RENAVE para o **registro** real (hoje só há o
   acompanhamento, 5.10) — fase futura, quando fechar com a integradora.
