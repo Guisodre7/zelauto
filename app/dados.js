@@ -726,6 +726,64 @@ async function salvarIntegracoes(parcial) {
   });
 }
 
+/* ============================== NOTAS FISCAIS =========================== */
+/* Fase 4: numeração isolada e persistência da nota. A emissão REAL na SEFAZ é do
+   provedor (precisa de certificado/credencial server-side) — aqui a nota nasce
+   'processando' e o provedor, quando ligado, a leva para 'autorizada'. Nada de
+   autorização/chave falsa. */
+
+function notaParaProto(n) {
+  return {
+    id: n.id, numero: n.numero, serie: n.serie, tipo: n.tipo,
+    dest: n.destinatario, doc: n.doc || '—', desc: n.descricao || '',
+    valor: Number(n.valor) || 0, data: (n.criado_em || '').slice(0, 10),
+    status: n.status, chave: n.chave || '',
+  };
+}
+
+async function listarNotas() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('notas_fiscais')
+    .select('*').eq('loja_id', lojaId).order('numero', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(notaParaProto);
+}
+
+/* Reserva o número e grava a nota numa transação só (RPC public.emitir_nota). */
+async function emitirNota(d) {
+  const { data, error } = await sb.rpc('emitir_nota', {
+    p_serie: d.serie || 1, p_tipo: d.tipo || 'saida', p_dest: d.dest,
+    p_doc: d.doc || null, p_desc: d.desc || null,
+    p_valor: num(d.valor) ?? 0, p_venda_id: d.vendaId || null,
+  });
+  if (error) throw error;
+  return notaParaProto(data);
+}
+
+/* ============================== PORTAIS ================================= */
+/* Fase 5: status (ligado/desligado) e limite por portal, na tabela portais
+   (unique loja_id+portal). O feed padrão já existe (Edge Function site-loja). O
+   SYNC real — empurrar o estoque para o portal — precisa de credencial do
+   anunciante e roda server-side (fase de onboarding). */
+
+async function listarPortais() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('portais')
+    .select('portal, ativo, limite, ultimo_sync').eq('loja_id', lojaId);
+  if (error) throw error;
+  return (data || []).map(p => ({ nome: p.portal, ativo: !!p.ativo, limite: p.limite || 10, ultimo: p.ultimo_sync || '' }));
+}
+
+async function salvarPortal(nome, campos) {
+  const { lojaId } = exigirContexto();
+  const row = { loja_id: lojaId, portal: nome };
+  if (campos.ativo != null) row.ativo = !!campos.ativo;
+  if (campos.limite != null) row.limite = num(campos.limite);
+  const { error } = await sb.from('portais').upsert(row, { onConflict: 'loja_id,portal' });
+  if (error) throw error;
+  return nome;
+}
+
 /* ============================== AUDITORIA =============================== */
 /* Lê o log (só proprietário/gerente, por RLS — a política nega para vendedor).
    O nome de quem fez a ação é resolvido na tela pelo DB.usuarios (equipe), pois
@@ -937,6 +995,10 @@ window.Dados = {
   listarCarne, salvarCarne, pagarParcelaCarne,
   // contratos (papelada)
   listarContratos, salvarContrato, atualizarStatusContrato,
+  // notas fiscais (fase 4 — numeração + persistência; emissão real é do provedor)
+  listarNotas, emitirNota,
+  // portais (fase 5 — status/limite; sync real é do provedor)
+  listarPortais, salvarPortal,
   // dados da empresa (cabeçalho de contrato/nota)
   salvarDadosEmpresa,
   // onboarding / integrações (reúne info; segredos ficam com o operador)

@@ -3447,14 +3447,26 @@ DB.notas = [
    rejeicao:'539 — Duplicidade de NF-e com diferença na chave de acesso'}
 ];
 
-DB.portais = [
-  {id:'p1', nome:'Webmotors', cor:'#E31E24', sigla:'WM', ativo:true,  publicados:7, limite:10, ultimo:dAgo(0), leads:14, status:'ok'},
-  {id:'p2', nome:'OLX Autos', cor:'#6E0AD6', sigla:'OLX', ativo:true, publicados:9, limite:15, ultimo:dAgo(0), leads:23, status:'ok'},
-  {id:'p3', nome:'iCarros',   cor:'#0B7EC8', sigla:'iC',  ativo:true, publicados:6, limite:10, ultimo:dAgo(1), leads:8,  status:'ok'},
-  {id:'p4', nome:'Mercado Livre', cor:'#FFE600', cor2:'#2D3277', sigla:'ML', ativo:true, publicados:9, limite:20, ultimo:dAgo(0), leads:11, status:'ok'},
-  {id:'p5', nome:'Mobiauto',  cor:'#00B2A9', sigla:'MB',  ativo:false, publicados:0, limite:10, ultimo:'', leads:0, status:'off'},
-  {id:'p6', nome:'Na Pista',  cor:'#F5A623', sigla:'NP',  ativo:false, publicados:0, limite:10, ultimo:'', leads:0, status:'off'}
+/* Catálogo dos portais (aparência). O que persiste (ligado/limite) vem da tabela
+   portais via Dados.listarPortais; montarPortais() junta os dois no login. */
+const PORTAIS_CAT = [
+  {nome:'Webmotors',    cor:'#E31E24', sigla:'WM'},
+  {nome:'OLX Autos',    cor:'#6E0AD6', sigla:'OLX'},
+  {nome:'iCarros',      cor:'#0B7EC8', sigla:'iC'},
+  {nome:'Mercado Livre',cor:'#FFE600', cor2:'#2D3277', sigla:'ML'},
+  {nome:'Mobiauto',     cor:'#00B2A9', sigla:'MB'},
+  {nome:'Na Pista',     cor:'#F5A623', sigla:'NP'}
 ];
+function montarPortais(persist){
+  const P = persist||[];
+  return PORTAIS_CAT.map((c,i)=>{
+    const p = P.find(x=>x.nome===c.nome) || {};
+    const ativo = !!p.ativo;
+    return { id:'p'+(i+1), ...c, ativo, limite:p.limite||10, ultimo:p.ultimo||'',
+      publicados: ativo? Math.min(p.limite||10, patio().length):0, leads:0, status:ativo?'ok':'off' };
+  });
+}
+DB.portais = montarPortais([]);   // vazio até o login carregar o real
 
 DB.contratos = [
   {id:'ct1', tipo:'Compra e venda', cliente:'Adriana Lopes', doc:'084.***.***-12',
@@ -3600,7 +3612,7 @@ function nfeEmitir(){
       <div id="nfPrev"></div>
     </div>`,
     `<button class="btn" data-close-modal>Cancelar</button>
-     <button class="btn pri" id="nfBtn" onclick="nfeEnviar()">Transmitir à SEFAZ</button>`);
+     <button class="btn pri" id="nfBtn" onclick="nfeEnviar()">Registrar nota</button>`);
   const v=patio()[0]; if(v) document.getElementById('nfValor').value=v.alvo;
   nfPrev();
 }
@@ -3611,45 +3623,44 @@ function nfPrev(){
     <div style="padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha)">
       <div class="stat-line"><span>NCM</span><b>${DB.fiscal.ncm}</b></div>
       <div class="stat-line"><span>Chassi / Renavam</span><b>preenchido do estoque</b></div>
-      <div class="stat-line" style="border-bottom:0"><span>Número da nota</span><b>${DB.fiscal.proxNumero}</b></div>
+      <div class="stat-line" style="border-bottom:0"><span>Número da nota</span><b>reservado ao registrar</b></div>
     </div>`;
 }
-function nfeEnviar(){
+let emitindoNota=false;
+async function nfeEnviar(){
+  if(emitindoNota) return;
   const dest=val('nfDest'), valor=numVal('nfValor');
   if(!dest||!valor){ toast('Preencha destinatário e valor'); return; }
   const v=DB.veiculos.find(x=>x.id===val('nfVeic'));
   const btn=document.getElementById('nfBtn');
-  btn.disabled=true; btn.textContent='Transmitindo…';
-  const sp=document.querySelectorAll('#nfeStep .sp');
-  const passo=i=>{
-    sp.forEach((s,k)=>{ s.classList.toggle('ok',k<i); s.classList.toggle('now',k===i); });
-  };
-  setTimeout(()=>passo(1),450);
-  setTimeout(()=>passo(2),1100);
-  setTimeout(()=>{
-    passo(3); sp[3].classList.add('ok');
-    const num=DB.fiscal.proxNumero++;
-    const chave='2926080000000000010055001000'+String(num).padStart(6,'0')+'11000'+String(num).padStart(5,'0');
-    DB.notas.unshift({id:uid(),numero:num,tipo:'saida',dest,doc:val('nfDoc')||'—',
-      desc:`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`,valor,data:dFwd(0),status:'autorizada',
-      chave,protocolo:'1292600'+Math.floor(Math.random()*9e6+1e6)});
-    document.getElementById('nfeForm').innerHTML=`
-      <div style="text-align:center;padding:16px 0">
-        <div class="ic opp" style="width:52px;height:52px;margin:0 auto 12px;border-radius:14px">
-          ${svgi('<path d="M20 6L9 17l-5-5"/>','')}</div>
-        <div style="font-size:var(--t-tit);font-weight:700;letter-spacing:-.02em">Nota autorizada</div>
-        <div style="font-size:var(--t-sup);color:var(--placa-2);margin-top:4px">nº ${num} · série ${DB.fiscal.serie}</div>
-        <div class="num" style="font-size:var(--t-lab);color:var(--placa-3);margin-top:12px;word-break:break-all;
-          padding:9px;background:var(--asfalto);border-radius:9px;border:1px solid var(--linha)">${chave}</div>
-        <div style="display:flex;gap:8px;margin-top:13px">
-          <button class="btn sm" style="flex:1">Baixar XML</button>
-          <button class="btn sm" style="flex:1">DANFE em PDF</button>
-          <button class="btn sm" style="flex:1">Enviar ao cliente</button>
-        </div>
-      </div>`;
-    document.getElementById('mFoot').innerHTML=`<button class="btn pri" onclick="fecharModal();render('nfe')">Concluir</button>`;
-    toast(`NF-e ${num} autorizada pela SEFAZ`);
-  },1900);
+  emitindoNota=true; if(btn){ btn.disabled=true; btn.textContent='Registrando…'; }
+  let nota;
+  try{
+    nota=await Dados.emitirNota({ dest, doc:val('nfDoc')||null, valor,
+      desc:v?`${v.marca} ${v.modelo} ${String(v.ano||'').slice(0,4)}`:val('nfDesc')||'',
+      tipo:'saida' });
+  }catch(e){
+    toast('Erro ao registrar a nota: '+(e.message||e));
+    emitindoNota=false; if(btn){ btn.disabled=false; btn.textContent='Registrar nota'; }
+    return;
+  }
+  emitindoNota=false;
+  DB.notas.unshift(nota);
+  document.getElementById('nfeForm').innerHTML=`
+    <div style="text-align:center;padding:16px 0">
+      <div class="ic opp" style="width:52px;height:52px;margin:0 auto 12px;border-radius:14px">
+        ${svgi('<path d="M20 6L9 17l-5-5"/>','')}</div>
+      <div style="font-size:var(--t-tit);font-weight:700;letter-spacing:-.02em">Nota registrada</div>
+      <div style="font-size:var(--t-sup);color:var(--placa-2);margin-top:4px">nº ${nota.numero} · série ${nota.serie} · <b>processando</b></div>
+      <div style="margin-top:14px;padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);line-height:1.55;color:var(--placa-2);text-align:left">
+        O número foi reservado e a nota ficou registrada. A <b>transmissão à SEFAZ</b>
+        (com o seu certificado digital) acontece pelo provedor fiscal — a gente liga
+        isso com você na implantação, em <b>Configurações › Integrações</b>. Enquanto
+        não estiver ligado, a nota fica em <b>processando</b>.
+      </div>
+    </div>`;
+  document.getElementById('mFoot').innerHTML=`<button class="btn pri" onclick="fecharModal();render('nfe')">Concluir</button>`;
+  toast(`Nota ${nota.numero} registrada (processando)`);
 }
 function nfeDetalhe(id){
   const n=DB.notas.find(x=>x.id===id); if(!n) return;
@@ -3781,13 +3792,16 @@ function vAnuncios(){
     </div>
   </div>`;
 }
-function anToggle(id){
-  const p=DB.portais.find(x=>x.id===id);
-  p.ativo=!p.ativo;
-  if(p.ativo){ p.publicados=Math.min(p.limite,patio().length); p.ultimo=dFwd(0); }
-  else { p.publicados=0; p.leads=0; }
+async function anToggle(id){
+  const p=DB.portais.find(x=>x.id===id); if(!p) return;
+  const novo=!p.ativo;
+  try{ await Dados.salvarPortal(p.nome, { ativo:novo }); }
+  catch(e){ toast('Não consegui salvar: '+(e.message||e)); return; }
+  p.ativo=novo;
+  if(p.ativo){ p.publicados=Math.min(p.limite,patio().length); p.status='ok'; }
+  else { p.publicados=0; p.leads=0; p.status='off'; }
   render('anuncios'); atualizarTags();
-  toast(p.ativo?`${esc(p.nome)} conectado`:`${esc(p.nome)} desconectado`);
+  toast(p.ativo?`${esc(p.nome)} ligado — entra no feed padrão`:`${esc(p.nome)} desligado`);
 }
 function anPublicar(){
   const ativos=DB.portais.filter(p=>p.ativo);
@@ -5183,7 +5197,12 @@ atualizarTags();
       metaMes: (window.LOJA && window.LOJA.metaMes) || 0, caixa: 0 };
     // Telas ainda não persistidas (fases 2+): zera o seed de demonstração para a
     // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
-    DB.notas=[]; DB.portais=[];
+    // Notas fiscais já persistem (fase 4: número + registro; emissão real no provedor).
+    try{ DB.notas = await Dados.listarNotas(); }
+    catch(e){ console.error('[ZelAuto] falha ao carregar notas:', e); DB.notas=[]; }
+    // Portais já persistem (fase 5: status + limite; sync real no provedor).
+    try{ DB.portais = montarPortais(await Dados.listarPortais()); }
+    catch(e){ console.error('[ZelAuto] falha ao carregar portais:', e); DB.portais=montarPortais([]); }
     // Consignação já persiste (veiculo origem='consignado' + consignacoes).
     try{ DB.consignados = await Dados.listarConsignados(); }
     catch(e){ console.error('[ZelAuto] falha ao carregar consignados:', e); DB.consignados=[];

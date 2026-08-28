@@ -982,6 +982,26 @@ não depende de o app lembrar de gravar:
 - Testes de isolamento novos: escrita/edição direta na auditoria negada ao
   `authenticated` (log imutável).
 
+### 5.15 NF-e e Portais — parcial (falta só o onboarding real)
+
+**NF-e (fase 4) — migration 0018.** O que dá para entregar sem o provedor:
+
+- `app.proximo_numero_nf(serie)` — numeração isolada por loja/série com bloqueio
+  de linha (`for update`): sem número repetido, sem buraco.
+- `public.emitir_nota(...)` — reserva o número **e** grava a nota na MESMA
+  transação (se a gravação falha, o número não é queimado). A nota nasce
+  **`processando`**; nada de autorização/chave falsa.
+- App: `emitirNota`/`listarNotas`; a tela de NF-e registra a nota e diz que a
+  **transmissão à SEFAZ** (com certificado) acontece pelo provedor, ligado na
+  implantação. O que falta: a Edge Function do provedor que assina/transmite e
+  leva a nota para `autorizada`.
+
+**Portais (fase 5).** O feed padrão já existe (site-loja). Agora o **status**
+(ligado/desligado) e o **limite** por portal persistem na tabela `portais`
+(`listarPortais`/`salvarPortal`, upsert por loja+portal). O que falta: o **sync
+real** (empurrar o estoque para cada portal), que precisa da credencial de
+anunciante e roda server-side — parte do onboarding.
+
 ---
 
 ## 6. Ambientes e migrations
