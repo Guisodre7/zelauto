@@ -2006,9 +2006,19 @@ function vCrm(){
   <button class="btn pri blk" style="margin-top:14px" onclick="formLead()">${svgi('<path d="M12 5v14M5 12h14"/>')}Cadastrar cliente</button>`;
 }
 
-function detLead(id){
+async function detLead(id){
   const l=DB.leads.find(x=>x.id===id); if(!l) return;
   const opts=ETAPAS.map(e=>`<option value="${e.k}" ${l.etapa===e.k?'selected':''}>${e.n}</option>`).join('');
+  let hist=[]; try{ hist=await Dados.listarInteracoes(id); }catch(_){}
+  const timeline = hist.length
+    ? hist.map(h=>`
+        <div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--linha)">
+          <span style="color:var(--placa-3);font-size:var(--t-lab);white-space:nowrap;padding-top:2px">${dataBR((h.criado||'').slice(0,10))}</span>
+          <div style="flex:1;font-size:var(--t-sup);color:var(--placa-2);line-height:1.5">
+            ${h.tipo==='etapa'?`<b style="color:var(--placa)">${esc(h.texto)}</b>`:esc(h.texto)}
+            ${h.quem?`<span style="color:var(--placa-3)"> · ${esc(h.quem)}</span>`:''}</div>
+        </div>`).join('')
+    : `<div style="color:var(--placa-3);font-size:var(--t-sup);padding:6px 0">Sem histórico ainda. Registre o primeiro contato abaixo.</div>`;
   modal(l.nome,`
     <div class="stat-line"><span>Telefone</span><b style="font-family:'IBM Plex Mono'">${esc(l.tel||'—')}</b></div>
     <div class="stat-line"><span>Interesse</span><b>${esc(l.interesse||'A definir')}</b></div>
@@ -2016,24 +2026,32 @@ function detLead(id){
     <div class="stat-line"><span>Origem</span><b>${esc(l.origem)}</b></div>
     ${l.troca?`<div class="stat-line"><span>Tem para troca</span><b>${esc(l.troca)}</b></div>`:''}
     <div class="stat-line"><span>Último contato</span><b>${dataBR(l.ultimo)}</b></div>
-    <div style="margin:14px 0;padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);color:var(--placa-2);line-height:1.5">${esc(l.obs)}</div>
-    <div class="field"><label>Mover para</label><select id="leadEtapa">${opts}</select></div>
+    ${l.obs?`<div style="margin:14px 0 4px;padding:12px;border-radius:11px;background:var(--asfalto);border:1px solid var(--linha);font-size:var(--t-sup);color:var(--placa-2);line-height:1.5">${esc(l.obs)}</div>`:''}
+    <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin:14px 0 4px">Histórico</div>
+    ${timeline}
+    <div class="field" style="margin-top:14px"><label>Mover para</label><select id="leadEtapa">${opts}</select></div>
     <div class="field"><label>Próximo contato</label><input type="date" id="leadProx" value="${l.proximo||''}"></div>
-    <div class="field"><label>Registrar observação</label><textarea id="leadObs" rows="2" placeholder="O que ficou combinado?"></textarea></div>`,
+    <div class="field"><label>Registrar contato</label><textarea id="leadObs" rows="2" placeholder="O que ficou combinado? (entra no histórico)"></textarea></div>`,
     `${podeGerir()?`<button class="btn danger" onclick="excluirLead('${l.id}')">Excluir</button>`:''}
      <a class="btn" href="https://wa.me/55${l.tel.replace(/\D/g,'')}" target="_blank" rel="noopener">WhatsApp</a>
      <button class="btn pri" onclick="salvarLead('${l.id}')">Salvar</button>`);
 }
 async function salvarLead(id){
   const l=DB.leads.find(x=>x.id===id); if(!l) return;
+  const novaEtapa=val('leadEtapa'), prox=val('leadProx'), nota=val('leadObs').trim();
+  const etapaMudou = novaEtapa!==l.etapa;
   // monta a versão atualizada e só reflete em memória DEPOIS de persistir
-  const atualizado={ ...l, etapa:val('leadEtapa'), proximo:val('leadProx'), ultimo:dFwd(0) };
-  const o=val('leadObs'); if(o) atualizado.obs=o;
-  try{ await Dados.salvarCliente(atualizado); }
-  catch(e){ toast('Erro ao atualizar cliente: '+(e.message||e)); return; }
+  const atualizado={ ...l, etapa:novaEtapa, proximo:prox, ultimo:dFwd(0) };
+  try{
+    await Dados.salvarCliente(atualizado);
+    // histórico: mudança de etapa e/ou a nota digitada (falha aqui não derruba o salvar)
+    if(etapaMudou){ const e=ETAPAS.find(x=>x.k===novaEtapa);
+      try{ await Dados.registrarInteracao(id,{tipo:'etapa',texto:'Movido para '+((e&&e.n)||novaEtapa)}); }catch(_){} }
+    if(nota){ try{ await Dados.registrarInteracao(id,{tipo:'nota',texto:nota}); }catch(_){} }
+  }catch(e){ toast('Erro ao atualizar cliente: '+(e.message||e)); return; }
   Object.assign(l, atualizado);
   fecharModal(); render('crm'); atualizarTags();
-  toast(atualizado.etapa==='fechado'?'Negócio marcado como fechado':'Cliente atualizado');
+  toast(novaEtapa==='fechado'?'Negócio marcado como fechado':'Cliente atualizado');
 }
 
 /* Arrastar o cartão do lead entre as colunas do funil (estilo Trello). No

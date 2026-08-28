@@ -381,6 +381,34 @@ async function removerCliente(id) {
   if (error) throw error;
 }
 
+/* ===================== INTERAÇÕES (histórico do lead) =================== */
+/* Cada contato/movimento do lead vira uma linha em interacoes (tipo 'nota' ou
+   'etapa'), com quem registrou. A RLS isola por loja. */
+
+async function listarInteracoes(clienteId) {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('interacoes')
+    .select('id, tipo, texto, criado_em, perfis(nome)')
+    .eq('loja_id', lojaId).eq('cliente_id', clienteId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(r => ({
+    id: r.id, tipo: r.tipo, texto: r.texto || '',
+    criado: r.criado_em, quem: (r.perfis && r.perfis.nome) || '',
+  }));
+}
+
+async function registrarInteracao(clienteId, i) {
+  const { lojaId, userId } = exigirContexto();
+  const row = {
+    loja_id: lojaId, cliente_id: clienteId, usuario_id: userId || null,
+    tipo: i.tipo || 'nota', texto: i.texto || null,
+  };
+  const { data, error } = await sb.from('interacoes').insert(row).select('id, criado_em').single();
+  if (error) throw error;
+  return { id: data.id, criado: data.criado_em };
+}
+
 /* =============================== VENDAS ==================================== */
 /* No protótipo a venda tem `cliente` como NOME (string). No banco o nome fica
    congelado em cliente_nome (não muda se o cadastro do cliente for editado);
@@ -860,6 +888,8 @@ window.Dados = {
   listarConsignados, salvarConsignado,
   // clientes
   listarClientes, salvarCliente, removerCliente,
+  // interações (histórico do lead)
+  listarInteracoes, registrarInteracao,
   // vendas
   listarVendas, salvarVenda,
   // despesas
