@@ -264,6 +264,64 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
 .dock a svg{width:19px;height:19px;fill:currentColor}
 @media(max-width:720px){.dock{display:block}footer{padding-bottom:96px}.top .wpp:not(.ghost){display:none}}
 
+/* ---------- extrato: selos por sistema ---------- */
+.ficha .it{align-items:center;gap:12px}
+.ficha .it .lbl{flex:1;min-width:0}
+.bd{height:30px;min-width:44px;padding:0 8px;border-radius:8px;flex:none;display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.02em;color:#fff}
+.bd.est{background:#3E5C76}.bd.nf{background:#4C7A57}.bd.ad{background:#B5643B}
+.bd.site{background:#6B5B95}.bd.ren{background:#3F7E7A}
+
+/* ---------- demo interativa "o que tem dentro" ---------- */
+.demo{display:grid;gap:24px;margin-top:34px}
+@media(min-width:860px){.demo{grid-template-columns:290px 1fr;gap:32px;align-items:start}}
+.demo-tabs{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding-bottom:3px}
+.demo-tabs::-webkit-scrollbar{display:none}
+@media(min-width:860px){.demo-tabs{flex-direction:column;overflow:visible;padding-bottom:0}}
+.demo-tab{flex:none;text-align:left;background:var(--night2);border:1px solid var(--nl);border-radius:12px;
+  padding:13px 16px;color:var(--nt2);transition:.15s;min-width:180px;cursor:pointer}
+@media(min-width:860px){.demo-tab{min-width:0;width:100%}}
+.demo-tab:hover{border-color:var(--nl2)}
+.demo-tab b{display:block;color:var(--nt);font-size:16px;font-weight:700;letter-spacing:-.02em}
+.demo-tab span{font-family:var(--mono);font-size:12px;color:var(--nt3)}
+.demo-tab.on{border-color:var(--am);background:rgba(247,154,27,.07)}
+.demo-tab.on b{color:var(--am)}
+.demo-tab:focus-visible{outline:2px solid var(--am);outline-offset:2px}
+.device{background:#0E0E10;border:1px solid var(--nl2);border-radius:20px;padding:16px;
+  box-shadow:0 30px 80px -42px rgba(0,0,0,.9);min-height:436px;overflow:hidden}
+.screen{display:none}
+.screen.on{display:block}
+@media(prefers-reduced-motion:no-preference){.screen.on{animation:scr .4s cubic-bezier(.2,.7,.3,1)}}
+@keyframes scr{from{opacity:0;transform:translateY(10px)}}
+.scr-h{padding:2px 2px 13px;border-bottom:1px solid var(--nl);margin-bottom:14px}
+.scr-h .t{font-weight:700;font-size:15px;color:var(--nt)}
+.scr-h .t i{font-style:normal;color:var(--nt3);font-family:var(--mono);font-size:12px;margin-left:8px}
+.mk-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:8px}
+.mk-kpi{background:#16161A;border:1px solid var(--nl);border-radius:11px;padding:11px 12px}
+.mk-kpi .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--nt3)}
+.mk-kpi .v{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--nt);margin-top:5px;letter-spacing:-.02em}
+.mk-kpi .v.am{color:var(--am)}.mk-kpi .v.pd{color:var(--perda-n)}
+.mk-lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--nt3);margin:15px 0 9px}
+.mk-card{background:#16161A;border:1px solid var(--nl);border-left:3px solid var(--am);border-radius:11px;
+  padding:13px 14px;margin-bottom:9px;display:flex;align-items:center;gap:12px}
+.mk-card .gr{flex:1;min-width:0}
+.mk-card .tt{font-size:14px;font-weight:600;color:var(--nt)}
+.mk-card .ss{font-size:12.5px;color:var(--nt2);margin-top:2px}
+.mk-btn{font-family:var(--mono);font-size:11px;background:var(--am);color:var(--am-tx);border-radius:8px;
+  padding:8px 12px;font-weight:600;flex:none}
+.mk-row{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--nl)}
+.mk-row:last-of-type{border-bottom:0}
+.mk-row .gr{flex:1;min-width:0}
+.mk-row .tt{font-size:13.5px;font-weight:600;color:var(--nt)}
+.mk-row .ss{font-size:11.5px;color:var(--nt3);font-family:var(--mono);margin-top:2px}
+.mk-plate{font-family:var(--mono);font-size:11px;font-weight:600;background:#F4F6F8;color:#12161B;
+  border-radius:4px;padding:4px 7px;flex:none}
+.mk-pill{font-family:var(--mono);font-size:10px;border-radius:20px;padding:3px 9px;flex:none;border:1px solid;white-space:nowrap}
+.mk-pill.ok{color:#4ECFA0;border-color:#2A5546}.mk-pill.pend{color:var(--perda-n);border-color:#5C3330}
+.mk-pill.no{color:var(--am);border-color:#5A3D12}
+.mk-bar{height:8px;border-radius:20px;background:#242428;overflow:hidden;margin-top:9px}
+.mk-bar i{display:block;height:100%;background:var(--am);border-radius:20px}
+
 /* ---------- reveal ---------- */
 .rev{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
 .rev.on{opacity:1;transform:none}
@@ -307,15 +365,16 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
         <p class="heronote">Feito para revenda de 5 a 50 carros. Não é ERP de concessionária, não é planilha melhorada.</p>
       </div>
 
-      <div class="ficha rev" role="img" aria-label="Soma das mensalidades de quatro ferramentas separadas: R$ 587 por mês">
+      <div class="ficha rev" role="img" aria-label="Soma das mensalidades de cinco sistemas separados: R$ 825 por mês">
         <div class="fh"><b>A sua conta, hoje</b><span>por mês</span></div>
-        <div class="rot">O que sai do caixa todo mês</div>
-        <div class="it"><span>Sistema de estoque e nota</span><b class="num">R$ 289</b></div>
-        <div class="it"><span>Plano do portal de anúncio</span><b class="num">R$ 179</b></div>
-        <div class="it"><span>Assinatura digital de contrato</span><b class="num">R$ 69</b></div>
-        <div class="it"><span>Site e hospedagem</span><b class="num">R$ 50</b></div>
-        <div class="soma"><span class="l">Soma por mês</span><span class="v num" data-conta="587" data-pre="R$ ">R$ 0</span></div>
-        <p class="obs">Quatro logins, quatro cobranças, quatro suportes. E nenhuma delas te avisa quando um cliente ficou sem resposta.</p>
+        <div class="rot">5 sistemas · 5 logins · 5 boletos</div>
+        <div class="it"><span class="bd est">EST</span><span class="lbl">Estoque e finanças</span><b class="num" data-conta="189" data-pre="R$ ">R$ 0</b></div>
+        <div class="it"><span class="bd nf">NF-e</span><span class="lbl">Emissor de nota fiscal</span><b class="num" data-conta="119" data-pre="R$ ">R$ 0</b></div>
+        <div class="it"><span class="bd ad">AD</span><span class="lbl">Portais de anúncio</span><b class="num" data-conta="279" data-pre="R$ ">R$ 0</b></div>
+        <div class="it"><span class="bd site">SITE</span><span class="lbl">Site / loja própria</span><b class="num" data-conta="99" data-pre="R$ ">R$ 0</b></div>
+        <div class="it"><span class="bd ren">REN</span><span class="lbl">Integradora do RENAVE</span><b class="num" data-conta="139" data-pre="R$ ">R$ 0</b></div>
+        <div class="soma"><span class="l">Soma por mês</span><span class="v num" data-conta="825" data-pre="R$ ">R$ 0</span></div>
+        <p class="obs">Cinco cobranças, cinco suportes, cinco senhas — e nenhuma conversa com a outra.</p>
       </div>
     </div>
   </div>
@@ -385,14 +444,75 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
   <div class="wrap">
     <div class="eye">O que tem dentro</div>
     <h2>Cinco telas. Não dezesseis.</h2>
-    <p class="lead" style="margin-top:14px">Não é organizado pelo jeito que foi construído. É organizado pelo seu dia: você não pensa “módulo de nota fiscal”, você pensa “vendi, preciso fechar a papelada”.</p>
+    <p class="lead" style="margin-top:14px">Organizado pelo seu dia, não pelo jeito que foi construído. Toque em cada uma e veja como ela é por dentro:</p>
 
-    <div class="grupos">
-      <div class="grupo"><div class="n">Hoje <i>o que faço agora?</i></div><div class="d">Três números e no máximo três coisas para resolver, cada uma com o botão que resolve. <b>Sem gráfico, sem relatório.</b></div></div>
-      <div class="grupo"><div class="n">Pátio <i>como estão meus carros?</i></div><div class="d">Estoque com custo real e dias de pátio, situação no RENAVE, publicação nos portais e o <b>site da loja que se atualiza sozinho</b>.</div></div>
-      <div class="grupo"><div class="n">Clientes <i>quem está esperando?</i></div><div class="d">Funil com alerta de quem ficou sem retorno, origem de cada contato e a <b>avaliação do carro da troca</b> com o teto que você pode pagar.</div></div>
-      <div class="grupo"><div class="n">Negócios <i>como fecho isso?</i></div><div class="d">Venda, simulador de financiamento com o retorno do banco, carnê próprio com risco calculado, contrato assinado pelo celular e <b>nota fiscal emitida na hora</b>.</div></div>
-      <div class="grupo"><div class="n">Dinheiro <i>quanto sobrou?</i></div><div class="d">Do faturamento ao lucro líquido, custo fixo e variável, e o controle dos consignados. <b>Numa tela, não em três abas.</b></div></div>
+    <div class="demo">
+      <div class="demo-tabs" role="tablist" aria-label="Telas do ZelAuto">
+        <button class="demo-tab on" data-go="hoje" role="tab" aria-selected="true"><b>Hoje</b><span>o que faço agora?</span></button>
+        <button class="demo-tab" data-go="patio" role="tab" aria-selected="false"><b>Pátio</b><span>como estão meus carros?</span></button>
+        <button class="demo-tab" data-go="clientes" role="tab" aria-selected="false"><b>Clientes</b><span>quem está esperando?</span></button>
+        <button class="demo-tab" data-go="negocios" role="tab" aria-selected="false"><b>Negócios</b><span>como fecho isso?</span></button>
+        <button class="demo-tab" data-go="dinheiro" role="tab" aria-selected="false"><b>Dinheiro</b><span>quanto sobrou?</span></button>
+      </div>
+
+      <div class="device">
+        <div class="screen on" data-scr="hoje">
+          <div class="scr-h"><div class="t">Hoje <i>o que faço agora?</i></div></div>
+          <div class="mk-kpis">
+            <div class="mk-kpi"><div class="l">Vendas no mês</div><div class="v am">7</div></div>
+            <div class="mk-kpi"><div class="l">A receber</div><div class="v">R$ 41k</div></div>
+            <div class="mk-kpi"><div class="l">Parados +60d</div><div class="v pd">2</div></div>
+          </div>
+          <div class="mk-lab">Resolver agora — cada um com o botão que resolve</div>
+          <div class="mk-card"><div class="gr"><div class="tt">2 clientes sem resposta</div><div class="ss">Marcos (2 dias) e Aline (3 dias)</div></div><span class="mk-btn">Retornar</span></div>
+          <div class="mk-card"><div class="gr"><div class="tt">Civic 2019 parado há 63 dias</div><div class="ss">Segura R$ 92.000 no pátio</div></div><span class="mk-btn">Rever preço</span></div>
+        </div>
+
+        <div class="screen" data-scr="patio">
+          <div class="scr-h"><div class="t">Pátio <i>como estão meus carros?</i></div></div>
+          <div class="mk-row"><span class="mk-plate">RSC6M52</span><div class="gr"><div class="tt">Renault Sandero 2019</div><div class="ss">9 dias · R$ 44.990</div></div><span class="mk-pill ok">RENAVE ok</span></div>
+          <div class="mk-row"><span class="mk-plate">PJK4B12</span><div class="gr"><div class="tt">Ford EcoSport 2020</div><div class="ss">23 dias · R$ 69.900</div></div><span class="mk-pill pend">RENAVE pend.</span></div>
+          <div class="mk-row"><span class="mk-plate">SJH9G21</span><div class="gr"><div class="tt">Chery Tiggo 7 2023</div><div class="ss">37 dias · R$ 127.900</div></div><span class="mk-pill no">3 portais</span></div>
+          <div class="mk-lab">Site da loja</div>
+          <div class="mk-card" style="border-left-color:#3F7E7A"><div class="gr"><div class="tt">sua-loja.com.br</div><div class="ss">Atualiza sozinho quando o estoque muda</div></div><span class="mk-pill ok">no ar</span></div>
+        </div>
+
+        <div class="screen" data-scr="clientes">
+          <div class="scr-h"><div class="t">Clientes <i>quem está esperando?</i></div></div>
+          <div class="mk-kpis">
+            <div class="mk-kpi"><div class="l">No funil</div><div class="v">18</div></div>
+            <div class="mk-kpi"><div class="l">Sem retorno</div><div class="v pd">3</div></div>
+            <div class="mk-kpi"><div class="l">Fecharam</div><div class="v am">5</div></div>
+          </div>
+          <div class="mk-lab">Precisa de retorno</div>
+          <div class="mk-card"><div class="gr"><div class="tt">Marcos · Corolla XEi</div><div class="ss">OLX · sem resposta há 2 dias</div></div><span class="mk-btn">Chamar</span></div>
+          <div class="mk-row"><div class="gr"><div class="tt">Aline · troca no Argo</div><div class="ss">Avaliação da troca: teto R$ 58.000</div></div><span class="mk-pill no">avaliar</span></div>
+        </div>
+
+        <div class="screen" data-scr="negocios">
+          <div class="scr-h"><div class="t">Negócios <i>como fecho isso?</i></div></div>
+          <div class="mk-lab">Simulador na frente do cliente</div>
+          <div class="mk-kpis">
+            <div class="mk-kpi"><div class="l">Entrada</div><div class="v">R$ 15k</div></div>
+            <div class="mk-kpi"><div class="l">48x de</div><div class="v am">R$ 1.480</div></div>
+            <div class="mk-kpi"><div class="l">Retorno banco</div><div class="v">R$ 2.200</div></div>
+          </div>
+          <div class="mk-card" style="border-left-color:#4C7A57"><div class="gr"><div class="tt">NF-e emitida na hora</div><div class="ss">Chave 3526…8801 · DANFE pronto</div></div><span class="mk-pill ok">autorizada</span></div>
+          <div class="mk-card"><div class="gr"><div class="tt">Contrato assinado pelo celular</div><div class="ss">Link enviado ao WhatsApp do cliente</div></div><span class="mk-pill ok">assinado</span></div>
+        </div>
+
+        <div class="screen" data-scr="dinheiro">
+          <div class="scr-h"><div class="t">Dinheiro <i>quanto sobrou?</i></div></div>
+          <div class="mk-kpis">
+            <div class="mk-kpi"><div class="l">Faturamento</div><div class="v">R$ 312k</div></div>
+            <div class="mk-kpi"><div class="l">Custos</div><div class="v pd">R$ 268k</div></div>
+            <div class="mk-kpi"><div class="l">Lucro líq.</div><div class="v am">R$ 44k</div></div>
+          </div>
+          <div class="mk-lab">Margem do mês</div>
+          <div class="mk-card"><div class="gr"><div class="tt">14,1% de margem líquida</div><div class="mk-bar"><i style="width:62%"></i></div></div></div>
+          <div class="mk-row"><div class="gr"><div class="tt">Consignados</div><div class="ss">4 carros · repasse pendente R$ 8.400</div></div><span class="mk-pill no">acompanhar</span></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -486,16 +606,16 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
   <div class="wrap">
     <div class="eye">Quem assume o risco</div>
     <h2>Sete dias. Não serviu, devolvemos o dinheiro.</h2>
-    <p class="lead" style="margin-top:14px">Você não precisa acreditar em mim. Precisa usar por uma semana, com os carros do seu pátio, e decidir com o que viu.</p>
+    <p class="lead" style="margin-top:14px">Você não precisa acreditar em nós. Precisa usar por uma semana, com os carros do seu pátio, e decidir com o que viu.</p>
     <div class="risco" style="margin-top:30px">
       <div class="termo">
-        <div class="beat"><span class="dia">Dia 1</span><div><h4>Seu painel montado</h4><p>Entro com o seu estoque, suas despesas e sua equipe. Você abre no celular e já é a sua loja lá dentro, não um exemplo.</p></div></div>
-        <div class="beat"><span class="dia">Dias 2–7</span><div><h4>Você usa de verdade</h4><p>Lança as compras, registra as vendas, põe os clientes no funil. É a única forma de saber se serve: com os seus números, na sua rotina.</p></div></div>
-        <div class="beat"><span class="dia">Dia 8</span><div><h4>Você decide</h4><p>Se não fez diferença, é só avisar e devolvemos o valor integral. Sem formulário, sem prazo de análise, sem pergunta.</p></div></div>
+        <div class="beat"><span class="dia">No ar rápido</span><div><h4>É conectar, não instalar</h4><p>Importamos o seu estoque e conectamos as integradoras que você já usa — nota, portais e RENAVE. O painel sobe com a cara e os carros da sua loja, não um exemplo.</p></div></div>
+        <div class="beat"><span class="dia">7 dias</span><div><h4>Você usa de verdade</h4><p>Lança as compras, registra as vendas, põe os clientes no funil. É a única forma de saber se serve: com os seus números, na sua rotina.</p></div></div>
+        <div class="beat"><span class="dia">Decisão</span><div><h4>Você é quem diz</h4><p>Se não fez diferença, é só avisar e devolvemos o valor integral. Sem formulário, sem prazo de análise, sem pergunta.</p></div></div>
       </div>
       <div class="fundador">
         <div class="k">Por que a garantia é séria</div>
-        <p>O ZelAuto está abrindo as <b>primeiras lojas</b> agora — cada painel montado à mão, com os carros e os números daquela revenda. Preferimos perder uma venda a manter alguém pagando por algo que não usa.</p>
+        <p>O ZelAuto é um produto <b>multiloja para revendas</b> — cada loja no seu ambiente, isolada e no ar rápido. Estamos entrando com as <b>primeiras lojas</b> agora e preferimos perder uma venda a manter alguém pagando por algo que não usa.</p>
         <p>Suporte <b>direto com quem faz o produto</b>: sem call center, sem fila, sem número de protocolo. Você fala com quem resolve.</p>
         <p>Feito na <b>Bahia, Brasil</b>, para a revenda brasileira de verdade — não é software importado nem ERP genérico adaptado.</p>
         <div class="assin">Quem tem que provar somos nós.</div>
@@ -620,6 +740,34 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
     });
   },{threshold:.35});
   document.querySelectorAll('.rev,[data-conta]').forEach(function(el){ io.observe(el); });
+})();
+
+/* demo interativa: troca de telas + autoavanço suave que para na interação */
+(function(){
+  var tabs = [].slice.call(document.querySelectorAll('.demo-tab'));
+  var screens = [].slice.call(document.querySelectorAll('.screen'));
+  if(!tabs.length) return;
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var timer, parado = false;
+  function mostra(id){
+    tabs.forEach(function(t){ var on = t.dataset.go===id; t.classList.toggle('on',on); t.setAttribute('aria-selected',on?'true':'false'); });
+    screens.forEach(function(s){ s.classList.toggle('on', s.dataset.scr===id); });
+  }
+  function proxima(){
+    var i = tabs.findIndex(function(t){ return t.classList.contains('on'); });
+    mostra(tabs[(i+1)%tabs.length].dataset.go);
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ parado = true; clearInterval(timer); mostra(t.dataset.go); }); });
+  if(!reduce){
+    var demo = document.querySelector('.demo');
+    var io2 = new IntersectionObserver(function(es){
+      es.forEach(function(en){
+        if(en.isIntersecting && !parado && !timer){ timer = setInterval(proxima, 3800); }
+        else if(!en.isIntersecting && timer){ clearInterval(timer); timer = null; }
+      });
+    },{threshold:.4});
+    if(demo) io2.observe(demo);
+  }
 })();
 </script>
 </body>
