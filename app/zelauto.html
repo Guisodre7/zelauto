@@ -1257,7 +1257,9 @@ function bloquearSuspensa(){
   if(document.getElementById('suspOv')) return;
   const dono=USER.papelChave==='proprietario';
   const ov=document.createElement('div'); ov.id='suspOv';
-  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:var(--bg,#0F1318);color:var(--placa,#E8EDF2);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center';
+  // z-index 88: cobre o app (que fica abaixo), mas ABAIXO do modal (90) e do
+  // toast (120), para o proprietário conseguir abrir "Regularizar" e pagar.
+  ov.style.cssText='position:fixed;inset:0;z-index:88;background:var(--bg,#0F1318);color:var(--placa,#E8EDF2);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center';
   ov.innerHTML=`<div style="max-width:420px">
     <div style="font-size:44px;margin-bottom:10px">🔒</div>
     <h2 style="font-size:22px;margin-bottom:8px">Assinatura suspensa</h2>

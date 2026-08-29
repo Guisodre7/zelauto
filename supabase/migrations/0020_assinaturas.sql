@@ -38,7 +38,9 @@ create table public.pagamentos (
   payload        jsonb
 );
 create index on public.pagamentos (loja_id, criado_em desc);
-create unique index on public.pagamentos (cobranca_id) where cobranca_id is not null;
+-- unique NÃO-parcial para o upsert (onConflict cobranca_id) casar; múltiplos
+-- NULL seguem permitidos (Postgres trata NULL como distinto por padrão).
+create unique index on public.pagamentos (cobranca_id);
 
 -- ---------------------------------------------------------------------------
 -- RLS: leitura só do proprietário da loja; escrita só service_role (sem policy

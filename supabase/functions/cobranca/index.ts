@@ -96,18 +96,23 @@ Deno.serve(async (req) => {
       provedor: 'abacatepay', cobranca_id: d.id || null, brcode: d.brCode || null,
       atualizado_em: new Date().toISOString(),
     }, { onConflict: 'loja_id' });
+    // registra a cobrança pendente: é por AQUI que o webhook acha a loja da
+    // cobrança (o cobranca_id da assinatura é sobrescrito a cada nova cobrança).
+    if (d.id) await admin.from('pagamentos').upsert({
+      loja_id: lojaId, cobranca_id: d.id, valor_centavos: PLANO_VALOR, metodo: 'pix', status: 'pendente',
+    }, { onConflict: 'cobranca_id' });
 
     return json({ ok: true, id: d.id, brCode: d.brCode, brCodeBase64: d.brCodeBase64, expiresAt: d.expiresAt });
   }
 
-  // ---- status da cobrança PIX atual -------------------------------------
+  // ---- status da assinatura (fonte da verdade = o banco, atualizado pelo
+  //      webhook). Não consultamos o provedor aqui: o id pode ser de PIX ou de
+  //      checkout de cartão, e o webhook é quem confirma de verdade. ----------
   if (acao === 'status') {
-    const { data: a } = await admin.from('assinaturas').select('cobranca_id, status, vence_em').eq('loja_id', lojaId).single();
-    if (!a?.cobranca_id) return json({ ok: true, status: a?.status || 'trial', vence_em: a?.vence_em || null, pago: false });
-    const r = await abacate(`/transparents/${encodeURIComponent(a.cobranca_id)}`, 'GET', KEY);
-    const d = r.data?.data || r.data || {};
-    const pago = String(d.status || '').toUpperCase() === 'PAID';
-    return json({ ok: true, status: a.status, vence_em: a.vence_em, pago, provedorStatus: d.status || null });
+    const { data: a } = await admin.from('assinaturas').select('status, vence_em').eq('loja_id', lojaId).maybeSingle();
+    const hoje = new Date().toISOString().slice(0, 10);
+    const pago = !!a && a.status === 'ativa' && (!a.vence_em || a.vence_em >= hoje);
+    return json({ ok: true, status: a?.status || 'trial', vence_em: a?.vence_em || null, pago });
   }
 
   // ---- checkout hospedado (cartão) --------------------------------------
@@ -127,6 +132,9 @@ Deno.serve(async (req) => {
       loja_id: lojaId, plano: 'padrao', valor_centavos: PLANO_VALOR, provedor: 'abacatepay',
       cobranca_id: d.id || null, atualizado_em: new Date().toISOString(),
     }, { onConflict: 'loja_id' });
+    if (d.id) await admin.from('pagamentos').upsert({
+      loja_id: lojaId, cobranca_id: d.id, valor_centavos: PLANO_VALOR, metodo: 'cartao', status: 'pendente',
+    }, { onConflict: 'cobranca_id' });
     return json({ ok: true, url: d.url, id: d.id });
   }
 

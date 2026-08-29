@@ -54,31 +54,12 @@ Deno.serve(async (req) => {
   const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const admin = createClient(URLBASE, SERVICE);
 
-  // acha a loja dona desta cobrança (guardada quando a cobrança foi gerada)
-  const { data: assin } = await admin
-    .from('assinaturas').select('loja_id, vence_em').eq('cobranca_id', cobrancaId).single();
-  if (!assin) return json({ ok: true, semLoja: true });   // cobrança que não é nossa/estranha: ignora
-
-  // idempotência: registra o pagamento; se já existia (mesmo cobranca_id), não renova de novo
-  const { data: novoPg, error: pgErr } = await admin.from('pagamentos')
-    .insert({ loja_id: assin.loja_id, cobranca_id: cobrancaId, valor_centavos: valor,
-      metodo, status: 'pago', pago_em: new Date().toISOString(), payload: evt })
-    .select('id').maybeSingle();
-  if (pgErr && !String(pgErr.message || '').includes('duplicate')) {
-    return json({ error: 'falha ao registrar pagamento: ' + pgErr.message }, 400);
-  }
-  if (!novoPg) return json({ ok: true, jaProcessado: true });   // webhook repetido
-
-  // renova a assinatura: paga-até = max(vence_em atual, hoje) + PERIODO_DIAS
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const base = assin.vence_em ? new Date(assin.vence_em + 'T00:00:00') : hoje;
-  const inicio = base > hoje ? base : hoje;
-  inicio.setDate(inicio.getDate() + PERIODO_DIAS);
-  const venceEm = inicio.toISOString().slice(0, 10);
-
-  await admin.from('assinaturas').update({
-    status: 'ativa', vence_em: venceEm, atualizado_em: new Date().toISOString(),
-  }).eq('loja_id', assin.loja_id);
-
-  return json({ ok: true, loja_id: assin.loja_id, vence_em: venceEm });
+  // Tudo numa transação (função): acha a loja pela cobrança, checa idempotência,
+  // renova a assinatura e marca o pagamento. Sem janela para perder a renovação.
+  const { data, error } = await admin.rpc('registrar_pagamento', {
+    p_cobranca_id: cobrancaId, p_valor: valor, p_metodo: metodo,
+    p_payload: evt, p_dias: PERIODO_DIAS,
+  });
+  if (error) return json({ error: 'falha ao registrar pagamento: ' + error.message }, 400);
+  return json(data || { ok: true });
 });
