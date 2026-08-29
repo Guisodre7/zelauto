@@ -322,6 +322,26 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
 .mk-bar{height:8px;border-radius:20px;background:#242428;overflow:hidden;margin-top:9px}
 .mk-bar i{display:block;height:100%;background:var(--am);border-radius:20px}
 
+/* ---------- oferta / cofre ---------- */
+.oferta .lead b{color:var(--nt)}
+.cofre{max-width:520px;margin:36px auto 0;background:var(--night2);border:1px solid var(--nl2);
+  border-radius:18px;padding:24px 24px 22px;box-shadow:0 34px 90px -46px #000;text-align:left}
+.cofre-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding-bottom:16px;border-bottom:1px dashed var(--nl2)}
+.cofre-top span{font-family:var(--mono);font-size:11.5px;color:var(--nt3);text-transform:uppercase;letter-spacing:.06em}
+.risca{color:var(--nt2);text-decoration:line-through;text-decoration-color:var(--perda-n);text-decoration-thickness:2px;font-weight:600}
+.cofre-mid{padding:22px 0 4px;text-align:center}
+.cofre-lab{font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--am)}
+.cofre-val{display:flex;align-items:center;justify-content:center;gap:14px;margin:13px 0 10px}
+.cofre-val .num{font-family:var(--mono);font-size:clamp(42px,10vw,66px);font-weight:600;
+  letter-spacing:-.04em;color:var(--am);line-height:1;transition:filter .45s ease,letter-spacing .45s ease}
+.cofre-val .num.locked{filter:blur(11px);opacity:.9;letter-spacing:.14em;user-select:none}
+.cadeado{width:26px;height:26px;color:var(--am);flex:none;stroke-width:2}
+.cofre-hint{font-size:14px;color:var(--nt2);max-width:34ch;margin:0 auto}
+.cofre-hint b{color:var(--nt)}
+.cofre-cta{width:100%;margin-top:20px}
+.cofre-nota{font-size:12.5px;color:var(--nt3);margin-top:14px;text-align:center;line-height:1.5}
+
 /* ---------- reveal ---------- */
 .rev{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
 .rev.on{opacity:1;transform:none}
@@ -349,7 +369,7 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
     <div class="hero-grid">
       <div>
         <div class="eye">Sistema para revenda de veículos · 5 a 50 carros</div>
-        <h1>Seu próximo lucro já está no seu pátio. Ele só não aparece em <em class="hl">nenhuma das suas quatro telas</em>.</h1>
+        <h1>Seu próximo lucro já está no seu pátio. Ele só não aparece em <em class="hl">nenhum dos seus cinco sistemas</em>.</h1>
         <p class="lead">O ZelAuto junta estoque, anúncios, clientes, financiamento, papelada e RENAVE numa tela só — e um copiloto que aponta, em reais, onde a sua loja está deixando dinheiro passar.</p>
         <div class="btns">
           <a class="btn pri" href="https://wa.me/5571991806702?text=Quero%20falar%20com%20um%20consultor%20do%20ZelAuto" target="_blank" rel="noopener">
@@ -624,6 +644,35 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
   </div>
 </section>
 
+<!-- ==================== OFERTA ==================== -->
+<section class="dark oferta">
+  <div class="wrap narrow" style="text-align:center">
+    <div class="eye" style="justify-content:center">A conta que ninguém te faz</div>
+    <h2>Faz o trabalho dos cinco. E custa menos que <em class="hl">um</em> deles.</h2>
+    <p class="lead" style="margin:16px auto 0">Você somou <b class="num">R$ 825</b> por mês em cinco sistemas que nem conversam entre si. A esta altura você já imaginou o ZelAuto custando ainda mais — afinal, ele faz tudo. <b>É o contrário.</b></p>
+
+    <div class="cofre rev">
+      <div class="cofre-top">
+        <span>hoje, somando os cinco</span>
+        <b class="num risca">R$ 825/mês</b>
+      </div>
+      <div class="cofre-mid">
+        <div class="cofre-lab">com o ZelAuto, tudo numa conta só</div>
+        <div class="cofre-val">
+          <span class="num" id="ofNum" data-de="825">R$ 825</span>
+          <svg class="cadeado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="cofre-hint">Menos do que você paga hoje por <b>um só</b> dos cinco lá de cima.</div>
+      </div>
+      <a class="btn pri cofre-cta" href="https://wa.me/5571991806702?text=Quero%20saber%20o%20pre%C3%A7o%20do%20ZelAuto%20para%20a%20minha%20loja" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5c.1-.2.1-.3 0-.5l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3a3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.3.5 1.9.6 2.6.5.4-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1z"/></svg>
+        Descobrir o meu preço
+      </a>
+      <div class="cofre-nota">Preço de fundador das primeiras lojas — o consultor te fala olhando os seus números. 7 dias de garantia: não serviu, devolvemos.</div>
+    </div>
+  </div>
+</section>
+
 <!-- ==================== OBJEÇÕES ==================== -->
 <section>
   <div class="wrap narrow">
@@ -644,7 +693,7 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
 <section class="dark final">
   <div class="wrap narrow">
     <div class="eye" style="justify-content:center">Próximo passo</div>
-    <h2>Troque quatro telas por uma.</h2>
+    <h2>Cinco sistemas. Uma conta só.</h2>
     <p class="lead">Uma conversa com um consultor, sem compromisso: ele entende a sua loja e monta a proposta com os seus números. Depois, sete dias usando de verdade — e se não servir, devolvemos o valor integral.</p>
     <div class="btns">
       <a class="btn claro" href="https://wa.me/5571991806702?text=Vi%20o%20site%20do%20ZelAuto%20e%20quero%20marcar%20os%2015%20minutos" target="_blank" rel="noopener">
@@ -740,6 +789,32 @@ footer .cols{display:flex;gap:22px;flex-wrap:wrap}
     });
   },{threshold:.35});
   document.querySelectorAll('.rev,[data-conta]').forEach(function(el){ io.observe(el); });
+})();
+
+/* oferta: contador decrescente que despenca e trava borrado (curiosidade + ancoragem) */
+(function(){
+  var el = document.getElementById('ofNum'); if(!el) return;
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var start = 825, floor = 168, feito = false;
+  function fmt(n){ return 'R$ ' + Math.round(n).toLocaleString('pt-BR'); }
+  function trava(){ el.classList.add('locked'); el.textContent = 'R$ ▚▚▚'; }
+  function roda(){
+    if(feito) return; feito = true;
+    if(reduce){ trava(); return; }
+    var t0 = performance.now(), dur = 2000;
+    function passo(t){
+      var p = Math.min((t-t0)/dur, 1), e = 1-Math.pow(1-p,3);
+      var v = start - (start-floor)*e;
+      var jit = p>0.62 ? (Math.random()*20-10) : 0;   // treme nas casas baixas: não crava um preço
+      el.textContent = fmt(Math.max(floor, v+jit));
+      if(p<1) requestAnimationFrame(passo); else trava();
+    }
+    requestAnimationFrame(passo);
+  }
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(en){ if(en.isIntersecting){ roda(); io.disconnect(); } });
+  },{threshold:.55});
+  io.observe(el);
 })();
 
 /* demo interativa: troca de telas + autoavanço suave que para na interação */
