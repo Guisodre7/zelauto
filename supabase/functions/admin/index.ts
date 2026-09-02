@@ -78,6 +78,12 @@ Deno.serve(async (req) => {
     const nome = String(body.nome || '').trim();
     const slug = String(body.slug || '').trim().toLowerCase();
     const cor = body.cor ? String(body.cor).trim() : null;
+    // Dados iniciais da loja (opcionais, menos o que a NF-e exige). CNPJ e telefone
+    // guardados só com dígitos; UF em 2 letras; cidade texto curto.
+    const cnpj = body.cnpj ? String(body.cnpj).replace(/\D/g, '').slice(0, 14) : null;
+    const cidade = body.cidade ? String(body.cidade).trim().slice(0, 80) : null;
+    const uf = body.uf ? String(body.uf).trim().toUpperCase().slice(0, 2) : null;
+    const telefone = body.telefone ? String(body.telefone).replace(/\D/g, '').slice(0, 13) : null;
     const dono = body.dono || {};
     const donoNome = String(dono.nome || '').trim();
     const donoEmail = String(dono.email || '').trim().toLowerCase();
@@ -85,6 +91,8 @@ Deno.serve(async (req) => {
     if (!nome) return json({ error: 'informe o nome da loja' }, 400);
     if (!slug || !SLUG_RE.test(slug)) return json({ error: 'slug inválido (minúsculas, números e hífen)' }, 400);
     if (cor && !/^#?[0-9a-fA-F]{6}$/.test(cor)) return json({ error: 'cor inválida (use #RRGGBB)' }, 400);
+    if (cnpj && cnpj.length !== 14) return json({ error: 'CNPJ deve ter 14 dígitos' }, 400);
+    if (uf && !/^[A-Z]{2}$/.test(uf)) return json({ error: 'UF inválida (2 letras)' }, 400);
     if (!donoNome) return json({ error: 'informe o nome do dono' }, 400);
     if (!donoEmail || !donoEmail.includes('@')) return json({ error: 'informe um e-mail válido para o dono' }, 400);
 
@@ -92,7 +100,8 @@ Deno.serve(async (req) => {
     if (jaSlug) return json({ error: 'esse endereço (slug) já está em uso' }, 409);
 
     const { data: loja, error: lErr } = await admin.from('lojas')
-      .insert({ nome, slug, cor: cor ? (cor[0] === '#' ? cor : '#' + cor) : null, ativa: true })
+      .insert({ nome, slug, cor: cor ? (cor[0] === '#' ? cor : '#' + cor) : null,
+                cnpj, cidade, uf, telefone, ativa: true })
       .select('id').single();
     if (lErr) return json({ error: 'falha ao criar a loja: ' + lErr.message }, 400);
 
@@ -138,7 +147,25 @@ Deno.serve(async (req) => {
       linhas.push({ id: l.id, nome: l.nome, slug: l.slug, ativa: l.ativa, criado_em: l.criado_em, veiculos, clientes, vendas });
     }
     const soma = (k: 'veiculos' | 'clientes' | 'vendas') => linhas.reduce((s, x) => s + (x as any)[k], 0);
-    return json({ lojas: linhas, totais: { lojas: linhas.length, veiculos: soma('veiculos'), clientes: soma('clientes'), vendas: soma('vendas') } });
+
+    // ---- Saúde do NEGÓCIO ZelAuto (assinaturas): MRR, status, vencendo ----
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const hoje = iso(new Date());
+    const tres = iso(new Date(Date.now() + 3 * 864e5));
+    const { data: asss } = await admin.from('assinaturas')
+      .select('status, valor_centavos, vence_em');
+    const A = (asss || []) as any[];
+    const cont = (st: string) => A.filter((a) => a.status === st).length;
+    const negocio = {
+      lojas: linhas.length,
+      mrr_centavos: A.filter((a) => a.status === 'ativa').reduce((s, a) => s + (a.valor_centavos || 0), 0),
+      ativa: cont('ativa'), trial: cont('trial'), vencida: cont('vencida'),
+      suspensa: cont('suspensa'), cancelada: cont('cancelada'),
+      sem_plano: Math.max(0, linhas.length - A.length),
+      vencendo_3d: A.filter((a) => a.status === 'ativa' && a.vence_em && a.vence_em >= hoje && a.vence_em <= tres).length,
+    };
+
+    return json({ negocio, lojas: linhas, totais: { lojas: linhas.length, veiculos: soma('veiculos'), clientes: soma('clientes'), vendas: soma('vendas') } });
   }
 
   // ------------------------------------------------------------------ IMPORTAR

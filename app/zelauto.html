@@ -5311,10 +5311,8 @@ atualizarTags();
     if(nomeEl && m.nome) nomeEl.textContent=m.nome;                 // textContent: sem XSS
     if(subEl) subEl.textContent='Sistema da loja · ZelAuto';
     if(logoEl && /^https:\/\//i.test(m.logoUrl||'')){ logoEl.src=m.logoUrl; logoEl.alt=m.nome||''; logoEl.style.display='block'; }
-    if(/^#?[0-9a-fA-F]{6}$/.test(m.cor||'')){
-      const cor=(m.cor[0]==='#'?m.cor:('#'+m.cor));
-      const btn=overlay.querySelector('#loginBtn'); if(btn) btn.style.background=cor;
-    }
+    // A marca da loja aparece no logo + nome; o botão fica no laranja ZelAuto.
+    // A cor da loja (m.cor) é usada no site público dela, não recolore o app.
   }
   function mostrarErro(msg){ const e=overlay.querySelector('#loginErro'); if(e){ e.textContent=msg; e.style.display='block'; } }
   function mostrarLogin(){

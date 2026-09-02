@@ -14,10 +14,13 @@
   header{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--ln)}
   header b{font-size:18px}header .tag{font-size:12px;color:var(--tx2);border:1px solid var(--ln);border-radius:20px;padding:2px 10px}
   header .sair{margin-left:auto;font-size:13px;color:var(--tx2);background:none;border:1px solid var(--ln);border-radius:8px;padding:7px 12px;cursor:pointer}
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 8px}
+  .kpis-neg{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
   @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpi{background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:16px}
-  .kpi .n{font-size:26px;font-weight:700}.kpi .l{font-size:12px;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+  .kpi .n{font-size:26px;font-weight:700;letter-spacing:-.02em}.kpi .l{font-size:12px;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+  .kpi .n.warn{color:var(--az)}.kpi .n.bad{color:var(--bad)}
+  .sec-t{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx2);margin:22px 0 12px}
   .acts{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
   .btn{background:var(--az);color:var(--sobre-az);border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer}
   .btn.g{background:var(--sf2);color:var(--tx);border:1px solid var(--ln)}
@@ -66,12 +69,15 @@
     <button class="sair" id="btnSair">Sair</button>
   </header>
   <div class="wrap">
-    <div class="kpis" id="kpis"></div>
+    <div class="sec-t">Seu negócio · ZelAuto</div>
+    <div class="kpis kpis-neg" id="kpisNeg"></div>
     <div class="acts">
       <button class="btn" id="btnNova">+ Nova loja</button>
       <button class="btn g" id="btnImportar">Importar dados</button>
       <button class="btn g" id="btnAtualizar">Atualizar</button>
     </div>
+    <div class="sec-t">Operação · por loja</div>
+    <div class="kpis" id="kpisOp"></div>
     <table>
       <thead><tr><th>Loja</th><th>Endereço</th><th>Veículos</th><th>Clientes</th><th>Vendas</th><th>Status</th></tr></thead>
       <tbody id="linhas"><tr><td colspan="6" class="empty">Carregando…</td></tr></tbody>
@@ -134,11 +140,23 @@ $('#btnSair').onclick = async ()=>{ try{ await sb.auth.signOut(); }catch(_){} lo
 $('#btnAtualizar').onclick = async ()=>{ try{ render(await chamar('metricas')); }catch(e){ alert(e.message); } };
 
 /* ---------------- render KPIs + lista ---------------- */
+const brl = c => 'R$ ' + ((c||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const tile = (l,v,cls) => `<div class="kpi"><div class="n ${cls||''}">${v}</div><div class="l">${l}</div></div>`;
 function render(m){
-  const t=m.totais||{lojas:0,veiculos:0,clientes:0,vendas:0};
-  $('#kpis').innerHTML = [
-    ['Lojas', t.lojas],['Veículos', t.veiculos],['Clientes', t.clientes],['Vendas', t.vendas]
-  ].map(([l,n])=>`<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  const n=m.negocio||{}, t=m.totais||{lojas:0,veiculos:0,clientes:0,vendas:0};
+  // Bloco financeiro do negócio ZelAuto (vem das assinaturas).
+  $('#kpisNeg').innerHTML = [
+    tile('MRR (recorrente/mês)', brl(n.mrr_centavos)),
+    tile('Assinantes ativos', n.ativa||0),
+    tile('Em trial', n.trial||0),
+    tile('Vencendo ≤3 dias', n.vencendo_3d||0, (n.vencendo_3d>0?'warn':'')),
+    tile('Suspensas', n.suspensa||0, (n.suspensa>0?'bad':'')),
+    tile('Sem plano ainda', n.sem_plano||0),
+  ].join('');
+  // Bloco operacional (contagens por loja).
+  $('#kpisOp').innerHTML = [
+    tile('Lojas', t.lojas), tile('Veículos', t.veiculos), tile('Clientes', t.clientes), tile('Vendas', t.vendas)
+  ].join('');
   const ls=m.lojas||[];
   $('#linhas').innerHTML = ls.length ? ls.map(l=>`
     <tr>
@@ -163,18 +181,28 @@ $('#btnNova').onclick = ()=>{
     <div class="field"><label>Nome da loja</label><input id="nLoja" placeholder="Vancar Veículos"></div>
     <div class="f2">
       <div class="field"><label>Endereço (slug)</label><input id="nSlug" placeholder="vancar"></div>
-      <div class="field"><label>Cor da marca</label><input id="nCor" type="text" placeholder="#14489E"></div>
+      <div class="field"><label>CNPJ</label><input id="nCnpj" placeholder="00.000.000/0001-00"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Cidade</label><input id="nCidade" placeholder="Salvador"></div>
+      <div class="field"><label>UF</label><input id="nUf" placeholder="BA" maxlength="2"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Telefone / WhatsApp</label><input id="nTel" placeholder="71 99999-9999"></div>
+      <div class="field"><label>Cor da marca (site)</label><input id="nCor" type="text" placeholder="#F79A1B"></div>
     </div>
     <div class="f2">
       <div class="field"><label>Nome do dono</label><input id="nDono" placeholder="Danilo"></div>
       <div class="field"><label>E-mail do dono</label><input id="nEmail" type="email" placeholder="dono@loja.com"></div>
     </div>
+    <p class="hint">CNPJ, cidade e UF são o que a NF-e e o site da loja usam. Pode deixar em branco e preencher depois nas configurações da loja.</p>
     <div class="erro" id="nErro"></div>
     <div class="foot">
       <button class="btn g" onclick="fecharOv()">Cancelar</button>
       <button class="btn" id="nBtn">Criar loja</button>
     </div>`);
   $('#nSlug').addEventListener('input', e=>{ e.target.value=e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''); });
+  $('#nUf').addEventListener('input', e=>{ e.target.value=e.target.value.toUpperCase().replace(/[^A-Z]/g,''); });
   $('#nBtn').onclick = criarLoja;
 };
 
@@ -184,6 +212,7 @@ async function criarLoja(){
   try{
     const r = await chamar('criar_loja', {
       nome:$('#nLoja').value.trim(), slug:$('#nSlug').value.trim(), cor:$('#nCor').value.trim(),
+      cnpj:$('#nCnpj').value.trim(), cidade:$('#nCidade').value.trim(), uf:$('#nUf').value.trim(), telefone:$('#nTel').value.trim(),
       dono:{ nome:$('#nDono').value.trim(), email:$('#nEmail').value.trim() },
     });
     const link = APP_URL + (APP_URL.includes('?')?'&':'?') + 'loja=' + encodeURIComponent(r.slug);
