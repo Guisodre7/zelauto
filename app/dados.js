@@ -1027,6 +1027,44 @@ async function checkoutCartaoAssinatura() {
   return data;                            // { url }
 }
 
+/* ============================ SUPORTE (lojista) =========================== */
+/* O lojista abre um chamado. `autoriza` = consentimento EXPLÍCITO para o
+   operador acessar o painel (só-leitura na Fase 1). Sem isso, é só uma dúvida. */
+async function abrirChamadoSuporte(mensagem, autoriza) {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('suporte_chamados')
+    .insert({ loja_id: lojaId, mensagem: String(mensagem || '').trim(), autoriza_acesso: !!autoriza })
+    .select('id, criado_em').single();
+  if (error) throw error;
+  return data;
+}
+
+/* Histórico de acessos de suporte da loja + qual está ativa agora. */
+async function listarSuporteSessoes() {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('suporte_sessoes')
+    .select('id, operador_nome, criada_em, expira_em, encerrada_em, motivo_fim')
+    .eq('loja_id', lojaId).order('criada_em', { ascending: false }).limit(50);
+  if (error) throw error;
+  const agora = Date.now();
+  return (data || []).map(s => ({
+    id: s.id,
+    operador: s.operador_nome || 'Suporte ZelAuto',
+    criadaEm: s.criada_em,
+    expiraEm: s.expira_em,
+    encerradaEm: s.encerrada_em,
+    motivoFim: s.motivo_fim,
+    ativa: !s.encerrada_em && new Date(s.expira_em).getTime() > agora,
+  }));
+}
+
+/* O dono revoga (encerra) uma sessão ativa. Server-side: só proprietário. */
+async function encerrarSuporte(sessaoId) {
+  const { data, error } = await sb.rpc('encerrar_suporte', { p_sessao: sessaoId });
+  if (error) throw error;
+  return data === true;
+}
+
 /* ============================ INTERFACE PÚBLICA =========================== */
 
 window.Dados = {
@@ -1070,6 +1108,8 @@ window.Dados = {
   listarEquipe, salvarPerfilBasico, criarMembro, atualizarMembro,
   // auditoria (só proprietário/gerente)
   listarAuditoria,
+  // suporte assistido (consentido, com prazo, revogável)
+  abrirChamadoSuporte, listarSuporteSessoes, encerrarSuporte,
   // acesso cru ao client, se precisar
   _sb: sb,
 };

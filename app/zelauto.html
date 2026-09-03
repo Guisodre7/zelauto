@@ -1032,6 +1032,13 @@ function abrirConfig(){
         Exportar tudo (.zip)</button>
       <div class="hint">Um arquivo por tabela da loja. O link vale 24 horas.</div>
     </div>`:''}
+    <div class="field" style="margin-top:14px">
+      <label>Suporte</label>
+      <button class="btn blk" onclick="fecharModal();suporteUI()">
+        ${svgi('<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.3-3 4"/><path d="M12 17h.01"/>')}
+        Pedir suporte</button>
+      <div class="hint">Você descreve a dúvida. Se autorizar, o suporte vê seu painel (só leitura) por até 2 horas — e você encerra quando quiser.</div>
+    </div>
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Conta</label>
       <button class="btn blk" onclick="fecharModal();trocarSenhaUI()">
@@ -1259,6 +1266,79 @@ async function salvarSenha(){
 }
 /* Loja suspensa (assinatura vencida além da carência): tranca a tela. Só o
    proprietário vê o botão de regularizar. */
+/* ---------------- SUPORTE ASSISTIDO (lado do lojista) ---------------- */
+const _supHora = x => { try{ return new Date(x).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }catch(_){ return ''; } };
+const _supData = x => { try{ return new Date(x).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+_supHora(x); }catch(_){ return ''; } };
+
+function suporteUI(){
+  modal('Suporte', `<div id="supBody" style="color:var(--placa-3);padding:6px 0">Carregando…</div>`,
+    `<button class="btn" data-close-modal>Fechar</button>`);
+  suporteRender();
+}
+async function suporteRender(){
+  const box=document.getElementById('supBody'); if(!box) return;
+  const dono=USER.papelChave==='proprietario';
+  let sess=[]; try{ sess=await Dados.listarSuporteSessoes(); }catch(_){}
+  const ativa=sess.find(s=>s.ativa);
+  const hist=sess.filter(s=>!s.ativa).slice(0,8);
+  const fim=s=> s.motivoFim==='lojista'?'você encerrou': s.motivoFim==='operador'?'suporte encerrou':'expirou';
+  box.innerHTML=`
+    ${ativa?`<div style="background:var(--am-fb);border:1px solid var(--am);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-weight:700;color:var(--am)">Suporte ativo agora</div>
+      <div style="font-size:var(--t-sup);color:var(--placa-2);margin-top:4px">${esc(ativa.operador)} está vendo sua loja (só leitura) até <b>${_supHora(ativa.expiraEm)}</b>.</div>
+      ${dono?`<button class="btn danger blk" style="margin-top:10px" onclick="encerrarSuporteUI('${ativa.id}')">Encerrar agora</button>`:''}
+    </div>`:''}
+    <div class="field"><label>Descreva sua dúvida</label>
+      <textarea id="supMsg" rows="3" placeholder="Ex.: não estou achando onde emito a nota do cliente"></textarea></div>
+    <label style="display:flex;gap:9px;align-items:flex-start;font-size:var(--t-sup);color:var(--placa-2);cursor:pointer;margin-bottom:2px">
+      <input type="checkbox" id="supAut" style="margin-top:3px;width:auto;min-height:0;flex:none">
+      <span>Autorizo o suporte a <b>ver meu painel</b> (só leitura) para resolver isto — por até 2 horas, e eu encerro quando quiser.</span></label>
+    <button class="btn pri blk" style="margin-top:14px" id="supSend" onclick="enviarChamado()">Enviar chamado</button>
+    ${hist.length?`<div class="perm-h" style="margin-top:22px">Acessos de suporte</div>
+      <div style="border:1px solid var(--linha);border-radius:11px;overflow:hidden">
+        ${hist.map(s=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:11px 13px;border-top:1px solid var(--linha);font-size:var(--t-sup)">
+          <span>${esc(s.operador)}</span><span style="color:var(--placa-3)">${_supData(s.criadaEm)} · ${fim(s)}</span></div>`).join('')}
+      </div>`:''}`;
+}
+async function enviarChamado(){
+  const msg=(document.getElementById('supMsg')?.value||'').trim();
+  const aut=!!(document.getElementById('supAut')&&document.getElementById('supAut').checked);
+  if(!msg){ toast('Escreva sua dúvida primeiro.'); return; }
+  const b=document.getElementById('supSend'); if(b){ b.disabled=true; b.textContent='Enviando…'; }
+  try{
+    await Dados.abrirChamadoSuporte(msg, aut);
+    toast(aut?'Chamado enviado — acesso autorizado.':'Chamado enviado.');
+    await suporteRender();
+  }catch(e){ toast('Não consegui enviar: '+(e.message||e)); if(b){ b.disabled=false; b.textContent='Enviar chamado'; } }
+}
+async function encerrarSuporteUI(id){
+  try{
+    const ok=await Dados.encerrarSuporte(id);
+    toast(ok?'Acesso de suporte encerrado.':'Esse acesso já tinha terminado.');
+  }catch(e){ toast('Não consegui encerrar: '+(e.message||e)); }
+  if(document.getElementById('supBody')) await suporteRender();
+  await verificarSuporteAtivo();
+}
+/* Banner fixo quando há uma sessão de suporte ativa (só o dono vê/revoga). */
+let _supTimer=null;
+async function verificarSuporteAtivo(){
+  if(!USER || USER.papelChave!=='proprietario'){ const b=document.getElementById('supBar'); if(b) b.remove(); return; }
+  let sess=[]; try{ sess=await Dados.listarSuporteSessoes(); }catch(_){ return; }
+  const ativa=sess.find(s=>s.ativa);
+  let bar=document.getElementById('supBar');
+  if(ativa){
+    if(!bar){ bar=el('<div id="supBar"></div>'); document.body.appendChild(bar); }
+    bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:70;background:var(--am);color:#17130A;font-weight:700;font-size:var(--t-sup);padding:9px 14px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap';
+    bar.innerHTML=`<span>Suporte ativo — ${esc(ativa.operador)} está vendo sua loja (só leitura)</span>`+
+      `<button style="background:rgba(0,0,0,.22);border-radius:8px;padding:5px 12px;font-weight:700;color:#17130A" onclick="encerrarSuporteUI('${ativa.id}')">Encerrar</button>`;
+  } else if(bar){ bar.remove(); }
+}
+function iniciarMonitorSuporte(){
+  if(_supTimer) clearInterval(_supTimer);
+  verificarSuporteAtivo();
+  _supTimer=setInterval(verificarSuporteAtivo, 60000);
+}
+
 function bloquearSuspensa(){
   if(document.getElementById('suspOv')) return;
   const dono=USER.papelChave==='proprietario';
@@ -5402,6 +5482,8 @@ atualizarTags();
     atualizarTags();
     // Gate de assinatura: loja suspensa (vencida além dos 3 dias) → bloqueia.
     try{ if(!(await Dados.lojaAtiva())) bloquearSuspensa(); }catch(_){}
+    // Monitor de suporte: mostra o banner se houver acesso ativo (só o dono).
+    try{ iniciarMonitorSuporte(); }catch(_){}
     return true;
   }
 
