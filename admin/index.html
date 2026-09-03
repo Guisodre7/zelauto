@@ -291,12 +291,17 @@ $('#btnSenha').onclick = ()=>{
 
 /* ---------------- SUPORTE (caixa de chamados + modo suporte) ---------------- */
 async function atualizarSuporteBadge(){
-  let n=0; try{ const r=await chamarF('suporte',{acao:'listar'}); n=(r.chamados||[]).length; }catch(_){ return; }
+  let n=0, pend=0;
+  try{
+    const r=await chamarF('suporte',{acao:'listar'});
+    n=(r.chamados||[]).length;
+    pend=Object.values(r.nao_lidas||{}).reduce((a,b)=>a+b,0);
+  }catch(_){ return; }
   const b=$('#btnSuporte'); if(b){ b.textContent = n?('Suporte ('+n+')'):'Suporte'; b.className = n?'btn':'btn g'; }
   const a=$('#supAlerta'); if(a){
     a.innerHTML = n
       ? `<div style="background:var(--az);color:var(--sobre-az);border-radius:12px;padding:13px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-weight:600">
-           <span>🔔 ${n} chamado${n>1?'s':''} de suporte aguardando.</span>
+           <span>🔔 ${n} chamado${n>1?'s':''} de suporte${pend?` · <b>${pend} mensagem${pend>1?'s':''} sem resposta</b>`:''}.</span>
            <button style="margin-left:auto;background:rgba(0,0,0,.2);color:var(--sobre-az);border-radius:8px;padding:6px 13px;font-weight:700" onclick="abrirSuporte()">Abrir</button>
          </div>`
       : '';
@@ -311,21 +316,73 @@ async function abrirSuporte(){
   catch(e){ const b=$('#supList'); if(b) b.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; }
 }
 function renderChamados(r){
-  const ch=r.chamados||[]; const box=$('#supList'); if(!box) return;
+  const ch=r.chamados||[]; const nl=r.nao_lidas||{}; const box=$('#supList'); if(!box) return;
   if(!ch.length){ box.innerHTML='<div class="empty">Nenhum chamado aberto.</div>'; return; }
   box.innerHTML = ch.map(c=>{
     const loja=(c.lojas&&c.lojas.nome)||'—';
+    const n=nl[c.id]||0;
     return `<div class="okbox" style="margin-top:10px">
-      <div class="l">${esc(loja)} · ${new Date(c.criado_em).toLocaleString('pt-BR')} ${c.status==='em_atendimento'?'· <b>em atendimento</b>':''}</div>
+      <div class="l">${esc(loja)} · ${new Date(c.criado_em).toLocaleString('pt-BR')} ${c.status==='em_atendimento'?'· <b>em atendimento</b>':''}
+        ${n?`<span style="background:#E5484D;color:#fff;border-radius:9px;padding:1px 7px;font-weight:800;margin-left:6px">${n} sem resposta</span>`:''}</div>
       <div style="margin:7px 0;font-size:14px">${esc(c.mensagem)}</div>
+      <button class="btn" onclick="abrirConversa('${c.id}','${esc(loja).replace(/'/g,"&#39;")}')">Conversar</button>
       ${c.autoriza_acesso
-        ? `<button class="btn" onclick="entrarSuporte('${c.id}')">Entrar no painel (2h)</button>`
-        : `<span class="hint">Sem autorização de acesso — responda o lojista por fora.</span>`}
+        ? `<button class="btn g" style="margin-left:8px" onclick="entrarSuporte('${c.id}')">Entrar no painel (2h)</button>`
+        : ''}
       <button class="btn g" style="margin-left:8px" onclick="resolverChamado('${c.id}')">Resolver</button>
+      ${c.autoriza_acesso?'':`<div class="hint">Sem autorização de acesso ainda — resolva pela conversa, ou peça ao dono para liberar o painel no botão de suporte dele.</div>`}
     </div>`;
   }).join('');
 }
 async function resolverChamado(id){ try{ await chamarF('suporte',{acao:'resolver',chamado_id:id}); abrirSuporte(); atualizarSuporteBadge(); }catch(e){ alert(e.message); } }
+
+/* ---- conversa de um chamado ---- */
+let _conv=null, _convTimer=null;
+async function abrirConversa(id, loja){
+  clearInterval(_convTimer);
+  _conv={ id, loja };
+  abrir(`<h2>${esc(loja)}</h2><p class="sub">Conversa do chamado. O lojista vê no botão de suporte dele.</p>
+    <div id="convMsgs" style="max-height:46vh;overflow:auto;border:1px solid var(--ln);border-radius:12px;padding:14px;background:var(--bg)">Carregando…</div>
+    <div style="margin-top:12px"><textarea id="convTxt" rows="3" placeholder="Escreva a resposta…" style="width:100%"></textarea></div>
+    <div class="foot">
+      <button class="btn g" onclick="fecharOv()">Fechar</button>
+      <button class="btn" id="convSend" onclick="responderChamado()">Enviar resposta</button>
+    </div>`);
+  await carregarConversa();
+  // para de puxar quando o operador fecha a caixa (o overlay some do DOM)
+  _convTimer=setInterval(()=>{
+    if(document.getElementById('convMsgs')) carregarConversa();
+    else { clearInterval(_convTimer); _convTimer=null; }
+  }, 15000);
+}
+async function carregarConversa(){
+  const box=document.getElementById('convMsgs'); if(!box||!_conv) return;
+  let msgs=[];
+  try{ msgs=(await chamarF('suporte',{acao:'mensagens',chamado_id:_conv.id})).mensagens||[]; }
+  catch(e){ box.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; return; }
+  const perto = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  const bolha=(m)=>{
+    const eu=m.autor==='operador';
+    return `<div style="max-width:80%;${eu?'margin-left:auto;background:var(--az);color:var(--sobre-az)':'background:var(--sf2);color:var(--tx);border:1px solid var(--ln)'};
+      padding:9px 12px;border-radius:13px;font-size:13.5px;line-height:1.5;margin-bottom:9px;white-space:pre-wrap;word-break:break-word">
+      ${esc(m.texto)}<span style="display:block;font-size:11px;opacity:.72;margin-top:4px">${esc(m.autor_nome)} · ${new Date(m.criado_em).toLocaleString('pt-BR')}</span></div>`;
+  };
+  box.innerHTML = msgs.length ? msgs.map(bolha).join('') : '<div class="empty">Sem mensagens.</div>';
+  if(perto) box.scrollTop=box.scrollHeight;
+  atualizarSuporteBadge();
+}
+async function responderChamado(){
+  const ta=document.getElementById('convTxt'); const txt=(ta&&ta.value||'').trim();
+  if(!txt || !_conv) return;
+  const b=document.getElementById('convSend'); if(b){ b.disabled=true; b.textContent='Enviando…'; }
+  try{
+    await chamarF('suporte',{acao:'responder',chamado_id:_conv.id,texto:txt});
+    if(ta) ta.value='';
+    await carregarConversa();
+    const box=document.getElementById('convMsgs'); if(box) box.scrollTop=box.scrollHeight;
+  }catch(e){ alert(e.message); }
+  if(b){ b.disabled=false; b.textContent='Enviar resposta'; }
+}
 async function entrarSuporte(id){
   try{ abrirModoSuporte(await chamarF('suporte',{acao:'entrar',chamado_id:id})); atualizarSuporteBadge(); }
   catch(e){ alert(e.message); }
@@ -383,6 +440,8 @@ function renderSupDados(d){
 window.abrirSuporte = abrirSuporte;
 window.entrarSuporte = entrarSuporte;
 window.resolverChamado = resolverChamado;
+window.abrirConversa = abrirConversa;
+window.responderChamado = responderChamado;
 window.sairSuporte = sairSuporte;
 // checa novos chamados a cada 60s enquanto o console está aberto
 setInterval(()=>{ const app=$('#app'); if(app && app.style.display!=='none') atualizarSuporteBadge(); }, 60000);

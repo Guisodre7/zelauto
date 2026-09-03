@@ -144,6 +144,11 @@ insert into public.suporte_sessoes (id, chamado_id, loja_id, operador_id, operad
   ('51000000-0000-0000-0000-0000000000a1','50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','dddd4444-4444-4444-4444-444444444444','Op', now()+interval '2 hours'),
   ('51000000-0000-0000-0000-0000000000b1','50000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','dddd4444-4444-4444-4444-444444444444','Op', now()+interval '2 hours');
 
+-- suporte chat (0023): uma mensagem do operador ainda não lida em cada loja
+insert into public.suporte_mensagens (id, chamado_id, loja_id, autor, autor_nome, texto) values
+  ('52000000-0000-0000-0000-0000000000a1','50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','operador','Op','resposta A'),
+  ('52000000-0000-0000-0000-0000000000b1','50000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','operador','Op','resposta B');
+
 -- -----------------------------------------------------------------------------
 -- Assume o token da Loja A
 -- -----------------------------------------------------------------------------
@@ -286,6 +291,16 @@ insert into _res(verifica,ok,detalhe) select 'suporte_sessoes: A não vê as da 
 insert into _res(verifica,ok,detalhe) select 'suporte_sessoes: authenticated não grava sessão', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_sessoes (loja_id,expira_em) values ('11111111-1111-1111-1111-111111111111',now()+interval '1 hour')$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: A encerra a própria', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.encerrar_suporte('51000000-0000-0000-0000-0000000000a1')$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: A NÃO encerra a da B', (r<>'OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.encerrar_suporte('51000000-0000-0000-0000-0000000000b1')$$) r) t;
+
+-- suporte chat (0023): a conversa é da loja, e ninguém escreve nela pelo app
+insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: A lê a própria conversa', (count(*)>0), 'linhas='||count(*) from public.suporte_mensagens where loja_id='11111111-1111-1111-1111-111111111111';
+insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: A não lê a conversa da B', (count(*)=0), 'linhas='||count(*) from public.suporte_mensagens where loja_id='22222222-2222-2222-2222-222222222222';
+insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: authenticated não insere (nem na própria loja)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_mensagens (chamado_id,loja_id,autor,autor_nome,texto) values ('50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','operador','Suporte ZelAuto','forjada')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: authenticated não altera (sem update)', (has_table_privilege('public.suporte_mensagens','UPDATE') = false), 'tem_update='||has_table_privilege('public.suporte_mensagens','UPDATE')::text;
+insert into _res(verifica,ok,detalhe) select 'marcar_suporte_lido: A marca a própria conversa', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.marcar_suporte_lido('50000000-0000-0000-0000-0000000000a1')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'marcar_suporte_lido: a mensagem de A ficou lida', ((select lida_lojista_em is not null from public.suporte_mensagens where id='52000000-0000-0000-0000-0000000000a1')), 'lida';
+insert into _res(verifica,ok,detalhe) select 'marcar_suporte_lido: NÃO marca a conversa da B (0 linhas)', (n=0), 'linhas='||n
+  from (select public.marcar_suporte_lido('50000000-0000-0000-0000-0000000000b1') n) t;
 
 -- auditoria
 insert into _res(verifica,ok,detalhe) select 'auditoria: A vê a própria', (count(*)>0), 'linhas='||count(*) from public.auditoria where loja_id='11111111-1111-1111-1111-111111111111';

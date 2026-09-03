@@ -6,10 +6,12 @@
 // com prazo (padrão 2h), e tudo registrado em operador_log.
 //
 // Ações:
-//   listar   -> chamados abertos (com a loja) + sessões ativas
-//   entrar   -> cria a sessão de acesso (exige consentimento + prazo)
-//   encerrar -> fecha uma sessão que este operador abriu
-//   resolver -> marca o chamado como resolvido
+//   listar    -> chamados abertos (com a loja) + sessões ativas + não lidas
+//   mensagens -> a conversa de um chamado (e marca as do lojista como lidas)
+//   responder -> escreve no chamado como Suporte ZelAuto
+//   entrar    -> cria a sessão de acesso (exige consentimento + prazo)
+//   encerrar  -> fecha uma sessão que este operador abriu
+//   resolver  -> marca o chamado como resolvido
 //
 // Deploy: supabase functions deploy suporte
 // =============================================================================
@@ -62,7 +64,55 @@ Deno.serve(async (req) => {
     const { data: sessoes } = await admin.from('suporte_sessoes')
       .select('id, loja_id, chamado_id, expira_em, criada_em, lojas(nome)')
       .is('encerrada_em', null).gt('expira_em', nowIso).order('criada_em', { ascending: false });
-    return json({ chamados: chamados || [], sessoes_ativas: sessoes || [] });
+
+    // Quantas mensagens do lojista ainda não foram lidas, por chamado — é o que
+    // diz onde a resposta está atrasada.
+    const ids = (chamados || []).map((c: any) => c.id);
+    const naoLidas: Record<string, number> = {};
+    if (ids.length) {
+      const { data: pend } = await admin.from('suporte_mensagens')
+        .select('chamado_id').in('chamado_id', ids)
+        .eq('autor', 'lojista').is('lida_operador_em', null);
+      for (const m of pend || []) naoLidas[(m as any).chamado_id] = (naoLidas[(m as any).chamado_id] || 0) + 1;
+    }
+    return json({ chamados: chamados || [], sessoes_ativas: sessoes || [], nao_lidas: naoLidas });
+  }
+
+  // ---------------------------------------------------------------- MENSAGENS
+  if (acao === 'mensagens') {
+    const chamadoId = String(body.chamado_id || '');
+    if (!chamadoId) return json({ error: 'informe o chamado' }, 400);
+    const { data: msgs } = await admin.from('suporte_mensagens')
+      .select('id, autor, autor_nome, texto, criado_em')
+      .eq('chamado_id', chamadoId).order('criado_em', { ascending: true }).limit(400);
+    // Abrir a conversa é ler: zera o contador do lado do operador.
+    await admin.from('suporte_mensagens')
+      .update({ lida_operador_em: new Date().toISOString() })
+      .eq('chamado_id', chamadoId).eq('autor', 'lojista').is('lida_operador_em', null);
+    return json({ mensagens: msgs || [] });
+  }
+
+  // ---------------------------------------------------------------- RESPONDER
+  if (acao === 'responder') {
+    const chamadoId = String(body.chamado_id || '');
+    const texto = String(body.texto || '').trim().slice(0, 4000);
+    if (!chamadoId) return json({ error: 'informe o chamado' }, 400);
+    if (!texto) return json({ error: 'escreva a mensagem' }, 400);
+
+    const { data: ch } = await admin.from('suporte_chamados')
+      .select('id, loja_id, status').eq('id', chamadoId).maybeSingle();
+    if (!ch) return json({ error: 'chamado não encontrado' }, 404);
+
+    const { error: mErr } = await admin.from('suporte_mensagens').insert({
+      chamado_id: ch.id, loja_id: ch.loja_id, autor: 'operador',
+      autor_id: op.id, autor_nome: op.nome || 'Suporte ZelAuto', texto,
+    });
+    if (mErr) return json({ error: 'não consegui enviar: ' + mErr.message }, 400);
+
+    if (ch.status === 'aberto')
+      await admin.from('suporte_chamados').update({ status: 'em_atendimento' }).eq('id', ch.id);
+    await log('suporte_responder', ch.loja_id, { chamado_id: ch.id });
+    return json({ ok: true });
   }
 
   // ------------------------------------------------------------------- ENTRAR

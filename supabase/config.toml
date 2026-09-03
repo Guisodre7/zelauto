@@ -57,3 +57,9 @@ verify_jwt = false
 
 [functions.suporte-dados]
 verify_jwt = false
+
+# `suporte-chat` é o lado do LOJISTA: abre chamado, manda mensagem e autoriza o
+# acesso ao painel. Auth por dentro (getUser + perfis ativo); o nome do autor é
+# carimbado no servidor e é daqui que sai o e-mail para o operador.
+[functions.suporte-chat]
+verify_jwt = false

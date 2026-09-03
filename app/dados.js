@@ -1028,15 +1028,73 @@ async function checkoutCartaoAssinatura() {
 }
 
 /* ============================ SUPORTE (lojista) =========================== */
+/* Escrita passa pela Edge `suporte-chat`: é lá que o nome do autor é carimbado,
+   que se confere quem pode autorizar o acesso, e de onde sai o e-mail para o
+   operador. Leitura continua direto pela RLS (mais barata e já isolada). */
+async function chamarSuporteChat(acao, extra) {
+  exigirContexto();
+  const { data, error } = await sb.functions.invoke('suporte-chat', { body: { acao, ...(extra || {}) } });
+  if (error) throw new Error(await mensagemErroFn(error));
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
 /* O lojista abre um chamado. `autoriza` = consentimento EXPLÍCITO para o
-   operador acessar o painel (só-leitura na Fase 1). Sem isso, é só uma dúvida. */
+   operador acessar o painel. Sem isso, é só uma conversa. */
 async function abrirChamadoSuporte(mensagem, autoriza) {
+  return chamarSuporteChat('abrir', { mensagem: String(mensagem || '').trim(), autoriza: !!autoriza });
+}
+
+/* Manda uma mensagem dentro de um chamado que já existe. */
+async function enviarMensagemSuporte(chamadoId, texto) {
+  return chamarSuporteChat('enviar', { chamado_id: chamadoId, texto: String(texto || '').trim() });
+}
+
+/* O dono libera o acesso ao painel DEPOIS, se a conversa não resolveu. */
+async function autorizarAcessoSuporte(chamadoId) {
+  return chamarSuporteChat('autorizar', { chamado_id: chamadoId });
+}
+
+/* O chamado em andamento da loja (o mais recente que ainda não foi resolvido). */
+async function chamadoAbertoSuporte() {
   const { lojaId } = exigirContexto();
   const { data, error } = await sb.from('suporte_chamados')
-    .insert({ loja_id: lojaId, mensagem: String(mensagem || '').trim(), autoriza_acesso: !!autoriza })
-    .select('id, criado_em').single();
+    .select('id, mensagem, autoriza_acesso, status, criado_em')
+    .eq('loja_id', lojaId).neq('status', 'resolvido')
+    .order('criado_em', { ascending: false }).limit(1);
   if (error) throw error;
-  return data;
+  const c = (data || [])[0];
+  return c ? { id: c.id, mensagem: c.mensagem, autorizaAcesso: c.autoriza_acesso, status: c.status, criadoEm: c.criado_em } : null;
+}
+
+/* A conversa daquele chamado, em ordem. */
+async function listarMensagensSuporte(chamadoId) {
+  const { lojaId } = exigirContexto();
+  const { data, error } = await sb.from('suporte_mensagens')
+    .select('id, autor, autor_nome, texto, criado_em')
+    .eq('loja_id', lojaId).eq('chamado_id', chamadoId)
+    .order('criado_em', { ascending: true }).limit(400);
+  if (error) throw error;
+  return (data || []).map(m => ({
+    id: m.id, autor: m.autor, nome: m.autor_nome, texto: m.texto, criadoEm: m.criado_em,
+  }));
+}
+
+/* Quantas respostas do suporte o lojista ainda não viu (badge do botão). */
+async function naoLidasSuporte() {
+  const { lojaId } = exigirContexto();
+  const { count, error } = await sb.from('suporte_mensagens')
+    .select('id', { count: 'exact', head: true })
+    .eq('loja_id', lojaId).eq('autor', 'operador').is('lida_lojista_em', null);
+  if (error) return 0;
+  return count || 0;
+}
+
+/* Abriu a conversa = leu. Função dedicada (a tabela não aceita update pelo app). */
+async function marcarSuporteLido(chamadoId) {
+  const { error } = await sb.rpc('marcar_suporte_lido', { p_chamado: chamadoId });
+  if (error) throw error;
+  return true;
 }
 
 /* Histórico de acessos de suporte da loja + qual está ativa agora. */
@@ -1110,6 +1168,8 @@ window.Dados = {
   listarAuditoria,
   // suporte assistido (consentido, com prazo, revogável)
   abrirChamadoSuporte, listarSuporteSessoes, encerrarSuporte,
+  enviarMensagemSuporte, autorizarAcessoSuporte, chamadoAbertoSuporte,
+  listarMensagensSuporte, naoLidasSuporte, marcarSuporteLido,
   // acesso cru ao client, se precisar
   _sb: sb,
 };
