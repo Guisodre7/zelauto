@@ -75,6 +75,7 @@
       <button class="btn" id="btnNova">+ Nova loja</button>
       <button class="btn g" id="btnOperador">+ Operador</button>
       <button class="btn g" id="btnSenha">Resetar senha</button>
+      <button class="btn g" id="btnSuporte">Suporte</button>
       <button class="btn g" id="btnImportar">Importar dados</button>
       <button class="btn g" id="btnAtualizar">Atualizar</button>
     </div>
@@ -102,8 +103,9 @@ const sb = cfg && cfg.url ? createClient(cfg.url, cfg.anonKey) : null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-async function chamar(acao, extra){
-  const { data, error } = await sb.functions.invoke('admin', { body: { acao, ...(extra||{}) } });
+async function chamar(acao, extra){ return chamarF('admin', { acao, ...(extra||{}) }); }
+async function chamarF(fn, body){
+  const { data, error } = await sb.functions.invoke(fn, { body: body||{} });
   if(error){
     let msg = error.message||'erro';
     try{ if(error.context && error.context.json){ const j=await error.context.json(); if(j&&j.error) msg=j.error; } }catch(_){}
@@ -136,6 +138,7 @@ async function entrar(){
   catch(err){ try{ await sb.auth.signOut(); }catch(_){} throw err; }
   $('#login').style.display='none'; $('#app').style.display='block';
   render(m);
+  atualizarSuporteBadge();
 }
 
 $('#btnSair').onclick = async ()=>{ try{ await sb.auth.signOut(); }catch(_){} location.reload(); };
@@ -284,6 +287,88 @@ $('#btnSenha').onclick = ()=>{
     }catch(err){ erro.textContent=err.message; erro.style.display='block'; b.disabled=false; b.textContent='Redefinir'; }
   };
 };
+
+/* ---------------- SUPORTE (caixa de chamados + modo suporte) ---------------- */
+async function atualizarSuporteBadge(){
+  try{ const r=await chamarF('suporte',{acao:'listar'}); const n=(r.chamados||[]).length;
+    const b=$('#btnSuporte'); if(b) b.textContent = n ? ('Suporte ('+n+')') : 'Suporte'; }catch(_){}
+}
+$('#btnSuporte').onclick = abrirSuporte;
+async function abrirSuporte(){
+  abrir(`<h2>Suporte</h2><p class="sub">Chamados dos lojistas. Só entra no painel quem foi autorizado.</p>
+    <div id="supList">Carregando…</div>
+    <div class="foot"><button class="btn g" onclick="fecharOv()">Fechar</button></div>`);
+  try{ renderChamados(await chamarF('suporte',{acao:'listar'})); }
+  catch(e){ const b=$('#supList'); if(b) b.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; }
+}
+function renderChamados(r){
+  const ch=r.chamados||[]; const box=$('#supList'); if(!box) return;
+  if(!ch.length){ box.innerHTML='<div class="empty">Nenhum chamado aberto.</div>'; return; }
+  box.innerHTML = ch.map(c=>{
+    const loja=(c.lojas&&c.lojas.nome)||'—';
+    return `<div class="okbox" style="margin-top:10px">
+      <div class="l">${esc(loja)} · ${new Date(c.criado_em).toLocaleString('pt-BR')} ${c.status==='em_atendimento'?'· <b>em atendimento</b>':''}</div>
+      <div style="margin:7px 0;font-size:14px">${esc(c.mensagem)}</div>
+      ${c.autoriza_acesso
+        ? `<button class="btn" onclick="entrarSuporte('${c.id}')">Entrar no painel (2h)</button>`
+        : `<span class="hint">Sem autorização de acesso — responda o lojista por fora.</span>`}
+      <button class="btn g" style="margin-left:8px" onclick="resolverChamado('${c.id}')">Resolver</button>
+    </div>`;
+  }).join('');
+}
+async function resolverChamado(id){ try{ await chamarF('suporte',{acao:'resolver',chamado_id:id}); abrirSuporte(); atualizarSuporteBadge(); }catch(e){ alert(e.message); } }
+async function entrarSuporte(id){
+  try{ abrirModoSuporte(await chamarF('suporte',{acao:'entrar',chamado_id:id})); atualizarSuporteBadge(); }
+  catch(e){ alert(e.message); }
+}
+
+let _sup=null;
+async function abrirModoSuporte(s){
+  fechar();
+  _sup={ sessao:s.sessao_id, expira:new Date(s.expira_em).getTime(), timer:null };
+  let ov=document.getElementById('supMode');
+  if(!ov){ ov=document.createElement('div'); ov.id='supMode'; document.body.appendChild(ov); }
+  ov.style.cssText='position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto';
+  ov.innerHTML=`
+    <div style="position:sticky;top:0;background:var(--az);color:var(--sobre-az);font-weight:700;padding:11px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;z-index:1">
+      <span>● MODO SUPORTE — ${esc(s.loja_nome||'loja')} · só leitura</span>
+      <span id="supRelogio" class="mono" style="margin-left:auto"></span>
+      <button style="background:rgba(0,0,0,.22);border-radius:8px;padding:6px 12px;font-weight:700;color:var(--sobre-az)" onclick="sairSuporte()">Sair do suporte</button>
+    </div>
+    <div class="wrap" id="supDados" style="padding-top:18px">Carregando o painel da loja…</div>`;
+  supTick(); _sup.timer=setInterval(supTick,1000);
+  try{ renderSupDados(await chamarF('suporte-dados',{sessao_id:s.sessao_id})); }
+  catch(e){ const b=document.getElementById('supDados'); if(b) b.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; }
+}
+function supTick(){
+  if(!_sup) return;
+  const rest=Math.max(0,Math.floor((_sup.expira-Date.now())/1000));
+  const el=document.getElementById('supRelogio');
+  if(el) el.textContent='expira em '+String(Math.floor(rest/60)).padStart(2,'0')+':'+String(rest%60).padStart(2,'0');
+  if(rest<=0) sairSuporte(true);
+}
+async function sairSuporte(expirou){
+  const st=_sup; _sup=null;
+  if(st&&st.timer) clearInterval(st.timer);
+  const ov=document.getElementById('supMode'); if(ov) ov.remove();
+  if(st && !expirou){ try{ await chamarF('suporte',{acao:'encerrar',sessao_id:st.sessao}); }catch(_){} }
+  atualizarSuporteBadge();
+}
+function renderSupDados(d){
+  const box=document.getElementById('supDados'); if(!box) return;
+  const money=v=> (v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}));
+  const dias=x=>{ if(!x) return '—'; return Math.floor((Date.now()-new Date(x).getTime())/864e5)+'d'; };
+  const sec=(t,linhas,vazio)=> `<div class="sec-t">${t}</div>`+(linhas.length?`<table><tbody>${linhas.join('')}</tbody></table>`:`<div class="empty">${vazio}</div>`)+'<div style="height:18px"></div>';
+  const v=(d.veiculos||[]).map(x=>`<tr><td><b>${esc(x.marca||'')} ${esc(x.modelo||'')}</b><div class="hint">${esc(x.placa||'—')}${x.km!=null?' · '+x.km+' km':''}${x.cor?' · '+esc(x.cor):''}</div></td><td>${esc(x.status||'')}</td><td>${dias(x.entrada_em)}</td><td class="mono">${money(x.alvo)}</td></tr>`);
+  const c=(d.clientes||[]).map(x=>`<tr><td><b>${esc(x.nome||'')}</b><div class="hint">${esc(x.telefone||'')}${x.origem?' · '+esc(x.origem):''}</div></td><td>${esc(x.etapa||'')}</td><td>${esc(x.interesse||'')}</td></tr>`);
+  const ve=(d.vendas||[]).map(x=>`<tr><td><b>${esc(x.cliente_nome||x.descricao||'')}</b><div class="hint">${esc(x.placa||'')}${x.forma?' · '+esc(x.forma):''}</div></td><td>${x.data?new Date(x.data).toLocaleDateString('pt-BR'):''}</td><td class="mono">${money(x.valor)}</td></tr>`);
+  const de=(d.despesas||[]).map(x=>`<tr><td><b>${esc(x.descricao||x.categoria||'')}</b><div class="hint">${esc(x.categoria||'')}${x.tipo?' · '+esc(x.tipo):''}</div></td><td class="mono">${money(x.valor)}</td></tr>`);
+  box.innerHTML = `<div class="hint" style="margin-bottom:16px">Painel da loja <b>${esc((d.loja&&d.loja.nome)||'')}</b> — só leitura. Custo de compra e margem ficam ocultos.</div>
+    ${sec('Estoque · '+(d.veiculos||[]).length, v, 'Sem veículos.')}
+    ${sec('Clientes · '+(d.clientes||[]).length, c, 'Sem clientes.')}
+    ${sec('Vendas · '+(d.vendas||[]).length, ve, 'Sem vendas.')}
+    ${sec('Despesas · '+(d.despesas||[]).length, de, 'Sem despesas.')}`;
+}
 
 /* Importar (CSV genérico) */
 let _lojasCache=[];

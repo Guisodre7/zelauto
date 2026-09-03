@@ -48,3 +48,12 @@ verify_jwt = false
 # na URL (?webhookSecret=...), conferido por dentro. Sem JWT.
 [functions.abacate-webhook]
 verify_jwt = false
+
+# `suporte` e `suporte-dados`: control plane do suporte assistido. Auth por dentro
+# (getUser + operadores). `suporte-dados` ainda exige uma sessão de suporte ativa
+# antes de devolver qualquer dado da loja (só leitura).
+[functions.suporte]
+verify_jwt = false
+
+[functions.suporte-dados]
+verify_jwt = false
