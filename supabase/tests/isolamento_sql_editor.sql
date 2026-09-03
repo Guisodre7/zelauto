@@ -136,6 +136,14 @@ insert into storage.objects (bucket_id, name) values
   ('veiculos','11111111-1111-1111-1111-111111111111/va/foto.jpg'),
   ('veiculos','22222222-2222-2222-2222-222222222222/vb/foto.jpg');
 
+-- suporte (0022): um chamado + uma sessão para A e para B
+insert into public.suporte_chamados (id, loja_id, mensagem, autoriza_acesso) values
+  ('50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','duvida A', true),
+  ('50000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','duvida B', true);
+insert into public.suporte_sessoes (id, chamado_id, loja_id, operador_id, operador_nome, expira_em) values
+  ('51000000-0000-0000-0000-0000000000a1','50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','dddd4444-4444-4444-4444-444444444444','Op', now()+interval '2 hours'),
+  ('51000000-0000-0000-0000-0000000000b1','50000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','dddd4444-4444-4444-4444-444444444444','Op', now()+interval '2 hours');
+
 -- -----------------------------------------------------------------------------
 -- Assume o token da Loja A
 -- -----------------------------------------------------------------------------
@@ -267,6 +275,17 @@ insert into _res(verifica,ok,detalhe) select 'portais: A não grava em outra loj
 insert into _res(verifica,ok,detalhe) select 'anuncios: A vê os próprios', (count(*)>0), 'linhas='||count(*) from public.anuncios where loja_id='11111111-1111-1111-1111-111111111111';
 insert into _res(verifica,ok,detalhe) select 'anuncios: A não vê os da B', (count(*)=0), 'linhas='||count(*) from public.anuncios where loja_id='22222222-2222-2222-2222-222222222222';
 insert into _res(verifica,ok,detalhe) select 'anuncios: A não grava em outra loja', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.anuncios (loja_id,veiculo_id,portal) values ('33333333-3333-3333-3333-333333333333','b0000000-0000-0000-0000-0000000000b1','Webmotors')$$) r) t;
+
+-- suporte (0022)
+insert into _res(verifica,ok,detalhe) select 'suporte_chamados: A vê os próprios', (count(*)>0), 'linhas='||count(*) from public.suporte_chamados where loja_id='11111111-1111-1111-1111-111111111111';
+insert into _res(verifica,ok,detalhe) select 'suporte_chamados: A não vê os da B', (count(*)=0), 'linhas='||count(*) from public.suporte_chamados where loja_id='22222222-2222-2222-2222-222222222222';
+insert into _res(verifica,ok,detalhe) select 'suporte_chamados: A abre na própria loja', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$insert into public.suporte_chamados (loja_id,mensagem) values ('11111111-1111-1111-1111-111111111111','nova')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte_chamados: A não abre em outra loja', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_chamados (loja_id,mensagem) values ('33333333-3333-3333-3333-333333333333','x')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte_sessoes: A vê o histórico próprio', (count(*)>0), 'linhas='||count(*) from public.suporte_sessoes where loja_id='11111111-1111-1111-1111-111111111111';
+insert into _res(verifica,ok,detalhe) select 'suporte_sessoes: A não vê as da B', (count(*)=0), 'linhas='||count(*) from public.suporte_sessoes where loja_id='22222222-2222-2222-2222-222222222222';
+insert into _res(verifica,ok,detalhe) select 'suporte_sessoes: authenticated não grava sessão', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_sessoes (loja_id,expira_em) values ('11111111-1111-1111-1111-111111111111',now()+interval '1 hour')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: A encerra a própria', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.encerrar_suporte('51000000-0000-0000-0000-0000000000a1')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: A NÃO encerra a da B', (r<>'OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.encerrar_suporte('51000000-0000-0000-0000-0000000000b1')$$) r) t;
 
 -- auditoria
 insert into _res(verifica,ok,detalhe) select 'auditoria: A vê a própria', (count(*)>0), 'linhas='||count(*) from public.auditoria where loja_id='11111111-1111-1111-1111-111111111111';
