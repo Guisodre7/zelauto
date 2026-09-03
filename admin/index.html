@@ -69,6 +69,7 @@
     <button class="sair" id="btnSair">Sair</button>
   </header>
   <div class="wrap">
+    <div id="supAlerta"></div>
     <div class="sec-t">Seu negócio · ZelAuto</div>
     <div class="kpis kpis-neg" id="kpisNeg"></div>
     <div class="acts">
@@ -290,8 +291,16 @@ $('#btnSenha').onclick = ()=>{
 
 /* ---------------- SUPORTE (caixa de chamados + modo suporte) ---------------- */
 async function atualizarSuporteBadge(){
-  try{ const r=await chamarF('suporte',{acao:'listar'}); const n=(r.chamados||[]).length;
-    const b=$('#btnSuporte'); if(b) b.textContent = n ? ('Suporte ('+n+')') : 'Suporte'; }catch(_){}
+  let n=0; try{ const r=await chamarF('suporte',{acao:'listar'}); n=(r.chamados||[]).length; }catch(_){ return; }
+  const b=$('#btnSuporte'); if(b){ b.textContent = n?('Suporte ('+n+')'):'Suporte'; b.className = n?'btn':'btn g'; }
+  const a=$('#supAlerta'); if(a){
+    a.innerHTML = n
+      ? `<div style="background:var(--az);color:var(--sobre-az);border-radius:12px;padding:13px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-weight:600">
+           <span>🔔 ${n} chamado${n>1?'s':''} de suporte aguardando.</span>
+           <button style="margin-left:auto;background:rgba(0,0,0,.2);color:var(--sobre-az);border-radius:8px;padding:6px 13px;font-weight:700" onclick="abrirSuporte()">Abrir</button>
+         </div>`
+      : '';
+  }
 }
 $('#btnSuporte').onclick = abrirSuporte;
 async function abrirSuporte(){
@@ -369,6 +378,14 @@ function renderSupDados(d){
     ${sec('Vendas · '+(d.vendas||[]).length, ve, 'Sem vendas.')}
     ${sec('Despesas · '+(d.despesas||[]).length, de, 'Sem despesas.')}`;
 }
+
+// funções chamadas por onclick inline precisam estar no window (script é module)
+window.abrirSuporte = abrirSuporte;
+window.entrarSuporte = entrarSuporte;
+window.resolverChamado = resolverChamado;
+window.sairSuporte = sairSuporte;
+// checa novos chamados a cada 60s enquanto o console está aberto
+setInterval(()=>{ const app=$('#app'); if(app && app.style.display!=='none') atualizarSuporteBadge(); }, 60000);
 
 /* Importar (CSV genérico) */
 let _lojasCache=[];
