@@ -1267,6 +1267,7 @@ async function salvarSenha(){
 /* Loja suspensa (assinatura vencida além da carência): tranca a tela. Só o
    proprietário vê o botão de regularizar. */
 /* ---------------- SUPORTE ASSISTIDO (lado do lojista) ---------------- */
+const _supEl = html => { const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; };
 const _supHora = x => { try{ return new Date(x).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }catch(_){ return ''; } };
 const _supData = x => { try{ return new Date(x).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+_supHora(x); }catch(_){ return ''; } };
 
@@ -1327,7 +1328,7 @@ async function verificarSuporteAtivo(){
   const ativa=sess.find(s=>s.ativa);
   let bar=document.getElementById('supBar');
   if(ativa){
-    if(!bar){ bar=el('<div id="supBar"></div>'); document.body.appendChild(bar); }
+    if(!bar){ bar=_supEl('<div id="supBar"></div>'); document.body.appendChild(bar); }
     bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:70;background:var(--am);color:#17130A;font-weight:700;font-size:var(--t-sup);padding:9px 14px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap';
     bar.innerHTML=`<span>Suporte ativo — ${esc(ativa.operador)} está vendo sua loja (só leitura)</span>`+
       `<button style="background:rgba(0,0,0,.22);border-radius:8px;padding:5px 12px;font-weight:700;color:#17130A" onclick="encerrarSuporteUI('${ativa.id}')">Encerrar</button>`;
@@ -1337,6 +1338,58 @@ function iniciarMonitorSuporte(){
   if(_supTimer) clearInterval(_supTimer);
   verificarSuporteAtivo();
   _supTimer=setInterval(verificarSuporteAtivo, 60000);
+}
+
+/* ---------------- BOTÃO FLUTUANTE DE SUPORTE (FAQ + escalar) ---------------- */
+const SUP_FAQ = [
+  ['Como emito a nota fiscal?', 'Vá em <b>Negócios › Papelada › Nota fiscal</b>. Ali você emite a NF-e, vê as autorizadas e corrige as rejeitadas.'],
+  ['Como cadastro um carro no estoque?', 'Em <b>Pátio</b>, toque em <b>+ Adicionar</b> e preencha marca, modelo, placa e preço.'],
+  ['Como registro uma venda?', 'Em <b>Negócios</b>, toque em <b>Nova venda</b>, escolha o carro e o cliente e confirme.'],
+  ['Como troco minha senha?', 'Na engrenagem (<b>Configurações</b>) › <b>Conta</b> › <b>Trocar minha senha</b>.'],
+  ['Como coloco a logo e o site da loja?', 'Em <b>Configurações › Marca</b>, envie a logo e o banner — o site da loja atualiza sozinho.'],
+  ['Um cliente sumiu do funil', 'Confira em <b>Clientes</b> e use a busca no topo. Nada é apagado sem querer.'],
+];
+function montarSuporteFab(){
+  if(document.getElementById('supFab')) return;
+  if(!document.getElementById('supFabCss')){
+    const st=document.createElement('style'); st.id='supFabCss';
+    st.textContent=`
+      #supFab{position:fixed;right:18px;bottom:18px;z-index:75;width:56px;height:56px;border-radius:50%;
+        background:var(--az-sol);color:var(--sobre-az);display:grid;place-items:center;
+        box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:0;cursor:pointer}
+      #supFab svg{width:26px;height:26px}
+      #supPanel{position:fixed;right:18px;bottom:84px;z-index:75;width:min(360px,calc(100vw - 36px));
+        max-height:min(560px,calc(100dvh - 120px));background:var(--sf);border:1px solid var(--ln2);border-radius:16px;
+        box-shadow:0 24px 60px -20px rgba(0,0,0,.7);display:none;flex-direction:column;overflow:hidden}
+      #supPanel.on{display:flex;animation:supUp .22s ease}
+      @keyframes supUp{from{opacity:0;transform:translateY(10px)}}
+      #supPanel .h{background:linear-gradient(140deg,#26262B,#141416);color:var(--tx);padding:16px 17px;border-bottom:1px solid var(--ln)}
+      #supPanel .h b{font-size:16px;font-weight:700}
+      #supPanel .h small{display:block;color:var(--tx3);font-size:12px;margin-top:2px}
+      #supPanel .b{padding:14px;overflow-y:auto}
+      #supPanel .qtit{font-size:var(--t-lab);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);margin:2px 0 9px}
+      .supq{border:1px solid var(--ln);border-radius:11px;margin-bottom:8px;overflow:hidden}
+      .supq>button{width:100%;text-align:left;padding:12px 14px;font-size:14px;font-weight:600;color:var(--tx);display:flex;justify-content:space-between;gap:10px;background:none;border:0;cursor:pointer}
+      .supq .a{padding:0 14px 12px;font-size:13.5px;color:var(--tx2);line-height:1.55;display:none}
+      .supq.on .a{display:block}
+      #supPanel .f{padding:12px 14px;border-top:1px solid var(--ln)}`;
+    document.head.appendChild(st);
+  }
+  const panel=_supEl(`<div id="supPanel">
+    <div class="h"><b>Suporte ZelAuto</b><small>Tire a dúvida na hora — ou fale com a gente</small></div>
+    <div class="b">
+      <div class="qtit">Perguntas rápidas</div>
+      ${SUP_FAQ.map(([q,a])=>`<div class="supq"><button onclick="this.parentNode.classList.toggle('on')"><span>${q}</span><span style="color:var(--az)">+</span></button><div class="a">${a}</div></div>`).join('')}
+    </div>
+    <div class="f"><button class="btn pri blk" onclick="suporteToggle(false);suporteUI()">Não resolveu? Falar com o suporte</button></div>
+  </div>`);
+  const fab=_supEl(`<button id="supFab" aria-label="Suporte" title="Suporte" onclick="suporteToggle()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>`);
+  document.body.appendChild(panel); document.body.appendChild(fab);
+}
+function suporteToggle(force){
+  const p=document.getElementById('supPanel'); if(!p) return;
+  p.classList.toggle('on', force===undefined ? !p.classList.contains('on') : !!force);
 }
 
 function bloquearSuspensa(){
@@ -5484,6 +5537,8 @@ atualizarTags();
     try{ if(!(await Dados.lojaAtiva())) bloquearSuspensa(); }catch(_){}
     // Monitor de suporte: mostra o banner se houver acesso ativo (só o dono).
     try{ iniciarMonitorSuporte(); }catch(_){}
+    // Botão flutuante de suporte: FAQ primeiro, chamado só se não resolveu.
+    try{ montarSuporteFab(); }catch(_){}
     return true;
   }
 
