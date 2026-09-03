@@ -73,6 +73,8 @@
     <div class="kpis kpis-neg" id="kpisNeg"></div>
     <div class="acts">
       <button class="btn" id="btnNova">+ Nova loja</button>
+      <button class="btn g" id="btnOperador">+ Operador</button>
+      <button class="btn g" id="btnSenha">Resetar senha</button>
       <button class="btn g" id="btnImportar">Importar dados</button>
       <button class="btn g" id="btnAtualizar">Atualizar</button>
     </div>
@@ -227,6 +229,61 @@ async function criarLoja(){
     try{ render(await chamar('metricas')); }catch(_){}
   }catch(err){ erro.textContent=err.message; erro.style.display='block'; btn.disabled=false; btn.textContent='Criar loja'; }
 }
+
+/* Novo operador (staff com acesso ao Console) */
+$('#btnOperador').onclick = ()=>{
+  abrir(`
+    <h2>Novo operador</h2>
+    <p class="sub">Cria (ou promove) um acesso ao Console. Operadores mexem em tudo.</p>
+    <div class="field"><label>Nome</label><input id="oNome" placeholder="Pedro"></div>
+    <div class="field"><label>E-mail</label><input id="oEmail" type="email" placeholder="socio@zelauto.com"></div>
+    <div class="erro" id="oErro"></div>
+    <div class="foot">
+      <button class="btn g" onclick="fecharOv()">Cancelar</button>
+      <button class="btn" id="oBtn">Criar operador</button>
+    </div>`);
+  $('#oBtn').onclick = async ()=>{
+    const erro=$('#oErro'); erro.style.display='none';
+    const b=$('#oBtn'); b.disabled=true; b.textContent='Criando…';
+    try{
+      const r = await chamar('criar_operador', { nome:$('#oNome').value.trim(), email:$('#oEmail').value.trim() });
+      abrir(`
+        <h2>${r.promovido?'Promovido a operador ✅':'Operador criado ✅'}</h2>
+        <div class="okbox"><div class="l">E-mail</div><div class="v">${esc(r.email)}</div></div>
+        ${r.senha?`<div class="okbox"><div class="l">Senha provisória</div><div class="v">${esc(r.senha)}</div></div>
+        <p class="sub" style="margin-top:12px">Passe estes dados ao operador. Ele entra no Console e deve trocar a senha.</p>`
+        :`<p class="sub" style="margin-top:12px">A conta já existia — só foi promovida a operador. A senha atual dela continua valendo.</p>`}
+        <div class="foot"><button class="btn" onclick="fecharOv()">Concluir</button></div>`);
+    }catch(err){ erro.textContent=err.message; erro.style.display='block'; b.disabled=false; b.textContent='Criar operador'; }
+  };
+};
+
+/* Resetar senha de qualquer conta (recuperação de acesso) */
+$('#btnSenha').onclick = ()=>{
+  abrir(`
+    <h2>Resetar senha</h2>
+    <p class="sub">Redefine a senha de qualquer conta ZelAuto (sua, de um operador ou de um lojista). Fica registrado.</p>
+    <div class="field"><label>E-mail da conta</label><input id="sEmail" type="email" placeholder="pessoa@exemplo.com"></div>
+    <div class="field"><label>Nova senha <span style="opacity:.6">(em branco = gera uma provisória)</span></label><input id="sSenha" type="text" placeholder="deixe em branco para gerar"></div>
+    <div class="erro" id="sErro"></div>
+    <div class="foot">
+      <button class="btn g" onclick="fecharOv()">Cancelar</button>
+      <button class="btn" id="sBtn">Redefinir</button>
+    </div>`);
+  $('#sBtn').onclick = async ()=>{
+    const erro=$('#sErro'); erro.style.display='none';
+    const b=$('#sBtn'); b.disabled=true; b.textContent='Redefinindo…';
+    try{
+      const r = await chamar('resetar_senha', { email:$('#sEmail').value.trim(), nova_senha:$('#sSenha').value });
+      abrir(`
+        <h2>Senha redefinida ✅</h2>
+        <div class="okbox"><div class="l">E-mail</div><div class="v">${esc(r.email)}</div></div>
+        <div class="okbox"><div class="l">Senha</div><div class="v">${esc(r.senha)}</div></div>
+        <p class="sub" style="margin-top:12px">Passe ao dono da conta. Peça para ele trocar no primeiro acesso.</p>
+        <div class="foot"><button class="btn" onclick="fecharOv()">Concluir</button></div>`);
+    }catch(err){ erro.textContent=err.message; erro.style.display='block'; b.disabled=false; b.textContent='Redefinir'; }
+  };
+};
 
 /* Importar (CSV genérico) */
 let _lojasCache=[];

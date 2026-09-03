@@ -6,9 +6,11 @@
 // ações cruzam lojas / provisionam — por isso ficam SÓ aqui, nunca no cliente.
 //
 // Ações (campo `acao` no corpo):
-//   criar_loja  -> cria a loja (nome/slug/cor) + login do dono (senha provisória)
-//   metricas    -> KPIs por loja e totais (cross-loja)
-//   importar    -> insere estoque/clientes já mapeados numa loja
+//   criar_loja     -> cria a loja + login do dono (senha provisória)
+//   metricas       -> KPIs do negócio (assinaturas) + por loja (cross-loja)
+//   importar       -> insere estoque/clientes já mapeados numa loja
+//   criar_operador -> cria/promove um STAFF ZelAuto com acesso ao Console
+//   resetar_senha  -> redefine a senha de qualquer conta ZelAuto (por e-mail)
 //
 // Deploy:  supabase functions deploy admin
 // =============================================================================
@@ -229,6 +231,63 @@ Deno.serve(async (req) => {
 
     await log('importar', lojaId, { veiculos: nVeic, clientes: nCli, veiculos_pulados: veicPulados });
     return json({ ok: true, veiculos: nVeic, clientes: nCli, veiculos_pulados: veicPulados });
+  }
+
+  // -------------------------------------------------------------- CRIAR OPERADOR
+  // Cria (ou promove) um usuário STAFF ZelAuto com acesso ao Console. Qualquer
+  // operador pode criar outro — os operadores são pares (mexem em tudo).
+  if (acao === 'criar_operador') {
+    const nome = String(body.nome || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!nome) return json({ error: 'informe o nome do operador' }, 400);
+    if (!email || !email.includes('@')) return json({ error: 'informe um e-mail válido' }, 400);
+
+    let alvoId: string | null = null;
+    const senha = senhaProvisoria();
+    const { data: novo, error: aErr } = await admin.auth.admin.createUser({ email, password: senha, email_confirm: true });
+    if (aErr || !novo?.user) {
+      // e-mail já existe: em vez de falhar, só promove a conta a operador.
+      if (/already|registered|exists/i.test(aErr?.message || '')) {
+        const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+        const found = (list?.users || []).find((u: any) => (u.email || '').toLowerCase() === email);
+        if (!found) return json({ error: 'e-mail já cadastrado, mas não localizei a conta' }, 400);
+        alvoId = found.id;
+      } else {
+        return json({ error: aErr?.message || 'falha ao criar o operador' }, 400);
+      }
+    } else {
+      alvoId = novo.user.id;
+    }
+
+    const { error: oErr } = await admin.from('operadores').upsert({ id: alvoId, nome }, { onConflict: 'id' });
+    if (oErr) return json({ error: 'falha ao promover a operador: ' + oErr.message }, 400);
+
+    await log('criar_operador', null, { email, novo: !!novo?.user });
+    // senha só volta quando a conta foi criada agora; se já existia, é só promoção.
+    return json({ ok: true, email, senha: novo?.user ? senha : null, promovido: !novo?.user });
+  }
+
+  // ---------------------------------------------------------------- RESETAR SENHA
+  // Redefine a senha de QUALQUER conta ZelAuto (operador ou usuário de loja), por
+  // e-mail. Toda redefinição fica no operador_log. É recuperação de acesso — para
+  // ENTRAR no painel do lojista existe o fluxo de suporte consentido, não isto.
+  if (acao === 'resetar_senha') {
+    const email = String(body.email || '').trim().toLowerCase();
+    const nova = body.nova_senha ? String(body.nova_senha) : '';
+    if (!email || !email.includes('@')) return json({ error: 'informe o e-mail da conta' }, 400);
+    if (nova && nova.length < 8) return json({ error: 'a nova senha precisa de ao menos 8 caracteres' }, 400);
+
+    // Poucos usuários por ora; listUsers cobre. (Trocar por lookup indexado se passar de ~200.)
+    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const found = (list?.users || []).find((u: any) => (u.email || '').toLowerCase() === email);
+    if (!found) return json({ error: 'não achei uma conta com esse e-mail' }, 404);
+
+    const senha = nova || senhaProvisoria();
+    const { error: upErr } = await admin.auth.admin.updateUserById(found.id, { password: senha });
+    if (upErr) return json({ error: 'falha ao redefinir a senha: ' + upErr.message }, 400);
+
+    await log('resetar_senha', null, { email, gerada: !nova });
+    return json({ ok: true, email, senha });
   }
 
   return json({ error: 'ação desconhecida' }, 400);
