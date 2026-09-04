@@ -5665,13 +5665,60 @@ atualizarTags();
     location.reload();
   };
 
+  // Entrada do suporte: o Console abre esta página com a credencial no hash.
+  // Lemos, LIMPAMOS a URL na hora (para não ficar no histórico nem em print) e
+  // devolvemos o que veio. Quem decide se o acesso vale é o banco, não isto:
+  // o token de suporte só enxerga a loja enquanto `app.suporte_ativo` permitir.
+  function credencialDeSuporte(){
+    const h = location.hash || '';
+    if(h.indexOf('#sup=') !== 0) return null;
+    let dados = null;
+    try{ dados = JSON.parse(decodeURIComponent(escape(atob(h.slice(5))))); }catch(_){ dados = null; }
+    try{ history.replaceState(null, '', location.pathname + location.search); }
+    catch(_){ location.hash = ''; }
+    return (dados && dados.e && dados.s) ? dados : null;
+  }
+
+  // Faixa fixa no topo enquanto o operador está dentro da loja. Existe para o
+  // operador nunca esquecer onde está, e para o print da tela dizer a verdade.
+  function faixaModoSuporte(info){
+    const barra = document.createElement('div');
+    barra.id = 'supModoBar';
+    barra.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:72;background:#E5484D;color:#fff;'
+      + 'font-weight:700;font-size:13px;padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap';
+    barra.innerHTML = '<span>MODO SUPORTE — você está dentro da loja '
+      + esc(info.n || '') + '. Tudo o que editar fica na auditoria como Suporte ZelAuto.</span>'
+      + '<span id="supModoRelogio" style="font-variant-numeric:tabular-nums;opacity:.9"></span>';
+    document.body.appendChild(barra);
+    if(!info.x) return;
+    const fim = new Date(info.x).getTime();
+    const tick = () => {
+      const r = Math.max(0, Math.floor((fim - Date.now()) / 1000));
+      const el = document.getElementById('supModoRelogio');
+      if(el) el.textContent = 'expira em ' + String(Math.floor(r/60)).padStart(2,'0') + ':' + String(r%60).padStart(2,'0');
+      if(r <= 0) location.reload();                 // acabou o prazo: cai fora
+    };
+    tick(); setInterval(tick, 1000);
+  }
+
   async function boot(){
     construirOverlay(); overlay.style.display='flex';
+    const sup = credencialDeSuporte();
     const temSlug = !!slugDaUrl();
-    if(!temSlug) montarSemLink();                   // sem slug: página do link (não precisa de Dados)
+    if(!temSlug && !sup) montarSemLink();           // sem slug: página do link (não precisa de Dados)
     let tries=0;
     while(!window.Dados && tries<50){ await new Promise(r=>setTimeout(r,60)); tries++; }
     if(!window.Dados){ mostrarErro('Camada de dados não carregou. Crie app/dados.config.js (copie do .example) com a URL e a chave publishable.'); return; }
+
+    if(sup){
+      try{
+        await Dados.entrar(sup.e, sup.s);
+        if(await aplicarSessao()){ esconderLogin(); faixaModoSuporte(sup); return; }
+        mostrarErro('Acesso de suporte sem perfil na loja.');
+      }catch(e){ mostrarErro('Este acesso de suporte não vale mais. Peça um novo no Console.'); }
+      return;
+    }
+
     try{ if(await Dados.sessaoAtual() && await aplicarSessao()){ esconderLogin(); return; } }catch(e){}
     if(temSlug) pintarMarca();                       // sem sessão + com slug: pinta a marca (Dados já pronto)
   }

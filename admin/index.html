@@ -311,7 +311,10 @@ $('#btnSuporte').onclick = abrirSuporte;
 async function abrirSuporte(){
   abrir(`<h2>Suporte</h2><p class="sub">Chamados dos lojistas. Só entra no painel quem foi autorizado.</p>
     <div id="supList">Carregando…</div>
-    <div class="foot"><button class="btn g" onclick="fecharOv()">Fechar</button></div>`);
+    <div class="foot">
+      <button class="btn g" onclick="fecharOv()">Fechar</button>
+      <button class="btn g" id="supTestBtn" onclick="testarEmail()">Testar e-mail</button>
+    </div>`);
   try{ renderChamados(await chamarF('suporte',{acao:'listar'})); }
   catch(e){ const b=$('#supList'); if(b) b.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; }
 }
@@ -327,7 +330,7 @@ function renderChamados(r){
       <div style="margin:7px 0;font-size:14px">${esc(c.mensagem)}</div>
       <button class="btn" onclick="abrirConversa('${c.id}','${esc(loja).replace(/'/g,"&#39;")}')">Conversar</button>
       ${c.autoriza_acesso
-        ? `<button class="btn g" style="margin-left:8px" onclick="entrarSuporte('${c.id}')">Entrar no painel (2h)</button>`
+        ? `<button class="btn g" style="margin-left:8px" onclick="entrarSuporte('${c.id}')">Entrar no painel (2h, edição)</button>`
         : ''}
       <button class="btn g" style="margin-left:8px" onclick="resolverChamado('${c.id}')">Resolver</button>
       ${c.autoriza_acesso?'':`<div class="hint">Sem autorização de acesso ainda — resolva pela conversa, ou peça ao dono para liberar o painel no botão de suporte dele.</div>`}
@@ -389,22 +392,40 @@ async function entrarSuporte(id){
 }
 
 let _sup=null;
+/* Entrar no painel: abre o APP DE VERDADE numa aba, logado como "Suporte
+   ZelAuto" daquela loja. Aqui fica só o controle — relógio e o botão de sair.
+   A credencial vai no hash da URL e o app a apaga assim que entra. */
 async function abrirModoSuporte(s){
   fechar();
-  _sup={ sessao:s.sessao_id, expira:new Date(s.expira_em).getTime(), timer:null };
+  _sup={ sessao:s.sessao_id, expira:new Date(s.expira_em).getTime(), timer:null, loja:s.loja_nome||'loja' };
+
+  const alvo = APP_URL + '#sup=' + btoa(unescape(encodeURIComponent(JSON.stringify({
+    e:s.email, s:s.senha, n:s.loja_nome||'', x:s.expira_em,
+  }))));
+  const aba = window.open(alvo, '_blank');
+
   let ov=document.getElementById('supMode');
   if(!ov){ ov=document.createElement('div'); ov.id='supMode'; document.body.appendChild(ov); }
   ov.style.cssText='position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto';
   ov.innerHTML=`
     <div style="position:sticky;top:0;background:var(--az);color:var(--sobre-az);font-weight:700;padding:11px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;z-index:1">
-      <span>● MODO SUPORTE — ${esc(s.loja_nome||'loja')} · só leitura</span>
+      <span>● MODO SUPORTE — ${esc(s.loja_nome||'loja')} · edição liberada</span>
       <span id="supRelogio" class="mono" style="margin-left:auto"></span>
-      <button style="background:rgba(0,0,0,.22);border-radius:8px;padding:6px 12px;font-weight:700;color:var(--sobre-az)" onclick="sairSuporte()">Sair do suporte</button>
+      <button style="background:rgba(0,0,0,.22);border-radius:8px;padding:6px 12px;font-weight:700;color:var(--sobre-az)" onclick="sairSuporte()">Encerrar acesso</button>
     </div>
-    <div class="wrap" id="supDados" style="padding-top:18px">Carregando o painel da loja…</div>`;
+    <div class="wrap" style="padding-top:26px;max-width:640px">
+      <div class="okbox">
+        <div class="l">O painel de <b>${esc(s.loja_nome||'')}</b> abriu em outra aba</div>
+        <p class="sub" style="margin-top:8px">Você entrou como <b>Suporte ZelAuto</b>, papel gerente: mexe em estoque,
+        clientes, vendas e papelada como o lojista mexeria. Custo de compra e margem continuam escondidos.</p>
+        <p class="sub" style="margin-top:8px">Tudo o que você editar fica na auditoria da loja com o seu nome. O dono vê
+        um aviso fixo no topo da tela dele e corta o acesso quando quiser.</p>
+        ${aba ? '' : '<p class="erro" style="display:block;margin-top:10px">O navegador bloqueou a aba. Libere o pop-up e clique em Entrar de novo.</p>'}
+        <div style="margin-top:14px"><button class="btn g" onclick="window.open('${alvo.replace(/'/g,"\\'")}','_blank')">Abrir o painel de novo</button></div>
+      </div>
+      <p class="hint" style="margin-top:16px">Ao encerrar, o acesso morre na hora — não espera o prazo acabar.</p>
+    </div>`;
   supTick(); _sup.timer=setInterval(supTick,1000);
-  try{ renderSupDados(await chamarF('suporte-dados',{sessao_id:s.sessao_id})); }
-  catch(e){ const b=document.getElementById('supDados'); if(b) b.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; }
 }
 function supTick(){
   if(!_sup) return;
@@ -420,20 +441,18 @@ async function sairSuporte(expirou){
   if(st && !expirou){ try{ await chamarF('suporte',{acao:'encerrar',sessao_id:st.sessao}); }catch(_){} }
   atualizarSuporteBadge();
 }
-function renderSupDados(d){
-  const box=document.getElementById('supDados'); if(!box) return;
-  const money=v=> (v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}));
-  const dias=x=>{ if(!x) return '—'; return Math.floor((Date.now()-new Date(x).getTime())/864e5)+'d'; };
-  const sec=(t,linhas,vazio)=> `<div class="sec-t">${t}</div>`+(linhas.length?`<table><tbody>${linhas.join('')}</tbody></table>`:`<div class="empty">${vazio}</div>`)+'<div style="height:18px"></div>';
-  const v=(d.veiculos||[]).map(x=>`<tr><td><b>${esc(x.marca||'')} ${esc(x.modelo||'')}</b><div class="hint">${esc(x.placa||'—')}${x.km!=null?' · '+x.km+' km':''}${x.cor?' · '+esc(x.cor):''}</div></td><td>${esc(x.status||'')}</td><td>${dias(x.entrada_em)}</td><td class="mono">${money(x.alvo)}</td></tr>`);
-  const c=(d.clientes||[]).map(x=>`<tr><td><b>${esc(x.nome||'')}</b><div class="hint">${esc(x.telefone||'')}${x.origem?' · '+esc(x.origem):''}</div></td><td>${esc(x.etapa||'')}</td><td>${esc(x.interesse||'')}</td></tr>`);
-  const ve=(d.vendas||[]).map(x=>`<tr><td><b>${esc(x.cliente_nome||x.descricao||'')}</b><div class="hint">${esc(x.placa||'')}${x.forma?' · '+esc(x.forma):''}</div></td><td>${x.data?new Date(x.data).toLocaleDateString('pt-BR'):''}</td><td class="mono">${money(x.valor)}</td></tr>`);
-  const de=(d.despesas||[]).map(x=>`<tr><td><b>${esc(x.descricao||x.categoria||'')}</b><div class="hint">${esc(x.categoria||'')}${x.tipo?' · '+esc(x.tipo):''}</div></td><td class="mono">${money(x.valor)}</td></tr>`);
-  box.innerHTML = `<div class="hint" style="margin-bottom:16px">Painel da loja <b>${esc((d.loja&&d.loja.nome)||'')}</b> — só leitura. Custo de compra e margem ficam ocultos.</div>
-    ${sec('Estoque · '+(d.veiculos||[]).length, v, 'Sem veículos.')}
-    ${sec('Clientes · '+(d.clientes||[]).length, c, 'Sem clientes.')}
-    ${sec('Vendas · '+(d.vendas||[]).length, ve, 'Sem vendas.')}
-    ${sec('Despesas · '+(d.despesas||[]).length, de, 'Sem despesas.')}`;
+
+/* Confere o Resend pelo caminho de produção: o segredo é o da função, não um
+   valor colado aqui. Se falhar, mostra o motivo cru do provedor. */
+async function testarEmail(){
+  const b=document.getElementById('supTestBtn');
+  if(b){ b.disabled=true; b.textContent='Enviando…'; }
+  try{
+    const r=await chamarF('suporte',{acao:'testar_email'});
+    alert(r.ok ? `E-mail de teste enviado para ${r.para}.\nRemetente: ${r.remetente}\n\nSe não chegar em 1 minuto, olhe o spam.`
+               : 'O aviso por e-mail NÃO está funcionando:\n\n' + r.motivo);
+  }catch(e){ alert('Falhou: '+e.message); }
+  if(b){ b.disabled=false; b.textContent='Testar e-mail'; }
 }
 
 // funções chamadas por onclick inline precisam estar no window (script é module)
@@ -443,6 +462,7 @@ window.resolverChamado = resolverChamado;
 window.abrirConversa = abrirConversa;
 window.responderChamado = responderChamado;
 window.sairSuporte = sairSuporte;
+window.testarEmail = testarEmail;
 // checa novos chamados a cada 60s enquanto o console está aberto
 setInterval(()=>{ const app=$('#app'); if(app && app.style.display!=='none') atualizarSuporteBadge(); }, 60000);
 

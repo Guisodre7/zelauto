@@ -1275,6 +1275,62 @@ Cole um por vez. Não peça tudo de uma vez.
 
 ---
 
+## 13.1 Suporte assistido — como o operador entra na loja
+
+O lojista tem um botão flutuante no canto inferior direito do app. A ordem
+importa e é deliberada: **perguntas frequentes → conversa → acesso ao painel**.
+O acesso ao painel é o último recurso, nunca o primeiro clique.
+
+**Tabelas** (migrations 0022 a 0024)
+
+| Tabela | Para quê |
+|---|---|
+| `suporte_chamados` | um por dúvida; guarda o consentimento (`autoriza_acesso`) |
+| `suporte_mensagens` | a conversa; o app só LÊ, toda escrita é server-side |
+| `suporte_sessoes` | histórico de acessos: quem entrou, quando, até quando, como acabou |
+| `app.suporte_ativo` | o interruptor do acesso; sem RLS, fora do alcance da API |
+
+**Funções**
+
+| Função | Quem chama |
+|---|---|
+| `suporte-chat` (Edge) | lojista: abrir chamado, mandar mensagem, autorizar o acesso |
+| `suporte` (Edge) | operador: listar, conversar, entrar, encerrar, resolver, testar e-mail |
+| `marcar_suporte_lido(chamado)` | app do lojista, ao abrir a conversa |
+| `encerrar_suporte(sessao)` | app do lojista: só o proprietário, corta na hora |
+| `suporte_acesso_abrir/fechar` | só `service_role`, de dentro da Edge |
+
+**O acesso é editável, e o que o segura**
+
+Desde a 0024 o operador não olha uma cópia só-leitura: ele entra no app de
+verdade como um usuário daquela loja — "Suporte ZelAuto", papel gerente, sem
+`ver_custos` e sem `ver_lucro`. O que segura isso não é tirar o poder, é o cerco:
+
+1. **Consentimento.** Sem `autoriza_acesso` no chamado, `entrar` devolve 403. E
+   quem autoriza é o proprietário, conferido no servidor.
+2. **Prazo que expira sozinho.** `app.loja_id()` — a função que TODA política de
+   RLS já usa — devolve NULL para um token de suporte quando não há linha válida
+   em `app.suporte_ativo`. A expiração é comparação de relógio dentro da própria
+   política: não depende de ninguém encerrar, nem de um cron rodar na hora.
+3. **Revogação imediata.** `encerrar_suporte` apaga a linha do interruptor. O
+   acesso morre no comando seguinte do operador, sem esperar o token expirar.
+4. **Nome próprio.** As escritas caem na auditoria como "Suporte ZelAuto" —
+   nunca disfarçadas de usuário do lojista.
+5. **Aviso visível.** Faixa fixa no topo da tela do lojista enquanto durar, com
+   o botão de cortar; e faixa no topo da tela do operador, para o print da tela
+   dizer a verdade.
+
+O token de um lojista comum não passa por nada disso: para ele, `app.loja_id()`
+continua sendo a leitura direta do `app_metadata`.
+
+**Aviso por e-mail.** `suporte-chat` avisa os operadores via Resend quando um
+chamado é aberto, quando chega mensagem e quando o acesso é autorizado. Segredos:
+`RESEND_API_KEY` (sem ela, o chamado grava e só o e-mail é pulado),
+`SUPORTE_EMAIL_FROM` e `SUPORTE_CONSOLE_URL`. O botão "Testar e-mail" no Console
+confere isso pelo caminho de produção.
+
+---
+
 ## 14. Custo esperado
 
 | Item | Estimativa mensal |

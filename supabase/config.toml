@@ -49,13 +49,11 @@ verify_jwt = false
 [functions.abacate-webhook]
 verify_jwt = false
 
-# `suporte` e `suporte-dados`: control plane do suporte assistido. Auth por dentro
-# (getUser + operadores). `suporte-dados` ainda exige uma sessão de suporte ativa
-# antes de devolver qualquer dado da loja (só leitura).
+# `suporte`: control plane do suporte assistido (lado do OPERADOR). Auth por
+# dentro (getUser + operadores). Abre a sessão de acesso ao painel, conversa no
+# chamado e encerra. A função `suporte-dados`, que servia o painel só-leitura,
+# foi aposentada na 0024: agora o operador entra no app de verdade.
 [functions.suporte]
-verify_jwt = false
-
-[functions.suporte-dados]
 verify_jwt = false
 
 # `suporte-chat` é o lado do LOJISTA: abre chamado, manda mensagem e autoriza o

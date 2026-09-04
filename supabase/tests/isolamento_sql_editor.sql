@@ -376,6 +376,49 @@ select set_config(
   '{"sub":"aaaa1111-1111-1111-1111-111111111111","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"proprietario"}}',
   true);
 
+-- ---------------------------------------------------------------------------
+-- 0024: acesso EDITÁVEL do suporte. O token de suporte não vale por si — ele
+-- só enxerga a loja enquanto houver linha válida em `app.suporte_ativo`.
+-- Aqui provamos as quatro coisas que sustentam isso: sem sessão não vê nada;
+-- com sessão vê e EDITA só a própria loja; revogado morre na hora; vencido não
+-- ressuscita. E que para o lojista comum nada disso mudou.
+-- ---------------------------------------------------------------------------
+reset role;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"gerente","suporte":true}}',
+  true);
+set local role authenticated;
+insert into _res(verifica,ok,detalhe) select 'suporte: SEM sessão não vê nada (0024)', (count(*)=0), 'linhas='||count(*) from public.veiculos;
+insert into _res(verifica,ok,detalhe) select 'suporte: não lê o interruptor app.suporte_ativo', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$select 1 from app.suporte_ativo$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte: não abre acesso para si mesmo', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$select public.suporte_acesso_abrir('55555555-5555-5555-5555-555555555555','11111111-1111-1111-1111-111111111111',gen_random_uuid(),now()+interval '2 hours')$$) r) t;
+
+reset role;
+select public.suporte_acesso_abrir('55555555-5555-5555-5555-555555555555','11111111-1111-1111-1111-111111111111','9a000000-0000-0000-0000-0000000000a1', now()+interval '2 hours');
+set local role authenticated;
+insert into _res(verifica,ok,detalhe) select 'suporte: COM sessão vê a loja A', (count(*)>0), 'linhas='||count(*) from public.veiculos where loja_id='11111111-1111-1111-1111-111111111111';
+insert into _res(verifica,ok,detalhe) select 'suporte: COM sessão NÃO vê a loja B', (count(*)=0), 'linhas='||count(*) from public.veiculos where loja_id='22222222-2222-2222-2222-222222222222';
+insert into _res(verifica,ok,detalhe) select 'suporte: EDITA na loja A (é para editar mesmo)', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$insert into public.veiculos (loja_id,marca,modelo) values ('11111111-1111-1111-1111-111111111111','Ford','Ka')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte: NÃO edita na loja B', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.veiculos (loja_id,marca,modelo) values ('22222222-2222-2222-2222-222222222222','Ford','Ka')$$) r) t;
+
+reset role;
+select public.suporte_acesso_fechar('9a000000-0000-0000-0000-0000000000a1');
+set local role authenticated;
+insert into _res(verifica,ok,detalhe) select 'suporte: revogado, o acesso morre na hora', (count(*)=0), 'linhas='||count(*) from public.veiculos;
+
+reset role;
+select public.suporte_acesso_abrir('55555555-5555-5555-5555-555555555555','11111111-1111-1111-1111-111111111111','9a000000-0000-0000-0000-0000000000a2', now()-interval '1 minute');
+set local role authenticated;
+insert into _res(verifica,ok,detalhe) select 'suporte: sessão VENCIDA não dá acesso', (count(*)=0), 'linhas='||count(*) from public.veiculos;
+
+-- e o lojista comum não foi afetado por nada disso
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"aaaa1111-1111-1111-1111-111111111111","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"proprietario"}}',
+  true);
+insert into _res(verifica,ok,detalhe) select 'lojista comum: segue vendo a própria loja', (count(*)>0), 'linhas='||count(*) from public.veiculos where loja_id='11111111-1111-1111-1111-111111111111';
+insert into _res(verifica,ok,detalhe) select 'lojista comum: segue sem ver a loja B', (count(*)=0), 'linhas='||count(*) from public.veiculos where loja_id='22222222-2222-2222-2222-222222222222';
+
 -- volta a superuser para ler o coletor e imprimir o placar
 reset role;
 
