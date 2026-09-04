@@ -411,6 +411,30 @@ select public.suporte_acesso_abrir('55555555-5555-5555-5555-555555555555','11111
 set local role authenticated;
 insert into _res(verifica,ok,detalhe) select 'suporte: sessão VENCIDA não dá acesso', (count(*)=0), 'linhas='||count(*) from public.veiculos;
 
+-- 0025: chamado NÃO nasce com o painel liberado (nem pelo PostgREST direto)
+reset role;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"aaaa1111-1111-1111-1111-111111111111","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"vendedor"}}',
+  true);
+set local role authenticated;
+insert into _res(verifica,ok,detalhe) select 'suporte: chamado não nasce autorizado (0025)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_chamados (loja_id,mensagem,autoriza_acesso) values ('11111111-1111-1111-1111-111111111111','x',true)$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte: chamado sem autorização é aceito', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$insert into public.suporte_chamados (loja_id,mensagem) values ('11111111-1111-1111-1111-111111111111','duvida sem acesso')$$) r) t;
+
+-- 0025: revogar zera o consentimento (senão o operador reentra com um clique)
+reset role;
+insert into public.suporte_sessoes (id, chamado_id, loja_id, operador_id, operador_nome, expira_em)
+values ('51000000-0000-0000-0000-0000000000a9','50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','dddd4444-4444-4444-4444-444444444444','Op', now()+interval '2 hours');
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"aaaa1111-1111-1111-1111-111111111111","role":"authenticated","app_metadata":{"loja_id":"11111111-1111-1111-1111-111111111111","papel":"proprietario"}}',
+  true);
+set local role authenticated;
+insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: encerra a sessão nova', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.encerrar_suporte('51000000-0000-0000-0000-0000000000a9')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: zerou autoriza_acesso do chamado (0025)',
+  (autoriza_acesso = false), 'autoriza='||autoriza_acesso::text
+  from public.suporte_chamados where id='50000000-0000-0000-0000-0000000000a1';
+
 -- e o lojista comum não foi afetado por nada disso
 select set_config(
   'request.jwt.claims',

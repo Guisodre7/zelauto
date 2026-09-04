@@ -438,7 +438,11 @@ async function sairSuporte(expirou){
   const st=_sup; _sup=null;
   if(st&&st.timer) clearInterval(st.timer);
   const ov=document.getElementById('supMode'); if(ov) ov.remove();
-  if(st && !expirou){ try{ await chamarF('suporte',{acao:'encerrar',sessao_id:st.sessao}); }catch(_){} }
+  // Encerra SEMPRE, inclusive quando foi o prazo que acabou: pular isso deixava
+  // a sessão aberta no histórico para sempre. No banco o acesso já morreu pelo
+  // relógio; aqui é o registro que precisa contar a verdade.
+  if(st){ try{ await chamarF('suporte',{acao:'encerrar',sessao_id:st.sessao}); }catch(_){} }
+  if(expirou) alert('O prazo do acesso de suporte acabou. Peça uma nova autorização se precisar voltar.');
   atualizarSuporteBadge();
 }
 

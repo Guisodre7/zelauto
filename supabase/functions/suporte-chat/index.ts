@@ -109,10 +109,11 @@ Deno.serve(async (req) => {
   // Abre o chamado e já grava a primeira mensagem — a conversa começa cheia.
   if (acao === 'abrir') {
     if (!texto) return json({ error: 'escreva a sua dúvida' }, 400);
-    const autoriza = !!body?.autoriza;
-
+    // Um chamado NUNCA nasce com o painel liberado. Autorizar o acesso é ato
+    // separado e do proprietário (`autorizar`) — senão um vendedor entregaria a
+    // loja sem o dono saber. A 0025 trava o mesmo na política de insert.
     const { data: ch, error: cErr } = await admin.from('suporte_chamados')
-      .insert({ loja_id: loja, aberto_por: user.id, mensagem: texto, autoriza_acesso: autoriza })
+      .insert({ loja_id: loja, aberto_por: user.id, mensagem: texto, autoriza_acesso: false })
       .select('id, criado_em').single();
     if (cErr) return json({ error: 'não consegui abrir o chamado: ' + cErr.message }, 400);
 
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
       `Novo chamado — ${lojaNome}`,
       `<p><b>${esc(lojaNome)}</b> abriu um chamado de suporte.</p>
        <p style="background:#F5F5F3;border-radius:10px;padding:13px 15px"><i>${esc(texto)}</i></p>
-       <p>${autoriza ? '<b>O lojista autorizou o acesso ao painel.</b>' : 'Sem autorização de acesso — responda pela conversa.'}</p>`,
+       <p>Responda pela conversa. Se não resolver por ali, o dono libera o acesso ao painel.</p>`,
     );
     return json({ ok: true, chamado_id: ch.id });
   }

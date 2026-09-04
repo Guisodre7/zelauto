@@ -1080,12 +1080,18 @@ async function listarMensagensSuporte(chamadoId) {
   }));
 }
 
-/* Quantas respostas do suporte o lojista ainda não viu (badge do botão). */
+/* Quantas respostas do suporte o lojista ainda não viu (badge do botão).
+   Só do chamado em andamento: é o único que a conversa abre, e portanto o
+   único que `marcar_suporte_lido` consegue zerar. Contar a loja inteira deixava
+   o badge aceso para sempre por causa de chamado já resolvido. */
 async function naoLidasSuporte() {
   const { lojaId } = exigirContexto();
+  const aberto = await chamadoAbertoSuporte();
+  if (!aberto) return 0;
   const { count, error } = await sb.from('suporte_mensagens')
     .select('id', { count: 'exact', head: true })
-    .eq('loja_id', lojaId).eq('autor', 'operador').is('lida_lojista_em', null);
+    .eq('loja_id', lojaId).eq('chamado_id', aberto.id)
+    .eq('autor', 'operador').is('lida_lojista_em', null);
   if (error) return 0;
   return count || 0;
 }

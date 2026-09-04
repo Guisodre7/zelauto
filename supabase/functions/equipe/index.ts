@@ -58,6 +58,12 @@ Deno.serve(async (req) => {
   // client service_role: operações privilegiadas (bypassa RLS)
   const admin = createClient(URL, SERVICE);
 
+  // O token de suporte é gerente, mas não é a loja: não cria gente permanente
+  // aqui. Sem esta guarda, um usuário criado pelo suporte sobreviveria à
+  // revogação do acesso — um backdoor com cara de colega de trabalho.
+  if ((user.app_metadata as any)?.suporte === true)
+    return json({ error: 'o acesso de suporte não gerencia a equipe' }, 403);
+
   // perfil do chamador — fonte da verdade de loja e papel (nunca confiar no corpo)
   const { data: caller, error: cErr } = await admin
     .from('perfis').select('loja_id, papel, ativo').eq('id', user.id).single();

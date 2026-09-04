@@ -77,6 +77,14 @@ Deno.serve(async (req) => {
   async function fecharAcesso(sessaoId: string, usuario: string | null, loja: string) {
     await admin.rpc('suporte_acesso_fechar', { p_sessao: sessaoId });
     if (!usuario) return;
+    // O usuário de suporte é o MESMO em toda sessão daquela loja. Fechar uma
+    // sessão velha não pode trancar o usuário de uma sessão que está em curso —
+    // era assim que a credencial recém-entregue nascia morta.
+    const { count } = await admin.from('suporte_sessoes')
+      .select('id', { count: 'exact', head: true })
+      .eq('usuario_suporte', usuario).is('encerrada_em', null)
+      .gt('expira_em', new Date().toISOString()).neq('id', sessaoId);
+    if ((count || 0) > 0) return;
     await admin.from('perfis').update({ ativo: false }).eq('id', usuario).eq('loja_id', loja);
     await admin.auth.admin.updateUserById(usuario, { ban_duration: '876000h' });
   }
@@ -182,12 +190,11 @@ Deno.serve(async (req) => {
     const senha = senhaDescartavel();
     const meta = { loja_id: ch.loja_id, papel: 'gerente', suporte: true };
 
-    // Reaproveita o usuário de suporte que já atendeu esta loja, se houver.
-    const { data: ant } = await admin.from('suporte_sessoes')
-      .select('usuario_suporte').eq('loja_id', ch.loja_id).not('usuario_suporte', 'is', null)
-      .order('criada_em', { ascending: false }).limit(1).maybeSingle();
-
-    let uid = (ant?.usuario_suporte as string) || '';
+    // Endereço fixo do usuário de suporte desta loja (0025). Antes isso vinha do
+    // histórico de sessões — e um `entrar` que falhasse no meio deixava o
+    // usuário órfão, travando todo `entrar` seguinte por e-mail duplicado.
+    const { data: reg } = await admin.rpc('suporte_usuario_de', { p_loja: ch.loja_id });
+    let uid = (reg as string) || '';
     if (uid) {
       const { error } = await admin.auth.admin.updateUserById(uid, {
         password: senha, app_metadata: meta, ban_duration: 'none',
@@ -200,6 +207,7 @@ Deno.serve(async (req) => {
       });
       if (error || !novo?.user) return json({ error: 'não consegui preparar o acesso: ' + (error?.message || '') }, 400);
       uid = novo.user.id;
+      await admin.rpc('suporte_usuario_registrar', { p_loja: ch.loja_id, p_usuario: uid });
     }
 
     // O perfil na loja: é ele que dá nome à auditoria e libera as telas.

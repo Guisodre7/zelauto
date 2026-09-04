@@ -36,6 +36,12 @@ Deno.serve(async (req) => {
   if (uErr || !user) return json({ error: 'sessão inválida' }, 401);
 
   const admin = createClient(URL, SERVICE);
+  // O token de suporte é gerente, mas não é a loja: o papel 'gerente' liberaria
+  // custo de compra e margem aqui, apagando o `ver_custos:false` do perfil.
+  // Suporte enxerga a operação; o dinheiro da loja é do lojista.
+  if ((user.app_metadata as any)?.suporte === true)
+    return json({ error: 'o acesso de suporte não vê custo de compra nem margem' }, 403);
+
   const { data: caller, error: cErr } = await admin
     .from('perfis').select('loja_id, papel, ver_custos, ver_lucro, ativo').eq('id', user.id).single();
   if (cErr || !caller) return json({ error: 'perfil não encontrado' }, 403);
