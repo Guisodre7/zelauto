@@ -1117,6 +1117,14 @@ async function marcarSuporteLido(chamadoId) {
   return true;
 }
 
+/* A aba de suporte pergunta se o próprio acesso ainda vale (o operador ou o dono
+   pode ter encerrado). false → a aba se expulsa. */
+async function suporteMeuAcessoAtivo() {
+  const { data, error } = await sb.rpc('suporte_meu_acesso_ativo');
+  if (error) return false;
+  return data === true;
+}
+
 /* Tempo real (Supabase Realtime): empurra para o app, na hora, mudanças nas
    sessões (o banner some quando o suporte encerra) e novas mensagens do suporte
    (a conversa chega sem F5). O Realtime respeita a RLS: cada loja só recebe o
@@ -1207,6 +1215,7 @@ window.Dados = {
   abrirChamadoSuporte, listarSuporteSessoes, encerrarSuporte,
   enviarMensagemSuporte, autorizarAcessoSuporte, chamadoAbertoSuporte,
   listarMensagensSuporte, naoLidasSuporte, marcarSuporteLido, assinarSuporte,
+  suporteMeuAcessoAtivo,
   // acesso cru ao client, se precisar
   _sb: sb,
 };

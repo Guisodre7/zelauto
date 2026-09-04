@@ -64,6 +64,11 @@
     background:var(--sf2);color:var(--tx);padding:11px 12px;font:inherit;font-size:14px;line-height:1.4;outline:none}
   #convTxt:focus{border-color:var(--az)}
   #convTxt::placeholder{color:var(--tx2)}
+  .sess-ativas{margin-bottom:14px}
+  .sess-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    background:rgba(247,154,27,.12);border:1px solid rgba(247,154,27,.4);border-radius:11px;
+    padding:11px 14px;margin-bottom:8px;font-size:13.5px}
+  .sess-row span{color:var(--az)}
 </style>
 </head>
 <body>
@@ -344,9 +349,20 @@ async function abrirSuporte(){
   catch(e){ const b=$('#supList'); if(b) b.innerHTML='<div class="erro" style="display:block">'+esc(e.message)+'</div>'; }
 }
 function renderChamados(r){
-  const ch=r.chamados||[]; const nl=r.nao_lidas||{}; const box=$('#supList'); if(!box) return;
-  if(!ch.length){ box.innerHTML='<div class="empty">Nenhum chamado aberto.</div>'; return; }
-  box.innerHTML = ch.map(c=>{
+  const ch=r.chamados||[]; const nl=r.nao_lidas||{}; const sess=r.sessoes_ativas||[]; const box=$('#supList'); if(!box) return;
+  // Sessões de acesso ativas AGORA — qualquer operador pode cortar qualquer uma.
+  const cabecalhoSessoes = sess.length ? `<div class="sess-ativas">
+    ${sess.map(s=>{
+      const loja=(s.lojas&&s.lojas.nome)||'—';
+      const ate=new Date(s.expira_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="sess-row">
+        <span>● <b>${esc(loja)}</b> — acesso ao painel ativo até ${ate}</span>
+        <button class="btn g" onclick="encerrarSessao('${s.id}')">Encerrar acesso</button>
+      </div>`;
+    }).join('')}
+  </div>` : '';
+  if(!ch.length){ box.innerHTML = cabecalhoSessoes + '<div class="empty">Nenhum chamado aberto.</div>'; return; }
+  box.innerHTML = cabecalhoSessoes + ch.map(c=>{
     const loja=(c.lojas&&c.lojas.nome)||'—';
     const lojaJs=esc(loja).replace(/'/g,"&#39;");
     const n=nl[c.id]||0;
@@ -372,6 +388,11 @@ function renderChamados(r){
   }).join('');
 }
 async function resolverChamado(id){ try{ await chamarF('suporte',{acao:'resolver',chamado_id:id}); abrirSuporte(); atualizarSuporteBadge(); }catch(e){ alert(e.message); } }
+async function encerrarSessao(id){
+  if(!confirm('Encerrar o acesso ao painel desta loja agora? O suporte perde o acesso na hora.')) return;
+  try{ await chamarF('suporte',{acao:'encerrar',sessao_id:id}); atualizarSuporteBadge(); }
+  catch(e){ alert(e.message); }
+}
 
 /* ---- conversa de um chamado ---- */
 let _conv=null, _convTimer=null;
@@ -500,6 +521,7 @@ window.entrarSuporte = entrarSuporte;
 window.resolverChamado = resolverChamado;
 window.abrirConversa = abrirConversa;
 window.responderChamado = responderChamado;
+window.encerrarSessao = encerrarSessao;
 window.sairSuporte = sairSuporte;
 window.testarEmail = testarEmail;
 // checa novos chamados a cada 60s enquanto o console está aberto

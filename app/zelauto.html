@@ -5711,13 +5711,33 @@ atualizarTags();
       + esc(info.n || '') + '. Tudo o que editar fica na auditoria como Suporte ZelAuto.</span>'
       + '<span id="supModoRelogio" style="font-variant-numeric:tabular-nums;opacity:.9"></span>';
     document.body.appendChild(barra);
-    if(!info.x) return;
-    const fim = new Date(info.x).getTime();
+
+    // Expulsa a aba quando o acesso acaba — pelo prazo OU porque alguém encerrou
+    // (o operador no Console, ou o dono no banner). Sem isto a aba seguia contando
+    // e mostrando dados velhos, mesmo já sem poder de escrita no servidor.
+    let cortado = false;
+    const cair = (msg) => {
+      if(cortado) return; cortado = true;
+      try{ if(window.Dados) Dados.sair(); }catch(_){}
+      alert(msg); location.reload();
+    };
+    const conferirAcesso = async () => {
+      let ok = true;
+      try{ ok = await Dados.suporteMeuAcessoAtivo(); }catch(_){ ok = true; }  // erro de rede não expulsa
+      if(!ok) cair('O acesso de suporte foi encerrado.');
+    };
+    // Tempo real: qualquer mudança na sessão desta loja dispara a conferência.
+    try{ Dados.assinarSuporte(conferirAcesso, ()=>{}); }catch(_){}
+    // Rede de segurança: confere a cada 8s mesmo se o Realtime não chegar.
+    const guarda = setInterval(()=>{ if(cortado){ clearInterval(guarda); return; } conferirAcesso(); }, 8000);
+
+    const fim = info.x ? new Date(info.x).getTime() : 0;
     const tick = () => {
+      if(!fim) return;
       const r = Math.max(0, Math.floor((fim - Date.now()) / 1000));
       const el = document.getElementById('supModoRelogio');
       if(el) el.textContent = 'expira em ' + String(Math.floor(r/60)).padStart(2,'0') + ':' + String(r%60).padStart(2,'0');
-      if(r <= 0) location.reload();                 // acabou o prazo: cai fora
+      if(r <= 0) cair('O prazo do acesso de suporte acabou.');
     };
     tick(); setInterval(tick, 1000);
   }

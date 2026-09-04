@@ -239,12 +239,16 @@ Deno.serve(async (req) => {
   }
 
   // ----------------------------------------------------------------- ENCERRAR
+  // QUALQUER operador ZelAuto encerra QUALQUER sessão — não só quem abriu. Antes
+  // amarrava em operador_id = op.id, e uma sessão aberta pelo Pedro não fechava
+  // quando o Guisodre clicava (0 linhas, banner do lojista preso). São todos
+  // staff; a auditoria já registra quem de fato encerrou.
   if (acao === 'encerrar') {
     const sessaoId = String(body.sessao_id || '');
     if (!sessaoId) return json({ error: 'informe a sessão' }, 400);
     const { data: s } = await admin.from('suporte_sessoes')
       .update({ encerrada_em: new Date().toISOString(), motivo_fim: 'operador' })
-      .eq('id', sessaoId).eq('operador_id', op.id).is('encerrada_em', null)
+      .eq('id', sessaoId).is('encerrada_em', null)
       .select('id, loja_id, usuario_suporte').maybeSingle();
     if (s) {
       await fecharAcesso(sessaoId, (s.usuario_suporte as string) || null, s.loja_id as string);
