@@ -1305,7 +1305,7 @@ async function encerrarSuporteUI(id){
   await verificarSuporteAtivo();
 }
 /* Banner fixo quando há uma sessão de suporte ativa (só o dono vê/revoga). */
-let _supTimer=null;
+let _supTimer=null, _supRt=null, _supTinhaAtiva=false;
 async function verificarSuporteAtivo(){
   if(!USER || USER.papelChave!=='proprietario'){ const b=document.getElementById('supBar'); if(b) b.remove(); return; }
   let sess=[]; try{ sess=await Dados.listarSuporteSessoes(); }catch(_){ return; }
@@ -1317,11 +1317,27 @@ async function verificarSuporteAtivo(){
     bar.innerHTML=`<span>Suporte ativo — ${esc(ativa.operador)} está no seu painel</span>`+
       `<button style="background:rgba(0,0,0,.22);border-radius:8px;padding:5px 12px;font-weight:700;color:#17130A" onclick="encerrarSuporteUI('${ativa.id}')">Encerrar</button>`;
   } else if(bar){ bar.remove(); }
+  // Borda de descida: estava ativo e agora não está → avisa o dono na hora.
+  if(_supTinhaAtiva && !ativa && typeof toast==='function') toast('O acesso de suporte foi encerrado.');
+  _supTinhaAtiva = !!ativa;
 }
 function iniciarMonitorSuporte(){
   if(_supTimer) clearInterval(_supTimer);
   verificarSuporteAtivo();
+  // Fallback lento; o tempo real abaixo é quem faz o banner sumir na hora.
   _supTimer=setInterval(verificarSuporteAtivo, 60000);
+  try{
+    if(_supRt){ _supRt(); _supRt=null; }
+    _supRt = Dados.assinarSuporte(
+      ()=>{ verificarSuporteAtivo(); },
+      (m)=>{
+        if(m && m.autor==='operador'){
+          supAtualizarBadge();
+          if(document.getElementById('supPanel')?.classList.contains('on')) supCarregarChat();
+        }
+      }
+    );
+  }catch(_){}
 }
 
 /* ---------------- BOTÃO FLUTUANTE DE SUPORTE ----------------
@@ -1365,7 +1381,11 @@ function montarSuporteFab(){
       .supq .a{padding:0 14px 12px;font-size:13.5px;color:var(--tx2);line-height:1.55;display:none}
       .supq.on .a{display:block}
       #supPanel .f{padding:12px 14px;border-top:1px solid var(--ln);flex:none}
-      #supPanel .f textarea{width:100%;resize:none;min-height:44px;max-height:110px}
+      #supPanel .f textarea{width:100%;box-sizing:border-box;resize:none;min-height:44px;max-height:110px;
+        background:var(--sf2);color:var(--tx);border:1px solid var(--ln2);border-radius:10px;
+        padding:10px 12px;font:inherit;font-size:14px;line-height:1.4;outline:none}
+      #supPanel .f textarea:focus{border-color:var(--az-sol)}
+      #supPanel .f textarea::placeholder{color:var(--tx3)}
       .supm{max-width:82%;padding:9px 12px;border-radius:13px;font-size:13.5px;line-height:1.5;margin-bottom:9px;white-space:pre-wrap;word-break:break-word}
       .supm.eu{margin-left:auto;background:var(--az-sol);color:var(--sobre-az);border-bottom-right-radius:5px}
       .supm.eles{background:var(--sf2);color:var(--tx);border:1px solid var(--ln);border-bottom-left-radius:5px}
@@ -1420,7 +1440,8 @@ async function supVerChat(){
   document.getElementById('supSub').textContent='Respondemos em horário comercial';
   document.getElementById('supVoltar').style.display='';
   c.innerHTML='<div class="hint">Carregando…</div>';
-  f.innerHTML=`<textarea id="supTxt" rows="1" placeholder="Escreva sua mensagem…"></textarea>
+  f.innerHTML=`<textarea id="supTxt" rows="1" placeholder="Escreva sua mensagem…"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();supEnviar();}"></textarea>
     <button class="btn pri blk" style="margin-top:8px" id="supSend" onclick="supEnviar()">Enviar</button>
     <div id="supAut" style="margin-top:9px"></div>`;
   await supCarregarChat();

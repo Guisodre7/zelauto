@@ -21,7 +21,21 @@ if (!cfg || !cfg.url || !cfg.anonKey) {
   throw new Error('dados.js: falta dados.config.js com window.ZELAUTO_CONFIG {url, anonKey}.');
 }
 
-const sb = createClient(cfg.url, cfg.anonKey);
+/* Isolamento da sessão por aba/uso — CRÍTICO num mesmo navegador.
+   O supabase-js grava a sessão em localStorage, com uma chave por origem. Como
+   o app do lojista, o Console do operador e o acesso de suporte moram todos na
+   MESMA origem, sem isto eles brigam pela mesma gaveta: entrar num sobrescreve
+   o outro, e o app passa a mostrar "a conta errada".
+
+   - App do lojista → chave própria em localStorage (persiste entre sessões).
+   - Modo suporte (entrou pelo #sup= do Console) → chave própria em
+     sessionStorage: vive só naquela aba, não encosta na sessão do lojista das
+     outras abas, e morre sozinha quando a aba fecha. */
+const _emSuporte = (typeof location !== 'undefined' && (location.hash || '').indexOf('#sup=') === 0);
+const _authOpts = _emSuporte
+  ? { storage: window.sessionStorage, storageKey: 'sb-zelauto-suporte', persistSession: true, autoRefreshToken: true }
+  : { storageKey: 'sb-zelauto-app' };
+const sb = createClient(cfg.url, cfg.anonKey, { auth: _authOpts });
 
 /* Contexto da sessão — preenchido no login/carregarPerfil.
    loja_id NÃO é enviado nos inserts: a RLS (guarda_loja) exige loja_id =
@@ -1103,6 +1117,23 @@ async function marcarSuporteLido(chamadoId) {
   return true;
 }
 
+/* Tempo real (Supabase Realtime): empurra para o app, na hora, mudanças nas
+   sessões (o banner some quando o suporte encerra) e novas mensagens do suporte
+   (a conversa chega sem F5). O Realtime respeita a RLS: cada loja só recebe o
+   que é dela. Devolve uma função para cancelar a inscrição. */
+function assinarSuporte(onSessao, onMensagem) {
+  const { lojaId } = exigirContexto();
+  const canal = sb.channel('suporte:' + lojaId)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'suporte_sessoes', filter: 'loja_id=eq.' + lojaId },
+      () => { try { onSessao && onSessao(); } catch (_) {} })
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'suporte_mensagens', filter: 'loja_id=eq.' + lojaId },
+      (p) => { try { onMensagem && onMensagem(p.new || {}); } catch (_) {} })
+    .subscribe();
+  return () => { try { sb.removeChannel(canal); } catch (_) {} };
+}
+
 /* Histórico de acessos de suporte da loja + qual está ativa agora. */
 async function listarSuporteSessoes() {
   const { lojaId } = exigirContexto();
@@ -1175,7 +1206,7 @@ window.Dados = {
   // suporte assistido (consentido, com prazo, revogável)
   abrirChamadoSuporte, listarSuporteSessoes, encerrarSuporte,
   enviarMensagemSuporte, autorizarAcessoSuporte, chamadoAbertoSuporte,
-  listarMensagensSuporte, naoLidasSuporte, marcarSuporteLido,
+  listarMensagensSuporte, naoLidasSuporte, marcarSuporteLido, assinarSuporte,
   // acesso cru ao client, se precisar
   _sb: sb,
 };

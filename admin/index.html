@@ -6,7 +6,7 @@
 <title>ZelAuto · Console do Operador</title>
 <link rel="icon" type="image/svg+xml" href="../assets/zelauto-logo.svg">
 <style>
-  :root{--bg:#0A0A0B;--sf:#141416;--sf2:#1E1E21;--ln:#2A2A2D;--tx:#F4F4F3;--tx2:#9A9A94;--az:#F79A1B;--sobre-az:#17130A;--ok:#31A97C;--bad:#E0574B}
+  :root{--bg:#0A0A0B;--sf:#141416;--sf2:#1E1E21;--ln:#2A2A2D;--ln2:#3A3A3F;--tx:#F4F4F3;--tx2:#9A9A94;--az:#F79A1B;--sobre-az:#17130A;--ok:#31A97C;--bad:#E0574B}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
   a{color:var(--az)}
@@ -45,6 +45,25 @@
   #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60}
   .hint{font-size:12px;color:var(--tx2);margin-top:6px}
   .empty{padding:26px;text-align:center;color:var(--tx2)}
+  /* Suporte — caixa de chamados */
+  .btn.link{background:none;border:0;color:var(--tx2);padding:9px 6px;font-weight:600}
+  .btn.link:hover{color:var(--tx)}
+  .chamado{background:var(--sf2);border:1px solid var(--ln);border-radius:12px;padding:14px 15px;margin-top:12px}
+  .chamado-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+  .chamado-loja{font-size:15px;font-weight:700}
+  .chamado-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .chamado-hora{font-size:12px;color:var(--tx2)}
+  .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.02em}
+  .tag.at{background:rgba(247,154,27,.16);color:var(--az)}
+  .tag.nova{background:#E5484D;color:#fff}
+  .chamado-msg{font-size:14px;color:var(--tx);line-height:1.5;margin-bottom:13px;white-space:pre-wrap;word-break:break-word}
+  .chamado-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chamado-nota{font-size:12px;color:var(--tx2);font-style:italic}
+  #convMsgs{max-height:46vh;overflow:auto;border:1px solid var(--ln);border-radius:12px;padding:14px;background:var(--bg)}
+  #convTxt{width:100%;box-sizing:border-box;resize:none;border-radius:10px;border:1px solid var(--ln2);
+    background:var(--sf2);color:var(--tx);padding:11px 12px;font:inherit;font-size:14px;line-height:1.4;outline:none}
+  #convTxt:focus{border-color:var(--az)}
+  #convTxt::placeholder{color:var(--tx2)}
 </style>
 </head>
 <body>
@@ -99,7 +118,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const cfg = window.ZELAUTO_CONFIG;
 const APP_URL = (cfg && cfg.appUrl) || '../app/zelauto.html';   // link do painel do lojista
 if(!cfg || !cfg.url || !cfg.anonKey){ document.getElementById('lErro').style.display='block'; document.getElementById('lErro').textContent='Falta ../app/dados.config.js com url e anonKey.'; }
-const sb = cfg && cfg.url ? createClient(cfg.url, cfg.anonKey) : null;
+// Chave de sessão própria do Console (localStorage). O app do lojista e o
+// acesso de suporte usam chaves diferentes, na mesma origem — sem isto, entrar
+// num deles sobrescrevia a sessão do outro e o painel mostrava a conta errada.
+const sb = cfg && cfg.url ? createClient(cfg.url, cfg.anonKey, {
+  auth: { storageKey: 'sb-zelauto-console' },
+}) : null;
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -291,12 +315,10 @@ $('#btnSenha').onclick = ()=>{
 
 /* ---------------- SUPORTE (caixa de chamados + modo suporte) ---------------- */
 async function atualizarSuporteBadge(){
-  let n=0, pend=0;
-  try{
-    const r=await chamarF('suporte',{acao:'listar'});
-    n=(r.chamados||[]).length;
-    pend=Object.values(r.nao_lidas||{}).reduce((a,b)=>a+b,0);
-  }catch(_){ return; }
+  let r=null;
+  try{ r=await chamarF('suporte',{acao:'listar'}); }catch(_){ return; }
+  const n=(r.chamados||[]).length;
+  const pend=Object.values(r.nao_lidas||{}).reduce((a,b)=>a+b,0);
   const b=$('#btnSuporte'); if(b){ b.textContent = n?('Suporte ('+n+')'):'Suporte'; b.className = n?'btn':'btn g'; }
   const a=$('#supAlerta'); if(a){
     a.innerHTML = n
@@ -306,6 +328,9 @@ async function atualizarSuporteBadge(){
          </div>`
       : '';
   }
+  // Se a caixa de chamados está aberta, atualiza a lista com os MESMOS dados —
+  // um chamado novo aparece sozinho, sem F5 (o poll curto abaixo dispara isto).
+  if(document.getElementById('supList')) renderChamados(r);
 }
 $('#btnSuporte').onclick = abrirSuporte;
 async function abrirSuporte(){
@@ -323,17 +348,26 @@ function renderChamados(r){
   if(!ch.length){ box.innerHTML='<div class="empty">Nenhum chamado aberto.</div>'; return; }
   box.innerHTML = ch.map(c=>{
     const loja=(c.lojas&&c.lojas.nome)||'—';
+    const lojaJs=esc(loja).replace(/'/g,"&#39;");
     const n=nl[c.id]||0;
-    return `<div class="okbox" style="margin-top:10px">
-      <div class="l">${esc(loja)} · ${new Date(c.criado_em).toLocaleString('pt-BR')} ${c.status==='em_atendimento'?'· <b>em atendimento</b>':''}
-        ${n?`<span style="background:#E5484D;color:#fff;border-radius:9px;padding:1px 7px;font-weight:800;margin-left:6px">${n} sem resposta</span>`:''}</div>
-      <div style="margin:7px 0;font-size:14px">${esc(c.mensagem)}</div>
-      <button class="btn" onclick="abrirConversa('${c.id}','${esc(loja).replace(/'/g,"&#39;")}')">Conversar</button>
-      ${c.autoriza_acesso
-        ? `<button class="btn g" style="margin-left:8px" onclick="entrarSuporte('${c.id}')">Entrar no painel (2h, edição)</button>`
-        : ''}
-      <button class="btn g" style="margin-left:8px" onclick="resolverChamado('${c.id}')">Resolver</button>
-      ${c.autoriza_acesso?'':`<div class="hint">Sem autorização de acesso ainda — resolva pela conversa, ou peça ao dono para liberar o painel no botão de suporte dele.</div>`}
+    const emAt=c.status==='em_atendimento';
+    return `<div class="chamado">
+      <div class="chamado-h">
+        <div class="chamado-loja">${esc(loja)}</div>
+        <div class="chamado-meta">
+          ${emAt?'<span class="tag at">em atendimento</span>':''}
+          ${n?`<span class="tag nova">${n} nova${n>1?'s':''}</span>`:''}
+          <span class="chamado-hora">${new Date(c.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+      </div>
+      <div class="chamado-msg">${esc(c.mensagem)}</div>
+      <div class="chamado-acts">
+        <button class="btn" onclick="abrirConversa('${c.id}','${lojaJs}')">💬 Conversar</button>
+        ${c.autoriza_acesso
+          ? `<button class="btn g" onclick="entrarSuporte('${c.id}')">Entrar no painel</button>`
+          : `<span class="chamado-nota">acesso ao painel não liberado</span>`}
+        <button class="btn link" onclick="resolverChamado('${c.id}')">Resolver</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -345,8 +379,9 @@ async function abrirConversa(id, loja){
   clearInterval(_convTimer);
   _conv={ id, loja };
   abrir(`<h2>${esc(loja)}</h2><p class="sub">Conversa do chamado. O lojista vê no botão de suporte dele.</p>
-    <div id="convMsgs" style="max-height:46vh;overflow:auto;border:1px solid var(--ln);border-radius:12px;padding:14px;background:var(--bg)">Carregando…</div>
-    <div style="margin-top:12px"><textarea id="convTxt" rows="3" placeholder="Escreva a resposta…" style="width:100%"></textarea></div>
+    <div id="convMsgs">Carregando…</div>
+    <div style="margin-top:12px"><textarea id="convTxt" rows="3" placeholder="Escreva a resposta…  (Enter envia, Shift+Enter quebra linha)"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();responderChamado();}"></textarea></div>
     <div class="foot">
       <button class="btn g" onclick="fecharOv()">Fechar</button>
       <button class="btn" id="convSend" onclick="responderChamado()">Enviar resposta</button>
@@ -356,7 +391,7 @@ async function abrirConversa(id, loja){
   _convTimer=setInterval(()=>{
     if(document.getElementById('convMsgs')) carregarConversa();
     else { clearInterval(_convTimer); _convTimer=null; }
-  }, 15000);
+  }, 5000);
 }
 async function carregarConversa(){
   const box=document.getElementById('convMsgs'); if(!box||!_conv) return;
@@ -468,7 +503,7 @@ window.responderChamado = responderChamado;
 window.sairSuporte = sairSuporte;
 window.testarEmail = testarEmail;
 // checa novos chamados a cada 60s enquanto o console está aberto
-setInterval(()=>{ const app=$('#app'); if(app && app.style.display!=='none') atualizarSuporteBadge(); }, 60000);
+setInterval(()=>{ const app=$('#app'); if(app && app.style.display!='none') atualizarSuporteBadge(); }, 5000);
 
 /* Importar (CSV genérico) */
 let _lojasCache=[];

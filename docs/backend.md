@@ -1329,6 +1329,19 @@ chamado é aberto, quando chega mensagem e quando o acesso é autorizado. Segred
 `SUPORTE_EMAIL_FROM` e `SUPORTE_CONSOLE_URL`. O botão "Testar e-mail" no Console
 confere isso pelo caminho de produção.
 
+**Tempo real (0026).** `suporte_mensagens` e `suporte_sessoes` estão na publicação
+`supabase_realtime`. O app do lojista assina as duas (filtro `loja_id`, respeitando
+a RLS): a mensagem do suporte chega sem F5 e o banner de acesso some no instante em
+que o operador encerra. O Console não usa Realtime (o operador lê pela Edge com
+service_role, não tem perfil de loja) — lá o tempo real é polling curto (5s) que
+também redesenha a caixa de chamados aberta.
+
+**Sessão isolada por origem.** O app do lojista, o Console e o acesso de suporte
+moram na mesma origem. Cada um usa uma `storageKey` própria do Supabase Auth
+(`sb-zelauto-app`, `sb-zelauto-console`, `sb-zelauto-suporte`); o acesso de suporte
+ainda usa `sessionStorage` (vive só na aba e morre quando ela fecha). Sem isto,
+entrar num deles sobrescrevia a sessão do outro e o painel mostrava a conta errada.
+
 ---
 
 ## 14. Custo esperado
