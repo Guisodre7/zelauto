@@ -1,5 +1,5 @@
 /* =============================================================================
- * ZelAuto — dados.js  (camada de dados / item 6 da seção 15)
+ * Zulode — dados.js  (camada de dados / item 6 da seção 15)
  *
  * Só a CAMADA DE DADOS. Não toca em nenhuma tela. Expõe window.Dados com uma
  * função por operação, traduzindo entre o formato do protótipo (o objeto DB em
@@ -1152,7 +1152,7 @@ async function listarSuporteSessoes() {
   const agora = Date.now();
   return (data || []).map(s => ({
     id: s.id,
-    operador: s.operador_nome || 'Suporte ZelAuto',
+    operador: s.operador_nome || 'Suporte Zulode',
     criadaEm: s.criada_em,
     expiraEm: s.expira_em,
     encerradaEm: s.encerrada_em,

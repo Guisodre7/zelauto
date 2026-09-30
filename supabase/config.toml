@@ -1,5 +1,5 @@
 # =============================================================================
-# ZelAuto — config.toml (configuração local do Supabase CLI)
+# Zulode — config.toml (configuração local do Supabase CLI)
 #
 # Só o necessário para as Edge Functions. O restante usa os defaults do CLI.
 # =============================================================================
@@ -30,7 +30,7 @@ verify_jwt = false
 verify_jwt = false
 
 # A função `admin` é o control plane: auth por dentro (getUser + membership em
-# operadores). Só operador ZelAuto age aqui.
+# operadores). Só operador Zulode age aqui.
 [functions.admin]
 verify_jwt = false
 

@@ -1,8 +1,8 @@
 // =============================================================================
-// ZelAuto — Edge Function `suporte-chat` (lado do LOJISTA)
+// Zulode — Edge Function `suporte-chat` (lado do LOJISTA)
 //
 // A escrita do lojista no suporte passa toda por aqui, por três motivos:
-//   1. o nome do autor é carimbado no servidor (ninguém forja "Suporte ZelAuto"
+//   1. o nome do autor é carimbado no servidor (ninguém forja "Suporte Zulode"
 //      dentro da própria loja);
 //   2. autorizar o acesso ao painel é decisão do PROPRIETÁRIO, e isso precisa
 //      ser conferido fora do navegador;
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         const e = data?.user?.email; if (e) emails.push(e);
       }
       if (!emails.length) return;
-      const from = Deno.env.get('SUPORTE_EMAIL_FROM') || 'ZelAuto Suporte <onboarding@resend.dev>';
+      const from = Deno.env.get('SUPORTE_EMAIL_FROM') || 'Zulode Suporte <onboarding@resend.dev>';
       const console_ = Deno.env.get('SUPORTE_CONSOLE_URL') || '';
       const r = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
           html: `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#141413">
             ${corpo}
             ${console_ ? `<p style="margin-top:22px"><a href="${console_}" style="background:#F79A1B;color:#17130A;text-decoration:none;font-weight:700;padding:11px 18px;border-radius:10px;display:inline-block">Abrir o Console</a></p>` : ''}
-            <p style="color:#6F6F68;font-size:13px;margin-top:24px">ZelAuto · aviso automático do suporte</p>
+            <p style="color:#6F6F68;font-size:13px;margin-top:24px">Zulode · aviso automático do suporte</p>
           </div>`,
         }),
       });

@@ -1,7 +1,7 @@
 // =============================================================================
-// ZelAuto — Edge Function `admin` (Console do Operador, seção 5.8)
+// Zulode — Edge Function `admin` (Console do Operador, seção 5.8)
 //
-// CONTROL PLANE. Só um operador ZelAuto (linha em public.operadores) age aqui.
+// CONTROL PLANE. Só um operador Zulode (linha em public.operadores) age aqui.
 // Verifica sessão + membership em operadores (service_role) antes de tudo. As
 // ações cruzam lojas / provisionam — por isso ficam SÓ aqui, nunca no cliente.
 //
@@ -9,8 +9,8 @@
 //   criar_loja     -> cria a loja + login do dono (senha provisória)
 //   metricas       -> KPIs do negócio (assinaturas) + por loja (cross-loja)
 //   importar       -> insere estoque/clientes já mapeados numa loja
-//   criar_operador -> cria/promove um STAFF ZelAuto com acesso ao Console
-//   resetar_senha  -> redefine a senha de qualquer conta ZelAuto (por e-mail)
+//   criar_operador -> cria/promove um STAFF Zulode com acesso ao Console
+//   resetar_senha  -> redefine a senha de qualquer conta Zulode (por e-mail)
 //
 // Deploy:  supabase functions deploy admin
 // =============================================================================
@@ -64,9 +64,9 @@ Deno.serve(async (req) => {
   if (uErr || !user) return json({ error: 'sessão inválida' }, 401);
 
   const admin = createClient(URL, SERVICE);
-  // GATE: o chamador precisa ser operador ZelAuto.
+  // GATE: o chamador precisa ser operador Zulode.
   const { data: op } = await admin.from('operadores').select('id, nome').eq('id', user.id).maybeSingle();
-  if (!op) return json({ error: 'acesso restrito ao operador ZelAuto' }, 403);
+  if (!op) return json({ error: 'acesso restrito ao operador Zulode' }, 403);
 
   const log = (acao: string, loja_id: string | null, detalhe: unknown) =>
     admin.from('operador_log').insert({ operador_id: op.id, acao, loja_id, detalhe: detalhe || {} });
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     }
     const soma = (k: 'veiculos' | 'clientes' | 'vendas') => linhas.reduce((s, x) => s + (x as any)[k], 0);
 
-    // ---- Saúde do NEGÓCIO ZelAuto (assinaturas): MRR, status, vencendo ----
+    // ---- Saúde do NEGÓCIO Zulode (assinaturas): MRR, status, vencendo ----
     const iso = (d: Date) => d.toISOString().slice(0, 10);
     const hoje = iso(new Date());
     const tres = iso(new Date(Date.now() + 3 * 864e5));
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
   }
 
   // -------------------------------------------------------------- CRIAR OPERADOR
-  // Cria (ou promove) um usuário STAFF ZelAuto com acesso ao Console. Qualquer
+  // Cria (ou promove) um usuário STAFF Zulode com acesso ao Console. Qualquer
   // operador pode criar outro — os operadores são pares (mexem em tudo).
   if (acao === 'criar_operador') {
     const nome = String(body.nome || '').trim();
@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
   }
 
   // ---------------------------------------------------------------- RESETAR SENHA
-  // Redefine a senha de QUALQUER conta ZelAuto (operador ou usuário de loja), por
+  // Redefine a senha de QUALQUER conta Zulode (operador ou usuário de loja), por
   // e-mail. Toda redefinição fica no operador_log. É recuperação de acesso — para
   // ENTRAR no painel do lojista existe o fluxo de suporte consentido, não isto.
   if (acao === 'resetar_senha') {

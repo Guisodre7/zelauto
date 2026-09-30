@@ -1,6 +1,6 @@
 # assets/
 
-Marca da ZelAuto usada pelo console (`admin/`), pela landing (`site/`), pelo app
+Marca da Zulode usada pelo console (`admin/`), pela landing (`site/`), pelo app
 e pelo favicon.
 
 Paleta da marca: **preto `#000`/`#0A0A0B`**, **branco `#FFFFFF`** e o
@@ -10,7 +10,7 @@ Paleta da marca: **preto `#000`/`#0A0A0B`**, **branco `#FFFFFF`** e o
   sobre quadrado preto arredondado. Serve de **favicon** e de logo em qualquer
   fundo (o quadrado preto garante contraste até sobre fundo claro).
 - `zelauto-anel.svg` — só o anel, **sem fundo** (transparente). Usado como o "o"
-  do wordmark `zelaut●` nos cards de login (fundos escuros, onde a metade branca
+  do wordmark `zul●de` nos cards de login (fundos escuros, onde a metade branca
   aparece). Não use sobre fundo claro — a metade branca some.
 
 **Para usar a arte exata (PNG):** salve o arquivo como `zelauto-logo.png` nesta

@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `vender` (seção 5.6 de docs/backend.md)
+// Zulode — Edge Function `vender` (seção 5.6 de docs/backend.md)
 //
 // Grava a venda no servidor, congelando o CUSTO real do veículo (compra +
 // preparação) no momento da venda. Necessário porque o custo foi tirado do

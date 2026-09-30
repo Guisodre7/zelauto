@@ -1,12 +1,12 @@
 // =============================================================================
-// ZelAuto — Edge Function `suporte` (Console do Operador · Fase 1)
+// Zulode — Edge Function `suporte` (Console do Operador · Fase 1)
 //
-// CONTROL PLANE de suporte. Só operador ZelAuto age. Abre/fecha sessões de
+// CONTROL PLANE de suporte. Só operador Zulode age. Abre/fecha sessões de
 // acesso ao painel do lojista — SEMPRE com consentimento (autoriza_acesso),
 // com prazo (padrão 2h), e tudo registrado em operador_log.
 //
 // Desde a 0024 o acesso é EDITÁVEL: `entrar` prepara um usuário de verdade
-// daquela loja ("Suporte ZelAuto", papel gerente) e devolve a credencial de uma
+// daquela loja ("Suporte Zulode", papel gerente) e devolve a credencial de uma
 // vez só, para o operador abrir o app real. Quem segura isso é a 0024: o token
 // de suporte só enxerga a loja enquanto houver linha em `app.suporte_ativo`, e
 // `encerrar` apaga essa linha — o corte é imediato, sem esperar token expirar.
@@ -14,7 +14,7 @@
 // Ações:
 //   listar    -> chamados abertos (com a loja) + sessões ativas + não lidas
 //   mensagens -> a conversa de um chamado (e marca as do lojista como lidas)
-//   responder -> escreve no chamado como Suporte ZelAuto
+//   responder -> escreve no chamado como Suporte Zulode
 //   entrar    -> cria a sessão de acesso (exige consentimento + prazo)
 //   encerrar  -> fecha uma sessão que este operador abriu
 //   resolver  -> marca o chamado como resolvido
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(URL, SERVICE);
   const { data: op } = await admin.from('operadores').select('id, nome').eq('id', user.id).maybeSingle();
-  if (!op) return json({ error: 'acesso restrito ao operador ZelAuto' }, 403);
+  if (!op) return json({ error: 'acesso restrito ao operador Zulode' }, 403);
 
   const log = (acao: string, loja_id: string | null, detalhe: unknown) =>
     admin.from('operador_log').insert({ operador_id: op.id, acao, loja_id, detalhe: detalhe || {} });
@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
 
     const { error: mErr } = await admin.from('suporte_mensagens').insert({
       chamado_id: ch.id, loja_id: ch.loja_id, autor: 'operador',
-      autor_id: op.id, autor_nome: op.nome || 'Suporte ZelAuto', texto,
+      autor_id: op.id, autor_nome: op.nome || 'Suporte Zulode', texto,
     });
     if (mErr) return json({ error: 'não consegui enviar: ' + mErr.message }, 400);
 
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
   }
 
   // ------------------------------------------------------------------- ENTRAR
-  // Prepara o acesso EDITÁVEL: garante o usuário "Suporte ZelAuto" daquela loja,
+  // Prepara o acesso EDITÁVEL: garante o usuário "Suporte Zulode" daquela loja,
   // troca a senha dele por uma descartável, liga o interruptor com prazo e
   // devolve a credencial. O operador abre o app de verdade com ela.
   if (acao === 'entrar') {
@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
 
     // O perfil na loja: é ele que dá nome à auditoria e libera as telas.
     const { error: pErr } = await admin.from('perfis').upsert({
-      id: uid, loja_id: ch.loja_id, nome: 'Suporte ZelAuto', papel: 'gerente',
+      id: uid, loja_id: ch.loja_id, nome: 'Suporte Zulode', papel: 'gerente',
       modulos: MODULOS_SUPORTE, ver_custos: false, ver_lucro: false, ativo: true,
     });
     if (pErr) return json({ error: 'não consegui criar o perfil de suporte: ' + pErr.message }, 400);
@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
   }
 
   // ----------------------------------------------------------------- ENCERRAR
-  // QUALQUER operador ZelAuto encerra QUALQUER sessão — não só quem abriu. Antes
+  // QUALQUER operador Zulode encerra QUALQUER sessão — não só quem abriu. Antes
   // amarrava em operador_id = op.id, e uma sessão aberta pelo Pedro não fechava
   // quando o Guisodre clicava (0 linhas, banner do lojista preso). São todos
   // staff; a auditoria já registra quem de fato encerrou.
@@ -268,13 +268,13 @@ Deno.serve(async (req) => {
     const para = u?.user?.email;
     if (!para) return json({ ok: false, motivo: 'este operador não tem e-mail no auth' });
 
-    const from = Deno.env.get('SUPORTE_EMAIL_FROM') || 'ZelAuto Suporte <onboarding@resend.dev>';
+    const from = Deno.env.get('SUPORTE_EMAIL_FROM') || 'Zulode Suporte <onboarding@resend.dev>';
     try {
       const r = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from, to: [para], subject: 'ZelAuto — teste do aviso de suporte',
+          from, to: [para], subject: 'Zulode — teste do aviso de suporte',
           html: '<p>Se você está lendo isto, os avisos de chamado vão chegar.</p>',
         }),
       });

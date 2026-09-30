@@ -1007,7 +1007,7 @@ function abrirConfig(){
       <button class="btn blk" onclick="fecharModal();abrirIntegracoes()">
         ${svgi('<path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/>')}
         Central de integrações</button>
-      <div class="hint">Reúne o que a gente precisa para ligar NF-e, RENAVE e os portais. Você preenche; o ZelAuto finaliza a parte técnica com você.</div>
+      <div class="hint">Reúne o que a gente precisa para ligar NF-e, RENAVE e os portais. Você preenche; o Zulode finaliza a parte técnica com você.</div>
     </div>
     <div class="field" style="margin-top:14px;margin-bottom:0">
       <label>Plano e pagamento</label>
@@ -1121,7 +1121,7 @@ async function salvarDadosEmpresaUI(){
    Segredos (senha do certificado, token de portal) NÃO passam por aqui: o
    operador finaliza server-side na entrega. */
 function pillStatus(st){
-  const m={ no_ar:['ok','no ar'], operador:['warn','com o ZelAuto'], pendente:['mute','pendente'] };
+  const m={ no_ar:['ok','no ar'], operador:['warn','com o Zulode'], pendente:['mute','pendente'] };
   const [cls,txt]=m[st]||m.pendente;
   return `<span class="pill ${cls}">${txt}</span>`;
 }
@@ -1131,7 +1131,7 @@ async function abrirIntegracoes(){
   const rn=ig.renave||{}; const po=ig.portais||{}; const wm=po.webmotors||{}; const olx=po.olx||{};
   const opt=(v,val)=>v===val?'selected':'';
   modal('Central de integrações',`
-    <div class="hint" style="margin:-4px 0 14px">Preencha o que souber. Os dados sensíveis (certificado digital, senhas, tokens) você entrega direto ao ZelAuto na implantação — eles não ficam no navegador.</div>
+    <div class="hint" style="margin:-4px 0 14px">Preencha o que souber. Os dados sensíveis (certificado digital, senhas, tokens) você entrega direto ao Zulode na implantação — eles não ficam no navegador.</div>
 
     <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin-bottom:9px;display:flex;align-items:center;gap:8px">Nota fiscal (NF-e) ${pillStatus(ig.nfe_status)}</div>
     <div class="f2">
@@ -1153,15 +1153,15 @@ async function abrirIntegracoes(){
       <select id="igCert">
         <option value="pendente" ${opt(ig.cert_status,'pendente')}>Ainda não tenho / preciso de ajuda</option>
         <option value="tenho" ${opt(ig.cert_status,'tenho')}>Tenho (A1 arquivo ou A3 token)</option>
-        <option value="entregue" ${opt(ig.cert_status,'entregue')}>Já entreguei ao ZelAuto</option>
+        <option value="entregue" ${opt(ig.cert_status,'entregue')}>Já entreguei ao Zulode</option>
       </select>
-      <div class="hint">É o que assina a nota. Comprado numa certificadora. O ZelAuto guarda com segurança e liga ao provedor.</div>
+      <div class="hint">É o que assina a nota. Comprado numa certificadora. O Zulode guarda com segurança e liga ao provedor.</div>
     </div>
 
     <div style="font-size:var(--t-lab);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--placa-3);margin:16px 0 9px;display:flex;align-items:center;gap:8px">RENAVE ${pillStatus(rn.status)}</div>
     <div class="field"><label>Integradora credenciada</label>
       <select id="igInt">
-        <option value="">Não sei / o ZelAuto indica</option>
+        <option value="">Não sei / o Zulode indica</option>
         ${['Ponto Software','BNDV','Renave Fácil','Outra'].map(n=>`<option ${rn.integradora===n?'selected':''}>${n}</option>`).join('')}
       </select>
       <div class="hint">Quem faz o registro oficial no DETRAN. Usa o mesmo certificado da nota.</div>
@@ -1174,7 +1174,7 @@ async function abrirIntegracoes(){
     </div>
     <div class="field" style="margin-bottom:0"><label>Quantos anúncios seu plano permite</label>
       <input type="number" id="igLim" value="${esc(po.limite||'')}" placeholder="ex.: 20">
-      <div class="hint">Só os IDs de conta. Senha/token do portal você entrega ao ZelAuto — não vão aqui.</div>
+      <div class="hint">Só os IDs de conta. Senha/token do portal você entrega ao Zulode — não vão aqui.</div>
     </div>`,
     `<button class="btn" data-close-modal>Cancelar</button>
      <button class="btn pri" id="igSalvar" onclick="salvarIntegracoesUI()">Salvar</button>`);
@@ -1208,7 +1208,7 @@ async function salvarIntegracoesUI(){
     portais:{ webmotors:{ id:wmId }, olx:{ conta:olxConta }, limite:lim||null, status:poStatus } };
     window.LOJA.cnpj=cnpj; }
   salvandoIntegra=false;
-  fecharModal(); toast('Integrações salvas — o ZelAuto finaliza o resto com você');
+  fecharModal(); toast('Integrações salvas — o Zulode finaliza o resto com você');
 }
 /* Registro de atividades (auditoria) — só proprietário/gerente (a RLS também
    nega para vendedor, então mesmo forçando não vem nada). */
@@ -1246,7 +1246,7 @@ function trocarSenhaUI(){
   modal('Trocar minha senha',`
     <div class="field"><label>Nova senha</label><input type="password" id="psNova" placeholder="mínimo 6 caracteres" autocomplete="new-password"></div>
     <div class="field" style="margin-bottom:0"><label>Repita a nova senha</label><input type="password" id="psConf" placeholder="a mesma de cima" autocomplete="new-password"></div>
-    <div class="hint" style="margin-top:8px">Depois que você troca, a senha provisória da entrega para de funcionar. O ZelAuto não guarda nem vê sua senha.</div>`,
+    <div class="hint" style="margin-top:8px">Depois que você troca, a senha provisória da entrega para de funcionar. O Zulode não guarda nem vê sua senha.</div>`,
     `<button class="btn" data-close-modal>Cancelar</button>
      <button class="btn pri" id="psSalvar" onclick="salvarSenha()">Salvar nova senha</button>`);
 }
@@ -1396,7 +1396,7 @@ function montarSuporteFab(){
   }
   const panel=_supEl(`<div id="supPanel">
     <div class="h">
-      <div style="flex:1"><b id="supTit">Suporte ZelAuto</b><small id="supSub">Tire a dúvida na hora — ou fale com a gente</small></div>
+      <div style="flex:1"><b id="supTit">Suporte Zulode</b><small id="supSub">Tire a dúvida na hora — ou fale com a gente</small></div>
       <button id="supVoltar" style="display:none" title="Voltar" onclick="supVerFaq()">‹</button>
       <button title="Fechar" onclick="suporteToggle(false)">×</button>
     </div>
@@ -1423,7 +1423,7 @@ function supVerFaq(){
   clearInterval(_supChatTimer); _supChatTimer=null;
   const c=document.getElementById('supCorpo'), f=document.getElementById('supRodape');
   if(!c||!f) return;
-  document.getElementById('supTit').textContent='Suporte ZelAuto';
+  document.getElementById('supTit').textContent='Suporte Zulode';
   document.getElementById('supSub').textContent='Tire a dúvida na hora — ou fale com a gente';
   document.getElementById('supVoltar').style.display='none';
   c.innerHTML=`<div class="qtit">Perguntas rápidas</div>
@@ -1478,7 +1478,7 @@ function supRenderAutorizar(){
 }
 async function supAutorizar(){
   if(!_supChamado) return;
-  if(!confirm('Autorizar o suporte da ZelAuto a acessar o seu painel para resolver este chamado?\n\nO acesso tem prazo, fica registrado, e você encerra quando quiser.')) return;
+  if(!confirm('Autorizar o suporte da Zulode a acessar o seu painel para resolver este chamado?\n\nO acesso tem prazo, fica registrado, e você encerra quando quiser.')) return;
   try{
     await Dados.autorizarAcessoSuporte(_supChamado.id);
     toast('Acesso autorizado. Vamos entrar e resolver.');
@@ -4801,7 +4801,7 @@ function copiarAcesso(){
   // lê dos campos (evita injeção por passar e-mail/senha no atributo onclick)
   const email=(document.getElementById('okEmail')||{}).value||'';
   const senha=(document.getElementById('okSenha')||{}).value||'';
-  const txt=`Acesso ZelAuto\nE-mail: ${email}\nSenha provisória: ${senha}`;
+  const txt=`Acesso Zulode\nE-mail: ${email}\nSenha provisória: ${senha}`;
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(()=>toast('Copiado'),()=>toast('Copie manualmente'));
   } else { toast('Copie manualmente'); }
@@ -5477,10 +5477,10 @@ atualizarTags();
 (function(){
   const LABELS = {proprietario:'Proprietário',gerente:'Gerente',vendedor:'Vendedor',administrativo:'Administrativo'};
   // configuráveis por dados.config.js (com defaults). SUPORTE_WPP: número só com
-  // dígitos (DDI+DDD+número). SITE: landing institucional da ZelAuto.
+  // dígitos (DDI+DDD+número). SITE: landing institucional da Zulode.
   const _cfg = window.ZELAUTO_CONFIG || {};
   const SUPORTE_WPP = String(_cfg.suporteWhatsapp || '5571900000000').replace(/\D/g,'');
-  const SITE_INSTITUCIONAL = _cfg.siteInstitucional || 'https://zelauto.com.br';
+  const SITE_INSTITUCIONAL = _cfg.siteInstitucional || 'https://zulode.com.br';
   function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; }
 
   let overlay;
@@ -5490,7 +5490,7 @@ atualizarTags();
       <div id="loginOverlay" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#0A0A0B;color:#F4F4F3;padding:24px;font:inherit">
         <form id="loginForm" style="width:100%;max-width:360px;background:#141416;border:1px solid #2A2A2D;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
           <div id="loginMarca" style="text-align:center;margin-bottom:20px">
-            <div style="display:inline-flex;align-items:center;gap:2px;font:800 27px/1 'Archivo',system-ui,sans-serif;letter-spacing:-.04em;color:#F4F4F3;margin-bottom:16px">zelaut<img src="../assets/zelauto-anel.svg" alt="o" style="height:22px;width:22px;display:inline-block"></div>
+            <div style="display:inline-flex;align-items:center;gap:2px;font:800 27px/1 'Archivo',system-ui,sans-serif;letter-spacing:-.04em;color:#F4F4F3;margin-bottom:16px">zul<img src="../assets/zelauto-anel.svg" alt="o" style="height:22px;width:22px;display:inline-block">de</div>
             <img id="loginLogo" alt="" style="display:none;max-height:56px;max-width:200px;margin:0 auto 12px">
             <div id="loginLoja" style="font-size:20px;font-weight:700">Acesse sua loja</div>
             <div id="loginSub" style="opacity:.7;font-size:14px;margin-top:4px">Entre para acessar a loja</div>
@@ -5505,7 +5505,7 @@ atualizarTags();
           <button id="loginBtn" type="submit" style="width:100%;padding:12px;border:0;border-radius:10px;background:#F79A1B;color:#17130A;font-size:15px;font-weight:700;cursor:pointer">Entrar</button>
           <div style="text-align:center;margin-top:18px;font-size:12px;opacity:.55">
             <a href="${SITE_INSTITUCIONAL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-              feito e produzido por <b style="font-weight:700">ZelAuto</b> ↗</a>
+              feito e produzido por <b style="font-weight:700">Zulode</b> ↗</a>
           </div>
         </form>
       </div>`);
@@ -5516,13 +5516,13 @@ atualizarTags();
   // Página "acesse pelo link da loja" — mostrada quando NÃO há slug (sem login,
   // sem busca, sem lista). O botão abre o WhatsApp do suporte.
   function montarSemLink(){
-    const wpp='https://wa.me/'+SUPORTE_WPP+'?text='+encodeURIComponent('Olá! Não tenho o link de acesso da minha loja no ZelAuto.');
+    const wpp='https://wa.me/'+SUPORTE_WPP+'?text='+encodeURIComponent('Olá! Não tenho o link de acesso da minha loja no Zulode.');
     const form=overlay.querySelector('#loginForm');
     if(!form) return;
     form.removeAttribute('id');            // não é mais o form de login
     form.innerHTML=`
       <div style="text-align:center">
-        <div style="font-size:22px;font-weight:700;margin-bottom:10px">ZelAuto</div>
+        <div style="font-size:22px;font-weight:700;margin-bottom:10px">Zulode</div>
         <div style="font-size:15px;line-height:1.6;opacity:.85">
           O acesso é pelo <b>link da sua loja</b>.<br>
           Use o endereço que você recebeu na entrega — vale salvar nos favoritos.
@@ -5534,7 +5534,7 @@ atualizarTags();
         </a>
         <div style="margin-top:18px;font-size:12px;opacity:.55">
           <a href="${SITE_INSTITUCIONAL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-            conheça o <b style="font-weight:700">ZelAuto</b> ↗</a>
+            conheça o <b style="font-weight:700">Zulode</b> ↗</a>
         </div>
       </div>`;
   }
@@ -5559,9 +5559,9 @@ atualizarTags();
     const subEl=overlay.querySelector('#loginSub');
     const logoEl=overlay.querySelector('#loginLogo');
     if(nomeEl && m.nome) nomeEl.textContent=m.nome;                 // textContent: sem XSS
-    if(subEl) subEl.textContent='Sistema da loja · ZelAuto';
+    if(subEl) subEl.textContent='Sistema da loja · Zulode';
     if(logoEl && /^https:\/\//i.test(m.logoUrl||'')){ logoEl.src=m.logoUrl; logoEl.alt=m.nome||''; logoEl.style.display='block'; }
-    // A marca da loja aparece no logo + nome; o botão fica no laranja ZelAuto.
+    // A marca da loja aparece no logo + nome; o botão fica no laranja Zulode.
     // A cor da loja (m.cor) é usada no site público dela, não recolore o app.
   }
   function mostrarErro(msg){ const e=overlay.querySelector('#loginErro'); if(e){ e.textContent=msg; e.style.display='block'; } }
@@ -5593,31 +5593,31 @@ atualizarTags();
     const pEqui = Dados.listarEquipe();
     try{ DB.veiculos = await pVeic; }
     catch(e){
-      console.error('[ZelAuto] falha ao carregar veículos do banco:', e);
+      console.error('[Zulode] falha ao carregar veículos do banco:', e);
       DB.veiculos = [];
       if(typeof toast==='function') toast('Não consegui carregar o estoque. Verifique a conexão e recarregue.');
     }
     try{ DB.leads = await pCli; }
     catch(e){
-      console.error('[ZelAuto] falha ao carregar clientes do banco:', e);
+      console.error('[Zulode] falha ao carregar clientes do banco:', e);
       DB.leads = [];
       if(typeof toast==='function') toast('Não consegui carregar os clientes. Verifique a conexão e recarregue.');
     }
     try{ DB.vendas = await pVend; }
     catch(e){
-      console.error('[ZelAuto] falha ao carregar vendas do banco:', e);
+      console.error('[Zulode] falha ao carregar vendas do banco:', e);
       DB.vendas = [];
       if(typeof toast==='function') toast('Não consegui carregar as vendas. Verifique a conexão e recarregue.');
     }
     try{ DB.despesas = await pDesp; }
     catch(e){
-      console.error('[ZelAuto] falha ao carregar despesas do banco:', e);
+      console.error('[Zulode] falha ao carregar despesas do banco:', e);
       DB.despesas = [];
       if(typeof toast==='function') toast('Não consegui carregar as despesas. Verifique a conexão e recarregue.');
     }
     try{ DB.usuarios = await pEqui; }
     catch(e){
-      console.error('[ZelAuto] falha ao carregar a equipe do banco:', e);
+      console.error('[Zulode] falha ao carregar a equipe do banco:', e);
       DB.usuarios = [USER];   // ao menos o próprio usuário logado (perfil real)
       if(typeof toast==='function') toast('Não consegui carregar a equipe. Verifique a conexão e recarregue.');
     }
@@ -5631,21 +5631,21 @@ atualizarTags();
     // loja real NÃO ver dado falso. Passam a mostrar vazio até serem ligadas.
     // Notas fiscais já persistem (fase 4: número + registro; emissão real no provedor).
     try{ DB.notas = await Dados.listarNotas(); }
-    catch(e){ console.error('[ZelAuto] falha ao carregar notas:', e); DB.notas=[]; }
+    catch(e){ console.error('[Zulode] falha ao carregar notas:', e); DB.notas=[]; }
     // Portais já persistem (fase 5: status + limite; sync real no provedor).
     try{ DB.portais = montarPortais(await Dados.listarPortais()); }
-    catch(e){ console.error('[ZelAuto] falha ao carregar portais:', e); DB.portais=montarPortais([]); }
+    catch(e){ console.error('[Zulode] falha ao carregar portais:', e); DB.portais=montarPortais([]); }
     // Consignação já persiste (veiculo origem='consignado' + consignacoes).
     try{ DB.consignados = await Dados.listarConsignados(); }
-    catch(e){ console.error('[ZelAuto] falha ao carregar consignados:', e); DB.consignados=[];
+    catch(e){ console.error('[Zulode] falha ao carregar consignados:', e); DB.consignados=[];
       if(typeof toast==='function') toast('Não consegui carregar os consignados. Verifique a conexão e recarregue.'); }
     // Carnê já persiste (carne_contratos/carne_parcelas).
     try{ DB.carne = await Dados.listarCarne(); }
-    catch(e){ console.error('[ZelAuto] falha ao carregar carnê:', e); DB.carne=[];
+    catch(e){ console.error('[Zulode] falha ao carregar carnê:', e); DB.carne=[];
       if(typeof toast==='function') toast('Não consegui carregar o carnê. Verifique a conexão e recarregue.'); }
     // Contratos já persiste (papelada).
     try{ DB.contratos = await Dados.listarContratos(); }
-    catch(e){ console.error('[ZelAuto] falha ao carregar contratos:', e); DB.contratos=[]; }
+    catch(e){ console.error('[Zulode] falha ao carregar contratos:', e); DB.contratos=[]; }
     aplicarPermissoes();                            // nome, iniciais e menu por módulo
     const hj=document.getElementById('hojeLabel'); if(hj) hj.textContent = USER.papel;
     irGrupo('hoje');
@@ -5708,7 +5708,7 @@ atualizarTags();
     barra.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:72;background:#E5484D;color:#fff;'
       + 'font-weight:700;font-size:13px;padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap';
     barra.innerHTML = '<span>MODO SUPORTE — você está dentro da loja '
-      + esc(info.n || '') + '. Tudo o que editar fica na auditoria como Suporte ZelAuto.</span>'
+      + esc(info.n || '') + '. Tudo o que editar fica na auditoria como Suporte Zulode.</span>'
       + '<span id="supModoRelogio" style="font-variant-numeric:tabular-nums;opacity:.9"></span>';
     document.body.appendChild(barra);
 

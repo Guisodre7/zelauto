@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `custos` (seção 5.5 de docs/backend.md)
+// Zulode — Edge Function `custos` (seção 5.5 de docs/backend.md)
 //
 // Devolve o CUSTO dos veículos (compra + preparação) SÓ para quem pode ver:
 // perfil com ver_custos = true, ou papel proprietario/gerente. A leitura dessas

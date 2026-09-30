@@ -36,7 +36,7 @@ Feito uma vez para todo o produto, não por loja.
 - [ ] **Segredos da cobrança** (AbacatePay):
   ```
   supabase secrets set ABACATE_API_KEY=...        ABACATE_WEBHOOK_SECRET=...
-  supabase secrets set ZELAUTO_PLANO_VALOR=9900   APP_URL=https://app.zelauto.com.br
+  supabase secrets set ZELAUTO_PLANO_VALOR=9900   APP_URL=https://app.zulode.com.br
   ```
   E cadastrar no painel da AbacatePay a URL do webhook terminando em
   `/functions/v1/abacate-webhook?webhookSecret=<o mesmo segredo>`.
@@ -47,7 +47,7 @@ Feito uma vez para todo o produto, não por loja.
 - [ ] **Você (operador)** criado na tabela `operadores` (o seu `auth.users.id`),
   para acessar o Console do Operador.
 - [ ] Hospedar `app/`, `site/`, `admin/` (a raiz do repo) num host estático e
-  apontar `app.zelauto.com.br` para lá.
+  apontar `app.zulode.com.br` para lá.
 - [ ] Revisar os avisos de segurança do Supabase (Security Advisor).
 
 ---
@@ -72,7 +72,7 @@ Feito uma vez para todo o produto, não por loja.
 - [ ] Configurações › **Dados da empresa**: conferir razão social, CNPJ, endereço.
 - [ ] Configurações › **Site da loja**: subir **logo** e **banner**.
 - [ ] Configurações › **Central de integrações**: registrar CNPJ/IE, provedor de
-      NF-e, integradora RENAVE e ids de anunciante (status fica "com o ZelAuto"
+      NF-e, integradora RENAVE e ids de anunciante (status fica "com o Zulode"
       no que depender de você).
 - [ ] **Cadastrar a equipe** (vendedores) em Equipe — cada um com o acesso certo
       (vendedor não vê custo/lucro; só o proprietário exclui lead).

@@ -1,5 +1,5 @@
 -- =============================================================================
--- ZelAuto — isolamento_sql_editor.sql
+-- Zulode — isolamento_sql_editor.sql
 -- Versão do teste de isolamento para COLAR NO SQL EDITOR do painel Supabase
 -- (para quem não tem Postgres/Docker local e não roda `supabase test db`).
 --
@@ -295,7 +295,7 @@ insert into _res(verifica,ok,detalhe) select 'encerrar_suporte: A NÃO encerra a
 -- suporte chat (0023): a conversa é da loja, e ninguém escreve nela pelo app
 insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: A lê a própria conversa', (count(*)>0), 'linhas='||count(*) from public.suporte_mensagens where loja_id='11111111-1111-1111-1111-111111111111';
 insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: A não lê a conversa da B', (count(*)=0), 'linhas='||count(*) from public.suporte_mensagens where loja_id='22222222-2222-2222-2222-222222222222';
-insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: authenticated não insere (nem na própria loja)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_mensagens (chamado_id,loja_id,autor,autor_nome,texto) values ('50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','operador','Suporte ZelAuto','forjada')$$) r) t;
+insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: authenticated não insere (nem na própria loja)', (r='42501'), 'sqlstate='||r from (select pg_temp.tenta($$insert into public.suporte_mensagens (chamado_id,loja_id,autor,autor_nome,texto) values ('50000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','operador','Suporte Zulode','forjada')$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'suporte_mensagens: authenticated não altera (sem update)', (has_table_privilege('public.suporte_mensagens','UPDATE') = false), 'tem_update='||has_table_privilege('public.suporte_mensagens','UPDATE')::text;
 insert into _res(verifica,ok,detalhe) select 'marcar_suporte_lido: A marca a própria conversa', (r='OK_SEM_ERRO'), 'r='||r from (select pg_temp.tenta($$select public.marcar_suporte_lido('50000000-0000-0000-0000-0000000000a1')$$) r) t;
 insert into _res(verifica,ok,detalhe) select 'marcar_suporte_lido: a mensagem de A ficou lida', ((select lida_lojista_em is not null from public.suporte_mensagens where id='52000000-0000-0000-0000-0000000000a1')), 'lida';

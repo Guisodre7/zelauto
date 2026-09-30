@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZelAuto · Console do Operador</title>
+<title>Zulode · Console do Operador</title>
 <link rel="icon" type="image/svg+xml" href="../assets/zelauto-logo.svg">
 <style>
   :root{--bg:#0A0A0B;--sf:#141416;--sf2:#1E1E21;--ln:#2A2A2D;--ln2:#3A3A3F;--tx:#F4F4F3;--tx2:#9A9A94;--az:#F79A1B;--sobre-az:#17130A;--ok:#31A97C;--bad:#E0574B}
@@ -76,7 +76,7 @@
 <!-- Login do operador -->
 <div id="login">
   <form class="card" id="loginForm" style="max-width:360px">
-    <div style="display:flex;align-items:center;justify-content:center;gap:2px;font:800 27px/1 system-ui,-apple-system,Segoe UI,sans-serif;letter-spacing:-.04em;margin-bottom:8px">zelaut<img src="../assets/zelauto-anel.svg" alt="o" style="height:22px;width:22px"></div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:2px;font:800 27px/1 system-ui,-apple-system,Segoe UI,sans-serif;letter-spacing:-.04em;margin-bottom:8px">zul<img src="../assets/zelauto-anel.svg" alt="o" style="height:22px;width:22px">de</div>
     <p class="sub" style="text-align:center">Console do Operador · acesso restrito.</p>
     <div class="field"><label>E-mail</label><input id="lEmail" type="email" autocomplete="username" required></div>
     <div class="field"><label>Senha</label><input id="lSenha" type="password" autocomplete="current-password" required></div>
@@ -88,13 +88,13 @@
 <!-- App -->
 <div id="app" style="display:none">
   <header>
-    <img src="../assets/zelauto-logo.svg" alt="ZelAuto" style="height:32px;width:32px;border-radius:8px">
-    <b style="letter-spacing:-.03em">zelauto</b><span class="tag">Console do Operador</span>
+    <img src="../assets/zelauto-logo.svg" alt="Zulode" style="height:32px;width:32px;border-radius:8px">
+    <b style="letter-spacing:-.03em">zulode</b><span class="tag">Console do Operador</span>
     <button class="sair" id="btnSair">Sair</button>
   </header>
   <div class="wrap">
     <div id="supAlerta"></div>
-    <div class="sec-t">Seu negócio · ZelAuto</div>
+    <div class="sec-t">Seu negócio · Zulode</div>
     <div class="kpis kpis-neg" id="kpisNeg"></div>
     <div class="acts">
       <button class="btn" id="btnNova">+ Nova loja</button>
@@ -179,7 +179,7 @@ const brl = c => 'R$ ' + ((c||0)/100).toLocaleString('pt-BR',{minimumFractionDig
 const tile = (l,v,cls) => `<div class="kpi"><div class="n ${cls||''}">${v}</div><div class="l">${l}</div></div>`;
 function render(m){
   const n=m.negocio||{}, t=m.totais||{lojas:0,veiculos:0,clientes:0,vendas:0};
-  // Bloco financeiro do negócio ZelAuto (vem das assinaturas).
+  // Bloco financeiro do negócio Zulode (vem das assinaturas).
   $('#kpisNeg').innerHTML = [
     tile('MRR (recorrente/mês)', brl(n.mrr_centavos)),
     tile('Assinantes ativos', n.ativa||0),
@@ -269,7 +269,7 @@ $('#btnOperador').onclick = ()=>{
     <h2>Novo operador</h2>
     <p class="sub">Cria (ou promove) um acesso ao Console. Operadores mexem em tudo.</p>
     <div class="field"><label>Nome</label><input id="oNome" placeholder="Pedro"></div>
-    <div class="field"><label>E-mail</label><input id="oEmail" type="email" placeholder="socio@zelauto.com"></div>
+    <div class="field"><label>E-mail</label><input id="oEmail" type="email" placeholder="socio@zulode.com"></div>
     <div class="erro" id="oErro"></div>
     <div class="foot">
       <button class="btn g" onclick="fecharOv()">Cancelar</button>
@@ -295,7 +295,7 @@ $('#btnOperador').onclick = ()=>{
 $('#btnSenha').onclick = ()=>{
   abrir(`
     <h2>Resetar senha</h2>
-    <p class="sub">Redefine a senha de qualquer conta ZelAuto (sua, de um operador ou de um lojista). Fica registrado.</p>
+    <p class="sub">Redefine a senha de qualquer conta Zulode (sua, de um operador ou de um lojista). Fica registrado.</p>
     <div class="field"><label>E-mail da conta</label><input id="sEmail" type="email" placeholder="pessoa@exemplo.com"></div>
     <div class="field"><label>Nova senha <span style="opacity:.6">(em branco = gera uma provisória)</span></label><input id="sSenha" type="text" placeholder="deixe em branco para gerar"></div>
     <div class="erro" id="sErro"></div>
@@ -449,7 +449,7 @@ async function entrarSuporte(id){
 
 let _sup=null;
 /* Entrar no painel: abre o APP DE VERDADE numa aba, logado como "Suporte
-   ZelAuto" daquela loja. Aqui fica só o controle — relógio e o botão de sair.
+   Zulode" daquela loja. Aqui fica só o controle — relógio e o botão de sair.
    A credencial vai no hash da URL e o app a apaga assim que entra. */
 async function abrirModoSuporte(s){
   fechar();
@@ -472,7 +472,7 @@ async function abrirModoSuporte(s){
     <div class="wrap" style="padding-top:26px;max-width:640px">
       <div class="okbox">
         <div class="l">O painel de <b>${esc(s.loja_nome||'')}</b> abriu em outra aba</div>
-        <p class="sub" style="margin-top:8px">Você entrou como <b>Suporte ZelAuto</b>, papel gerente: mexe em estoque,
+        <p class="sub" style="margin-top:8px">Você entrou como <b>Suporte Zulode</b>, papel gerente: mexe em estoque,
         clientes, vendas e papelada como o lojista mexeria. Custo de compra e margem continuam escondidos.</p>
         <p class="sub" style="margin-top:8px">Tudo o que você editar fica na auditoria da loja com o seu nome. O dono vê
         um aviso fixo no topo da tela dele e corta o acesso quando quiser.</p>

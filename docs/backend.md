@@ -1,4 +1,4 @@
-# ZelAuto — Especificação da infraestrutura
+# Zulode — Especificação da infraestrutura
 
 Documento único para construir o backend multi-loja no Supabase.
 Escrito para ser colado no conhecimento de um projeto do Claude e consultado
@@ -775,7 +775,7 @@ Deploy: `supabase functions deploy vender`.
 
 ### 5.7 Marca por loja e login com slug
 
-O lojista entra por uma URL própria — `app.zelauto…/vancar` — e vê a tela de
+O lojista entra por uma URL própria — `app.zulode…/vancar` — e vê a tela de
 login **com a marca da loja dele** (nome, logo, cor). Detalhe que não pode ser
 esquecido: **o `slug` é só marca e rota, nunca acesso.** A loja da sessão vem
 SEMPRE do perfil no JWT (§3.1); o slug digitado/na URL só escolhe qual marca
@@ -790,9 +790,9 @@ loja — o slug errado não dá acesso a nada.
   diretório público, para concorrente não enumerar clientes. É a primeira
   superfície anônima do sistema; devolve só campos de marca, nada sensível.
 - A tela de login (protótipo) lê o slug da URL, chama `marca-loja`, pinta a marca
-  e segue com o `entrar(email, senha)` de sempre. Traz um selo **"por ZelAuto"**
+  e segue com o `entrar(email, senha)` de sempre. Traz um selo **"por Zulode"**
   ligado à landing institucional.
-- **Sem slug** (ex.: `app.zelauto…` puro): NÃO mostra login — só uma página
+- **Sem slug** (ex.: `app.zulode…` puro): NÃO mostra login — só uma página
   "acesse pelo link da sua loja", com botão **"Não tenho o link"** que abre o
   WhatsApp do suporte. Sem campo de e-mail, sem busca, sem lista. Cada lojista
   recebe o link na entrega e salva nos favoritos. (WhatsApp e site saem de
@@ -800,10 +800,10 @@ loja — o slug errado não dá acesso a nada.
 
 Deploy: `supabase functions deploy marca-loja`.
 
-### 5.8 Console do Operador — o control plane da ZelAuto
+### 5.8 Console do Operador — o control plane da Zulode
 
-Uma superfície SEPARADA (`admin/index.html`, em produção `admin.zelauto…`), só do
-operador ZelAuto, para provisionar e acompanhar as lojas sem processo manual.
+Uma superfície SEPARADA (`admin/index.html`, em produção `admin.zulode…`), só do
+operador Zulode, para provisionar e acompanhar as lojas sem processo manual.
 
 **Padrão de segurança (control plane, como nos grandes SaaS):**
 - Operador é identidade separada do lojista: fica em `public.operadores`
@@ -841,7 +841,7 @@ Google indexar sem trabalho), pública (GET), por slug.
   `status='estoque'` de loja `ativa` e `site_ativo`.
 - Rotas: `?slug=` (catálogo), `?slug=&carro=<id>` (página do carro),
   `?slug=&sitemap=1` (sitemap.xml). Em produção, um rewrite mapeia
-  `zelauto.com.br/vancar` → a função; a env `SITE_BASE` deixa os links bonitos.
+  `zulode.com.br/vancar` → a função; a env `SITE_BASE` deixa os links bonitos.
 - SEO: `<title>`/description/canonical/OpenGraph + **JSON-LD** (`AutoDealer` no
   catálogo, `Car`+`Offer` na página do carro). Cada carro tem URL própria.
 - Marca do lojista: logo (bucket `marcas`) e **banner** (bucket `banners`,
@@ -854,7 +854,7 @@ banner/logo pela UI: passos seguintes.
 
 ### 5.10 RENAVE — acompanhamento persistido
 
-O ZelAuto **acompanha** a situação de cada veículo no fluxo RENAVE; **não faz o
+O Zulode **acompanha** a situação de cada veículo no fluxo RENAVE; **não faz o
 registro** (isso depende de integradora credenciada pelo DETRAN — fase futura).
 
 - A fase mora em `veiculos.renave_fase` (enum `fora/entrada/regular/saida`,
@@ -887,7 +887,7 @@ Tabela `contratos` do schema base (já isolada). O PDF é gerado **no navegador*
 sem guardar arquivo no storage nesta fase (`pdf_path` fica para quando houver
 geração server-side).
 
-- Cabeçalho montado pelo ZelAuto a partir da **loja real**: logo (bucket
+- Cabeçalho montado pelo Zulode a partir da **loja real**: logo (bucket
   `marcas`) + razão social, CNPJ, endereço, cidade/UF. Esses dados moram em
   `lojas` (`cnpj/cidade/uf/telefone`) e no jsonb `lojas.config`
   (`razao_social`, `endereco`) — **sem coluna nova**. Só o proprietário grava
@@ -1303,7 +1303,7 @@ O acesso ao painel é o último recurso, nunca o primeiro clique.
 **O acesso é editável, e o que o segura**
 
 Desde a 0024 o operador não olha uma cópia só-leitura: ele entra no app de
-verdade como um usuário daquela loja — "Suporte ZelAuto", papel gerente, sem
+verdade como um usuário daquela loja — "Suporte Zulode", papel gerente, sem
 `ver_custos` e sem `ver_lucro`. O que segura isso não é tirar o poder, é o cerco:
 
 1. **Consentimento.** Sem `autoriza_acesso` no chamado, `entrar` devolve 403. E
@@ -1314,7 +1314,7 @@ verdade como um usuário daquela loja — "Suporte ZelAuto", papel gerente, sem
    política: não depende de ninguém encerrar, nem de um cron rodar na hora.
 3. **Revogação imediata.** `encerrar_suporte` apaga a linha do interruptor. O
    acesso morre no comando seguinte do operador, sem esperar o token expirar.
-4. **Nome próprio.** As escritas caem na auditoria como "Suporte ZelAuto" —
+4. **Nome próprio.** As escritas caem na auditoria como "Suporte Zulode" —
    nunca disfarçadas de usuário do lojista.
 5. **Aviso visível.** Faixa fixa no topo da tela do lojista enquanto durar, com
    o botão de cortar; e faixa no topo da tela do operador, para o print da tela

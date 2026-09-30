@@ -1,5 +1,5 @@
 -- =============================================================================
--- ZelAuto — supabase/tests/isolamento.test.sql
+-- Zulode — supabase/tests/isolamento.test.sql
 -- Testes de isolamento entre lojas (seção 7 de docs/backend.md).
 --
 -- ⚠️  RODE SÓ COM O RUNNER pgTAP:  supabase test db  (ou pg_prove).

@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `site-loja` (Site da loja, seção 5.9)
+// Zulode — Edge Function `site-loja` (Site da loja, seção 5.9)
 //
 // SSR: renderiza no SERVIDOR o site público da loja, para indexar no Google sem
 // trabalho. Público (GET). Lê com service_role só campos PÚBLICOS (nunca custo)
@@ -10,8 +10,8 @@
 //   ?slug=vancar&carro=<id>  -> página do carro
 //   ?slug=vancar&sitemap=1   -> sitemap.xml
 //
-// Em produção, um rewrite mapeia zelauto.com.br/vancar -> esta função, e a env
-// SITE_BASE (ex.: https://zelauto.com.br) deixa os links "bonitos".
+// Em produção, um rewrite mapeia zulode.com.br/vancar -> esta função, e a env
+// SITE_BASE (ex.: https://zulode.com.br) deixa os links "bonitos".
 //
 // Deploy:  supabase functions deploy site-loja
 // =============================================================================
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   const urlCarro = (sl: string, id: string) => SITE_BASE ? `${SITE_BASE}/${sl}/carro/${id}` : `?slug=${encodeURIComponent(sl)}&carro=${id}`;
 
   if (!slug || !/^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/.test(slug)) {
-    return html('<!doctype html><meta charset="utf-8"><title>ZelAuto</title><p style="font:16px system-ui;padding:40px">Endereço de loja inválido.</p>', 400);
+    return html('<!doctype html><meta charset="utf-8"><title>Zulode</title><p style="font:16px system-ui;padding:40px">Endereço de loja inválido.</p>', 400);
   }
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
@@ -153,7 +153,7 @@ ${loja.logo_url ? `<meta property="og:image" content="${esc(loja.logo_url)}">` :
 
   const rodape = `<footer><div class="in">
     <span>${esc(nome)}${local ? ' · ' + esc(local) : ''}</span>
-    <span class="zl">feito com <b>ZelAuto</b></span>
+    <span class="zl">feito com <b>Zulode</b></span>
   </div></footer></body></html>`;
 
   // ---------------- PÁGINA DO CARRO ----------------

@@ -10,8 +10,8 @@
 //   SUPABASE_URL              (obrigatória)  ex.: https://xxxx.supabase.co
 //   SUPABASE_ANON_KEY         (obrigatória)  a publishable/anon key
 //   SUPORTE_WHATSAPP          (opcional)     só dígitos, ex.: 5571900000000
-//   SITE_INSTITUCIONAL        (opcional)     ex.: https://zelauto.com.br
-//   APP_URL                   (opcional)     ex.: https://zelauto.com.br/app
+//   SITE_INSTITUCIONAL        (opcional)     ex.: https://zulode.com.br
+//   APP_URL                   (opcional)     ex.: https://zulode.com.br/app
 // =============================================================================
 
 import { writeFileSync, mkdirSync } from 'node:fs';

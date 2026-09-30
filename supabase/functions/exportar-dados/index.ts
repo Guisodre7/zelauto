@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `exportar-dados` (seção 9 de docs/backend.md)
+// Zulode — Edge Function `exportar-dados` (seção 9 de docs/backend.md)
 //
 // "Os dados são do lojista e saem quando ele quiser." Gera um .zip com um CSV
 // por tabela da loja e devolve URL assinada de 24h. Só o PROPRIETÁRIO exporta
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
   }
   // resumo no topo do zip — inclui as tabelas que falharam, para não sumir em silêncio
   arquivos['_leia-me.txt'] = strToU8(
-    `Exportação ZelAuto\nLoja: ${caller.loja_id}\nGerado em: ${new Date().toISOString()}\n` +
+    `Exportação Zulode\nLoja: ${caller.loja_id}\nGerado em: ${new Date().toISOString()}\n` +
     `Tabelas exportadas: ${Object.keys(arquivos).filter((n) => n.endsWith('.csv')).join(', ')}\n` +
     (falhas.length ? `\nATENÇÃO — tabelas que falharam (rode de novo):\n- ${falhas.join('\n- ')}\n` : 'Todas as tabelas exportadas com sucesso.\n'),
   );

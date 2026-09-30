@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `cobranca` (assinatura da loja via AbacatePay)
+// Zulode — Edge Function `cobranca` (assinatura da loja via AbacatePay)
 //
 // O PROPRIETÁRIO gera a cobrança do plano. Aqui, server-side, porque a chave da
 // AbacatePay é segredo (nunca no navegador). Ações:
@@ -29,7 +29,7 @@ const json = (body: unknown, status = 200) =>
 
 const ABACATE_BASE = Deno.env.get('ABACATE_BASE') || 'https://api.abacatepay.com/v2';
 const PLANO_VALOR = Number(Deno.env.get('ZELAUTO_PLANO_VALOR') || '9900');   // centavos
-const PLANO_NOME = Deno.env.get('ZELAUTO_PLANO_NOME') || 'ZelAuto — mensalidade';
+const PLANO_NOME = Deno.env.get('ZELAUTO_PLANO_NOME') || 'Zulode — mensalidade';
 
 async function abacate(path: string, method: string, key: string, body?: unknown) {
   const r = await fetch(`${ABACATE_BASE}${path}`, {
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
   // dados da loja para o cliente da cobrança
   const { data: loja } = await admin.from('lojas').select('nome, cnpj, telefone, config').eq('id', lojaId).single();
-  const razao = (loja?.config?.razao_social) || loja?.nome || 'Loja ZelAuto';
+  const razao = (loja?.config?.razao_social) || loja?.nome || 'Loja Zulode';
 
   // ---- PIX transparente (copia-e-cola + QR) -----------------------------
   if (acao === 'pix') {

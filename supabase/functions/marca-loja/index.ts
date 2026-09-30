@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `marca-loja` (seção 5.7 de docs/backend.md)
+// Zulode — Edge Function `marca-loja` (seção 5.7 de docs/backend.md)
 //
 // PÚBLICA (anon). Recebe UM slug exato e devolve só a MARCA de uma loja ativa:
 // { nome, logo_url, cor }. Não lista lojas — sem diretório público, para

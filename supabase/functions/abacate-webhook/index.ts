@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `abacate-webhook` (confirmação de pagamento)
+// Zulode — Edge Function `abacate-webhook` (confirmação de pagamento)
 //
 // A AbacatePay chama esta URL quando um pagamento acontece. É ela — e SÓ ela —
 // que libera/renova a assinatura. O cliente nunca marca "pago".

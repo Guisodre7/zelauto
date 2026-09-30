@@ -1,5 +1,5 @@
 // =============================================================================
-// ZelAuto — Edge Function `equipe` (seção 5.4 de docs/backend.md)
+// Zulode — Edge Function `equipe` (seção 5.4 de docs/backend.md)
 //
 // Gestão de time pelo próprio lojista, SEM sair do navegador para o painel/CLI.
 // Roda com service_role (só aqui, nunca no front). Confere quem chamou pelo JWT

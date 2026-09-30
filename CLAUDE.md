@@ -1,4 +1,4 @@
-# ZelAuto
+# Zulode
 
 Backend multi-loja para revendas de veículos, construído em Supabase.
 

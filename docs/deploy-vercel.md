@@ -21,7 +21,7 @@ publishable/anon (protegida pela RLS).
    - `SUPABASE_URL` = `https://SEU-PROJETO.supabase.co`
    - `SUPABASE_ANON_KEY` = a **publishable/anon** key (nunca a service_role)
    - Opcionais: `SUPORTE_WHATSAPP` (só dígitos, ex. `5571900000000`),
-     `SITE_INSTITUCIONAL` (ex. `https://zelauto.com.br`),
+     `SITE_INSTITUCIONAL` (ex. `https://zulode.com.br`),
      `APP_URL` (ex. `https://SEU-PROJETO.vercel.app/app`)
 4. **Deploy.** Você recebe um domínio `https://SEU-PROJETO.vercel.app`.
 
@@ -31,7 +31,7 @@ publishable/anon (protegida pela RLS).
 - `…/admin` → Console do Operador
 
 ## Trocar o domínio depois (é só na Vercel)
-- Settings → **Domains** → adicione `zelauto.com.br` (e `www`).
+- Settings → **Domains** → adicione `zulode.com.br` (e `www`).
 - A Vercel mostra o DNS (um `A`/`CNAME`) para apontar no seu registrador.
 - Atualize a env `APP_URL` para o domínio final e faça um redeploy.
 - **Nada muda no código** — as rotas seguem iguais no novo domínio.
