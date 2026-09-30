@@ -4,6 +4,10 @@
   "buildCommand": "node scripts/gen-dados-config.mjs",
   "outputDirectory": ".",
   "rewrites": [
+    { "source": "/", "has": [{ "type": "host", "value": "app.zulode.com.br" }], "destination": "/app/zelauto.html" },
+    { "source": "/:slug", "has": [{ "type": "host", "value": "app.zulode.com.br" }], "destination": "/app/zelauto.html" },
+    { "source": "/", "has": [{ "type": "host", "value": "admin.zulode.com.br" }], "destination": "/admin/index.html" },
+
     { "source": "/", "destination": "/site/index.html" },
     { "source": "/app", "destination": "/app/zelauto.html" },
     { "source": "/admin", "destination": "/admin/index.html" }
